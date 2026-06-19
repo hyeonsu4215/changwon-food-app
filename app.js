@@ -17,6 +17,7 @@ const CATEGORY_META = {
 const state = {
   location: null,
   locationStatus: "requesting",
+  installPrompt: null,
   budget: 8000,
   categories: new Set(),
   moods: new Set(),
@@ -36,6 +37,8 @@ const state = {
 
 const els = {
   locationButton: document.querySelector("#locationButton"),
+  installButton: document.querySelector("#installButton"),
+  shareButton: document.querySelector("#shareButton"),
   locationStatus: document.querySelector("#locationStatus"),
   conditionSummary: document.querySelector("#conditionSummary"),
   quickRecommendButton: document.querySelector("#quickRecommendButton"),
@@ -65,8 +68,10 @@ const els = {
   clearWishlist: document.querySelector("#clearWishlist"),
   dataDashboard: document.querySelector("#dataDashboard"),
   detailDialog: document.querySelector("#detailDialog"),
+  installDialog: document.querySelector("#installDialog"),
   dialogContent: document.querySelector("#dialogContent"),
   closeDialog: document.querySelector("#closeDialog"),
+  closeInstallDialog: document.querySelector("#closeInstallDialog"),
 };
 
 const restaurantsById = new Map(DATA.restaurants.map((restaurant) => [restaurant.id, restaurant]));
@@ -368,6 +373,32 @@ function requestLocation() {
   );
 }
 
+async function installApp() {
+  if (state.installPrompt) {
+    state.installPrompt.prompt();
+    await state.installPrompt.userChoice.catch(() => null);
+    state.installPrompt = null;
+    return;
+  }
+  els.installDialog.showModal();
+}
+
+async function shareApp() {
+  const shareData = {
+    title: "창대앞 뭐먹지",
+    text: "창원대 앞에서 뭐 먹을지 고민될 때 쓰는 메뉴 추천 앱",
+    url: window.location.href,
+  };
+  if (navigator.share) {
+    await navigator.share(shareData).catch(() => {});
+    return;
+  }
+  await navigator.clipboard?.writeText(window.location.href).catch(() => {});
+  els.installDialog.querySelector("h2").textContent = "링크를 복사했어요";
+  els.installDialog.querySelector(".install-guide").innerHTML = `<section><p>${window.location.href}</p></section>`;
+  els.installDialog.showModal();
+}
+
 function showDetail(id) {
   const item = DATA.menus.map(scoreMenu).find((menu) => menu.id === id);
   if (!item) return;
@@ -553,6 +584,8 @@ function switchTab(tabId) {
 
 function bindEvents() {
   els.locationButton.addEventListener("click", requestLocation);
+  els.installButton.addEventListener("click", installApp);
+  els.shareButton.addEventListener("click", shareApp);
   els.quickRecommendButton.addEventListener("click", () => {
     state.page = 0;
     renderRecommendations();
@@ -638,12 +671,18 @@ function bindEvents() {
     button.addEventListener("click", () => switchTab(button.dataset.tab));
   });
   els.closeDialog.addEventListener("click", () => els.detailDialog.close());
+  els.closeInstallDialog.addEventListener("click", () => els.installDialog.close());
 }
 
 renderChips();
 bindEvents();
 render();
 requestLocation();
+
+window.addEventListener("beforeinstallprompt", (event) => {
+  event.preventDefault();
+  state.installPrompt = event;
+});
 
 if ("serviceWorker" in navigator && ["http:", "https:"].includes(window.location.protocol)) {
   window.addEventListener("load", () => {
