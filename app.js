@@ -31,11 +31,13 @@ const state = {
   page: 0,
   wishlist: JSON.parse(localStorage.getItem("changwonFoodWishlist") || "[]"),
   history: JSON.parse(localStorage.getItem("changwonFoodHistory") || "[]"),
+  tasteOverrides: JSON.parse(localStorage.getItem("changwonFoodTasteOverrides") || "{}"),
   worldcup: null,
 };
 
 const els = {
   locationButton: document.querySelector("#locationButton"),
+  shareButton: document.querySelector("#shareButton"),
   splashScreen: document.querySelector("#splashScreen"),
   locationStatus: document.querySelector("#locationStatus"),
   conditionSummary: document.querySelector("#conditionSummary"),
@@ -68,6 +70,7 @@ const els = {
   detailDialog: document.querySelector("#detailDialog"),
   dialogContent: document.querySelector("#dialogContent"),
   closeDialog: document.querySelector("#closeDialog"),
+  toast: document.querySelector("#toast"),
 };
 
 const restaurantsById = new Map(DATA.restaurants.map((restaurant) => [restaurant.id, restaurant]));
@@ -131,10 +134,29 @@ function hasMeat(menu) {
   return /(고기|소고기|돼지|제육|닭|치킨|텐더|햄버거|돈까스|불고기|갈비|차슈|육회|스테이크|부리또|탕수육)/.test(text);
 }
 
+function menuTaste(menu) {
+  return state.tasteOverrides[menu.id] || { spicy: menu.spicy, salty: menu.salty, sweet: menu.sweet };
+}
+
+function isWished(id) {
+  return state.wishlist.includes(id);
+}
+
+function toast(message) {
+  els.toast.textContent = message;
+  els.toast.classList.remove("is-visible");
+  window.requestAnimationFrame(() => {
+    els.toast.classList.add("is-visible");
+    window.clearTimeout(toast.timer);
+    toast.timer = window.setTimeout(() => els.toast.classList.remove("is-visible"), 1200);
+  });
+}
+
 function scoreMenu(menu) {
   const restaurant = restaurantsById.get(menu.restaurantId);
   const distance = restaurant?.lat && restaurant?.lng ? haversine(currentBase(), restaurant) : Infinity;
-  const tasteDiff = Math.abs(menu.spicy - state.spicy) + Math.abs(menu.salty - state.salty) + Math.abs(menu.sweet - state.sweet);
+  const taste = menuTaste(menu);
+  const tasteDiff = Math.abs(taste.spicy - state.spicy) + Math.abs(taste.salty - state.salty) + Math.abs(taste.sweet - state.sweet);
   const budgetDiff = Math.max(0, menu.price - state.budget);
   let score = 0;
   const reasons = [];
@@ -169,6 +191,8 @@ function scoreMenu(menu) {
     distance,
     openNow: restaurant ? isOpenNow(restaurant) : true,
     meat: hasMeat(menu),
+    taste,
+    customTaste: Boolean(state.tasteOverrides[menu.id]),
     score,
     reasons: reasons.slice(0, 4),
   };
@@ -199,11 +223,13 @@ function pageMenus() {
 }
 
 function mapUrl(item) {
-  return `https://map.naver.com/p/search/${encodeURIComponent(item.restaurant?.name || item.restaurantName)}`;
+  const restaurantName = item.restaurant?.name || item.restaurantName;
+  return `https://map.naver.com/p/search/${encodeURIComponent(`창원대학교 정문 ${restaurantName}`)}`;
 }
 
 function tags(item) {
   const base = [];
+  if (item.customTaste) base.push("내 입맛");
   if (item.openNow) base.push("영업 가능");
   if (item.restaurant?.alone) base.push("혼밥");
   if (item.restaurant?.takeout) base.push("포장");
@@ -214,19 +240,22 @@ function tags(item) {
 }
 
 function cardHtml(item, rank) {
+  const wished = isWished(item.id);
   return `
     <div class="menu-card__top">
       <div>
         <h3>${rank}. ${item.name}</h3>
         <p class="store-line">${item.restaurant?.name || item.restaurantName} · ${item.category} · ${meters(item.distance)}</p>
       </div>
-      <div class="price">${money(item.price)}</div>
+      <div class="card-side">
+        <button class="heart-button ${wished ? "is-wished" : ""}" data-wish="${item.id}" aria-label="${wished ? "찜 해제" : "찜하기"}">${wished ? "♥" : "♡"}</button>
+        <div class="price">${money(item.price)}</div>
+      </div>
     </div>
     <div class="reason-list">${item.reasons.map((reason) => `<span>${reason}</span>`).join("")}</div>
     <div class="meta-tags">${tags(item).slice(0, 8).map((tag) => `<span>${tag}</span>`).join("")}</div>
     <div class="card-actions">
       <button data-detail="${item.id}">상세</button>
-      <button data-wish="${item.id}">찜</button>
       <button data-ate="${item.id}">먹음</button>
       <a href="${mapUrl(item)}" target="_blank" rel="noreferrer">지도</a>
     </div>
@@ -372,20 +401,42 @@ function requestLocation() {
 function showDetail(id) {
   const item = DATA.menus.map(scoreMenu).find((menu) => menu.id === id);
   if (!item) return;
+  const wished = isWished(item.id);
   els.dialogContent.innerHTML = `
     <p class="eyebrow">Menu detail</p>
     <h2>${item.name}</h2>
     <p class="store-line">${item.restaurant?.name || item.restaurantName} · ${item.category} · ${meters(item.distance)}</p>
     <div class="reason-list">${item.reasons.map((reason) => `<span>${reason}</span>`).join("")}</div>
     <div class="meta-tags">${tags(item).map((tag) => `<span>${tag}</span>`).join("")}</div>
-    <p class="store-line" style="margin-top:12px">맵기 ${item.spicy}/5 · 짠맛 ${item.salty}/5 · 단맛 ${item.sweet}/5 · 든든함 ${item.portion}/5</p>
+    <p class="store-line" style="margin-top:12px">맵기 ${item.taste.spicy}/5 · 짠맛 ${item.taste.salty}/5 · 단맛 ${item.taste.sweet}/5 · 든든함 ${item.portion}/5</p>
+    <section class="personal-taste" data-taste-editor="${item.id}">
+      <div class="control-title">
+        <strong>내 입맛으로 수정</strong>
+        <span>이 기기에만 저장</span>
+      </div>
+      ${["spicy", "salty", "sweet"]
+        .map((field) => {
+          const label = { spicy: "맵기", salty: "짠맛", sweet: "단맛" }[field];
+          return `
+            <label>
+              <span>${label} <b data-taste-output="${field}">${item.taste[field]}</b></span>
+              <input type="range" min="0" max="5" value="${item.taste[field]}" data-taste-field="${field}" />
+            </label>
+          `;
+        })
+        .join("")}
+      <div class="taste-actions">
+        <button data-save-taste="${item.id}">내 입맛 저장</button>
+        <button data-reset-taste="${item.id}">기본값으로</button>
+      </div>
+    </section>
     <div class="card-actions">
-      <button data-wish="${item.id}">관심목록 추가</button>
+      <button data-wish="${item.id}">${wished ? "찜 해제" : "찜하기"}</button>
       <button data-ate="${item.id}">먹은 기록 추가</button>
       <a href="${mapUrl(item)}" target="_blank" rel="noreferrer">지도에서 보기</a>
     </div>
   `;
-  els.detailDialog.showModal();
+  if (!els.detailDialog.open) els.detailDialog.showModal();
 }
 
 function saveWishlist() {
@@ -396,19 +447,83 @@ function saveHistory() {
   localStorage.setItem("changwonFoodHistory", JSON.stringify(state.history));
 }
 
-function addWishlist(id) {
-  if (!state.wishlist.includes(id)) {
+function saveTasteOverrides() {
+  localStorage.setItem("changwonFoodTasteOverrides", JSON.stringify(state.tasteOverrides));
+}
+
+function toggleWishlist(id) {
+  if (state.wishlist.includes(id)) {
+    state.wishlist = state.wishlist.filter((itemId) => itemId !== id);
+    toast("찜 해제!");
+  } else {
     state.wishlist.unshift(id);
-    saveWishlist();
+    toast("찜~!");
   }
-  renderWishlist();
+  saveWishlist();
+  render();
 }
 
 function addHistory(id) {
   state.history.unshift({ id, eatenAt: new Date().toISOString() });
   state.history = state.history.slice(0, 200);
   saveHistory();
-  renderDashboard();
+  toast("먹음 기록 저장!");
+  render();
+}
+
+function saveTaste(id) {
+  const editor = document.querySelector(`[data-taste-editor="${id}"]`);
+  if (!editor) return;
+  state.tasteOverrides[id] = Object.fromEntries(
+    [...editor.querySelectorAll("[data-taste-field]")].map((input) => [input.dataset.tasteField, Number(input.value)]),
+  );
+  saveTasteOverrides();
+  toast("내 입맛 저장!");
+  render();
+  showDetail(id);
+}
+
+function resetTaste(id) {
+  delete state.tasteOverrides[id];
+  saveTasteOverrides();
+  toast("기본맛으로 변경!");
+  render();
+  showDetail(id);
+}
+
+async function shareAppLink() {
+  const url = "https://changwon-food-app.vercel.app/";
+  const shareData = {
+    title: "창대앞 뭐먹지",
+    text: "창원대 앞에서 뭐 먹을지 고민될 때 쓰는 메뉴 추천 앱",
+    url,
+  };
+  if (navigator.share) {
+    await navigator.share(shareData).catch(() => {});
+    return;
+  }
+  await navigator.clipboard?.writeText(url).catch(() => {});
+  toast("링크 복사!");
+}
+
+function formatDateTime(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleString("ko-KR", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" });
+}
+
+function historyRows() {
+  return state.history
+    .map((entry) => {
+      const menu = DATA.menus.find((item) => item.id === entry.id);
+      return menu ? { ...entry, menu } : null;
+    })
+    .filter(Boolean);
+}
+
+function mostEatenRows() {
+  const counts = countBy(historyRows(), (entry) => entry.menu.name).slice(0, 5);
+  return counts.length ? barRows(counts) : "<p>아직 먹음 기록이 없습니다.</p>";
 }
 
 function renderWishlist() {
@@ -524,8 +639,12 @@ function renderDashboard() {
     DATA.menus.flatMap((menu) => menu.tags),
     (tag) => tag,
   ).slice(0, 8);
-  const historyItems = state.history.map((entry) => DATA.menus.find((menu) => menu.id === entry.id)).filter(Boolean).slice(0, 6);
+  const historyItems = historyRows().slice(0, 8);
   els.dataDashboard.innerHTML = `
+    <div class="dashboard-card privacy-card">
+      <h3>개인 기록 안내</h3>
+      <p>찜, 먹은 기록, 내 입맛 수정은 서버가 아니라 이 기기 브라우저 안에만 저장돼요.</p>
+    </div>
     <div class="dashboard-card">
       <h3>카테고리 분포</h3>
       ${barRows(categories)}
@@ -537,7 +656,15 @@ function renderDashboard() {
     <div class="dashboard-card">
       <h3>내 식사 기록</h3>
       <p>기록 ${state.history.length}개</p>
-      ${historyItems.length ? historyItems.map((menu) => `<p>${menu.name} · ${menu.restaurantName}</p>`).join("") : "<p>아직 기록이 없습니다.</p>"}
+      ${historyItems.length ? historyItems.map((entry) => `<p>${entry.menu.name} · ${entry.menu.restaurantName} <span>${formatDateTime(entry.eatenAt)}</span></p>`).join("") : "<p>아직 기록이 없습니다.</p>"}
+    </div>
+    <div class="dashboard-card">
+      <h3>자주 먹은 메뉴</h3>
+      ${mostEatenRows()}
+    </div>
+    <div class="dashboard-card">
+      <h3>내 입맛 수정</h3>
+      <p>${Object.keys(state.tasteOverrides).length}개 메뉴의 맛 기준을 내 입맛으로 바꿨어요.</p>
     </div>
     <div class="dashboard-card">
       <h3>데이터 현황</h3>
@@ -554,6 +681,7 @@ function switchTab(tabId) {
 
 function bindEvents() {
   els.locationButton.addEventListener("click", requestLocation);
+  els.shareButton.addEventListener("click", shareAppLink);
   els.quickRecommendButton.addEventListener("click", () => {
     state.page = 0;
     renderRecommendations();
@@ -616,15 +744,25 @@ function bindEvents() {
     const detail = event.target.closest("[data-detail]");
     if (detail) showDetail(detail.dataset.detail);
     const wish = event.target.closest("[data-wish]");
-    if (wish) addWishlist(wish.dataset.wish);
+    if (wish) toggleWishlist(wish.dataset.wish);
     const ate = event.target.closest("[data-ate]");
     if (ate) addHistory(ate.dataset.ate);
+    const saveTasteButton = event.target.closest("[data-save-taste]");
+    if (saveTasteButton) saveTaste(saveTasteButton.dataset.saveTaste);
+    const resetTasteButton = event.target.closest("[data-reset-taste]");
+    if (resetTasteButton) resetTaste(resetTasteButton.dataset.resetTaste);
     const start = event.target.closest("#startWorldcup");
     if (start) startWorldcup();
     const restart = event.target.closest("#restartWorldcup");
     if (restart) startWorldcup();
     const choice = event.target.closest("[data-worldcup-choice]");
     if (choice) chooseWorldcup(Number(choice.dataset.worldcupChoice));
+  });
+  document.body.addEventListener("input", (event) => {
+    const input = event.target.closest("[data-taste-field]");
+    if (!input) return;
+    const output = input.closest("[data-taste-editor]")?.querySelector(`[data-taste-output="${input.dataset.tasteField}"]`);
+    if (output) output.textContent = input.value;
   });
   els.clearWishlist.addEventListener("click", () => {
     state.wishlist = [];

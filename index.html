@@ -27,6 +27,7 @@
       <header class="app-top">
         <div class="top-actions">
           <button id="locationButton" class="location-pill">내 위치 확인</button>
+          <button id="shareButton" class="top-tool">링크 공유</button>
         </div>
         <div>
           <h1>오늘 뭐 먹지?</h1>
@@ -46,6 +47,8 @@
           </section>
 
           <section class="control-surface" aria-label="추천 조건">
+            <p class="privacy-note">찜, 먹은 기록, 내 입맛 수정은 이 기기 안에만 저장돼요.</p>
+
             <div class="filter-block">
               <div class="control-title">
                 <strong>음식 종류</strong>
@@ -161,6 +164,8 @@
       <div id="dialogContent"></div>
       <button id="closeDialog" class="dialog-close">닫기</button>
     </dialog>
+
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
     <script src="./data.js"></script>
     <script src="./app.js"></script>

@@ -153,6 +153,17 @@ button {
   gap: 6px;
 }
 
+.top-tool {
+  height: 28px;
+  border: 1px solid rgba(15, 123, 99, 0.18);
+  border-radius: 999px;
+  padding: 0 10px;
+  background: #fff;
+  color: var(--mint-dark);
+  font-size: 12px;
+  font-weight: 900;
+}
+
 h1,
 h2,
 h3,
@@ -253,6 +264,17 @@ dialog {
 
 .control-surface {
   padding: 12px;
+}
+
+.privacy-note {
+  margin: 0 0 12px;
+  padding: 10px 11px;
+  border-radius: 8px;
+  background: #f0f7ff;
+  color: #31516b;
+  font-size: 12px;
+  font-weight: 850;
+  line-height: 1.4;
 }
 
 .control-title {
@@ -529,6 +551,31 @@ input[type="range"] {
   white-space: nowrap;
 }
 
+.card-side {
+  display: grid;
+  justify-items: end;
+  gap: 5px;
+  flex: 0 0 auto;
+}
+
+.heart-button {
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: #fff;
+  color: #9aa8b4;
+  font-size: 22px;
+  line-height: 1;
+  font-weight: 950;
+}
+
+.heart-button.is-wished {
+  border-color: rgba(255, 80, 96, 0.22);
+  background: #fff1f3;
+  color: #ef4056;
+}
+
 .meta-tags,
 .reason-list {
   display: flex;
@@ -575,6 +622,49 @@ input[type="range"] {
 
 .card-actions a {
   background: var(--ink);
+}
+
+.personal-taste {
+  display: grid;
+  gap: 8px;
+  margin: 13px 0;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--soft);
+}
+
+.personal-taste label {
+  display: grid;
+  gap: 4px;
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.personal-taste b {
+  color: var(--mint-dark);
+}
+
+.taste-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 7px;
+}
+
+.taste-actions button {
+  min-height: 36px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--mint);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.taste-actions button:last-child {
+  background: #dfe7ea;
+  color: #405064;
 }
 
 .empty-state {
@@ -650,6 +740,42 @@ input[type="range"] {
   height: 100%;
   border-radius: inherit;
   background: var(--mint);
+}
+
+.privacy-card {
+  border-color: rgba(15, 123, 99, 0.18);
+  background: var(--mint-soft);
+}
+
+.privacy-card p,
+.dashboard-card p span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.toast {
+  position: fixed;
+  left: 50%;
+  top: 48%;
+  z-index: 1200;
+  transform: translate(-50%, -50%) scale(0.88);
+  min-width: 118px;
+  padding: 14px 18px;
+  border-radius: 999px;
+  background: rgba(17, 31, 42, 0.92);
+  color: #fff;
+  box-shadow: 0 14px 34px rgba(17, 31, 42, 0.24);
+  font-size: 18px;
+  font-weight: 950;
+  text-align: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 180ms ease, transform 180ms ease;
+}
+
+.toast.is-visible {
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(1);
 }
 
 .bottom-nav {
