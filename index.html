@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>오늘 뭐 먹지? 창원대편</title>
+    <link rel="icon" href="data:," />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="./assets/app-icon-180.png" />
+    <meta name="theme-color" content="#0f7b63" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="창대앞 뭐먹지" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="app-top">
+        <div>
+          <button id="locationButton" class="location-pill">내 위치 확인</button>
+          <h1>오늘 뭐 먹지?</h1>
+          <p id="locationStatus">위치 서비스를 사용해 거리 계산을 준비하고 있어요.</p>
+        </div>
+      </header>
+
+      <main>
+        <section id="recommendTab" class="tab-panel is-active">
+          <section class="home-hero" aria-label="오늘의 추천 시작">
+            <div>
+              <p class="eyebrow">Changwon Univ.</p>
+              <h2>지금 먹기 좋은 메뉴를 골라줄게요</h2>
+              <p id="conditionSummary">전체 음식 · 8,000원 이하 · 가까운 곳 우선</p>
+            </div>
+            <button id="quickRecommendButton" class="hero-button">바로 추천</button>
+          </section>
+
+          <section class="control-surface" aria-label="추천 조건">
+            <div class="filter-block">
+              <div class="control-title">
+                <strong>음식 종류</strong>
+                <span>안 고르면 전체</span>
+              </div>
+              <div id="categoryGrid" class="category-grid"></div>
+            </div>
+
+            <div class="filter-block">
+              <div class="control-title">
+                <strong>이용 상황</strong>
+                <span>여러 개 선택 가능</span>
+              </div>
+              <div id="moodGrid" class="mood-grid"></div>
+            </div>
+
+            <details class="advanced-filter">
+              <summary>예산과 맛 취향 조절</summary>
+
+              <div class="budget-box">
+                <div class="control-title">
+                  <strong>예산</strong>
+                  <span id="budgetValue">8,000원 이하</span>
+                </div>
+                <input type="range" id="budgetRange" min="3000" max="30000" step="500" value="8000" />
+              </div>
+
+              <div class="toggle-strip" aria-label="추가 조건">
+                <label><input type="checkbox" id="onlyOpen" /> 영업중</label>
+                <label><input type="checkbox" id="needTakeout" /> 포장</label>
+                <label><input type="checkbox" id="needDelivery" /> 배달</label>
+                <label><input type="checkbox" id="needAlone" /> 혼밥</label>
+                <label><input type="checkbox" id="wantMeat" /> 고기</label>
+              </div>
+
+              <div class="taste-panel" aria-label="맛 조건">
+                <label>
+                  <span>맵기 <b id="spicyValue">2</b></span>
+                  <input type="range" id="spicyPreference" min="0" max="5" value="2" />
+                </label>
+                <label>
+                  <span>짠맛 <b id="saltyValue">3</b></span>
+                  <input type="range" id="saltyPreference" min="0" max="5" value="3" />
+                </label>
+                <label>
+                  <span>단맛 <b id="sweetValue">2</b></span>
+                  <input type="range" id="sweetPreference" min="0" max="5" value="2" />
+                </label>
+              </div>
+            </details>
+
+            <button id="resetFiltersButton" class="text-button">조건 초기화</button>
+          </section>
+
+          <section class="recommend-section">
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow">Recommendation</p>
+                <h2 id="recommendTitle">추천 1-10위</h2>
+              </div>
+              <button id="rouletteButton" class="icon-button">룰렛</button>
+            </div>
+            <div id="menuList" class="menu-list"></div>
+            <button id="nextRecommendButton" class="wide-button">다시 추천하기</button>
+          </section>
+        </section>
+
+        <section id="worldcupTab" class="tab-panel">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">World cup</p>
+              <h2>메뉴 이상형 월드컵</h2>
+            </div>
+            <select id="worldcupSize">
+              <option value="8">8강</option>
+              <option value="16">16강</option>
+            </select>
+          </div>
+          <div id="worldcupBoard" class="worldcup-board"></div>
+        </section>
+
+        <section id="wishlistTab" class="tab-panel">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Wishlist</p>
+              <h2>관심목록</h2>
+            </div>
+            <button id="clearWishlist" class="icon-button">비우기</button>
+          </div>
+          <div id="wishlistList" class="menu-list"></div>
+        </section>
+
+        <section id="dataTab" class="tab-panel">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Data</p>
+              <h2>수집 데이터와 식사 기록</h2>
+            </div>
+          </div>
+          <div id="dataDashboard" class="dashboard-grid"></div>
+        </section>
+      </main>
+
+      <nav class="bottom-nav" aria-label="하단 메뉴">
+        <button class="is-active" data-tab="recommendTab">추천</button>
+        <button data-tab="worldcupTab">월드컵</button>
+        <button data-tab="wishlistTab">찜</button>
+        <button data-tab="dataTab">기록</button>
+      </nav>
+    </div>
+
+    <dialog id="detailDialog">
+      <div id="dialogContent"></div>
+      <button id="closeDialog" class="dialog-close">닫기</button>
+    </dialog>
+
+    <script src="./data.js"></script>
+    <script src="./app.js"></script>
+  </body>
+</html>

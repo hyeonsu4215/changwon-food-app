@@ -1,0 +1,25 @@
+{
+  "name": "창대앞 뭐먹지",
+  "short_name": "뭐먹지",
+  "description": "창원대학교 앞 메뉴를 위치, 예산, 상황, 입맛에 맞춰 추천하는 모바일 웹앱",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#eef5f1",
+  "theme_color": "#0f7b63",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "./assets/app-icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "./assets/app-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
