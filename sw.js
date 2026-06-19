@@ -7,6 +7,7 @@ const ASSETS = [
   "./data.js",
   "./manifest.webmanifest",
   "./assets/campus-food-banner.png",
+  "./assets/splash-logo.png",
   "./assets/app-icon-180.png",
   "./assets/app-icon-192.png",
   "./assets/app-icon-512.png",

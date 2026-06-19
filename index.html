@@ -13,13 +13,20 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <link rel="stylesheet" href="./styles.css" />
   </head>
-  <body>
+  <body class="splash-active">
+    <div id="splashScreen" class="splash-screen" aria-label="앱 여는 중">
+      <div class="splash-card">
+        <img src="./assets/splash-logo.png" alt="오늘 뭐먹지? 창원대편" class="splash-logo" />
+        <div class="splash-loader" aria-hidden="true"></div>
+        <p>오늘의 식당을 찾고 있어요...</p>
+      </div>
+      <strong>창원대학교 학생들을 위한 맛집 가이드</strong>
+    </div>
+
     <div class="app-shell">
       <header class="app-top">
         <div class="top-actions">
           <button id="locationButton" class="location-pill">내 위치 확인</button>
-          <button id="installButton" class="top-tool">설치</button>
-          <button id="shareButton" class="top-tool">공유</button>
         </div>
         <div>
           <h1>오늘 뭐 먹지?</h1>
@@ -153,24 +160,6 @@
     <dialog id="detailDialog">
       <div id="dialogContent"></div>
       <button id="closeDialog" class="dialog-close">닫기</button>
-    </dialog>
-
-    <dialog id="installDialog">
-      <div>
-        <p class="eyebrow">Install</p>
-        <h2>앱처럼 사용하기</h2>
-        <div class="install-guide">
-          <section>
-            <strong>갤럭시</strong>
-            <p>Chrome 또는 삼성 인터넷 메뉴에서 홈 화면에 추가를 눌러주세요.</p>
-          </section>
-          <section>
-            <strong>아이폰</strong>
-            <p>Safari 공유 버튼을 누른 뒤 홈 화면에 추가를 선택해주세요.</p>
-          </section>
-        </div>
-      </div>
-      <button id="closeInstallDialog" class="dialog-close">확인</button>
     </dialog>
 
     <script src="./data.js"></script>

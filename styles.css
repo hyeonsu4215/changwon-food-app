@@ -24,6 +24,10 @@ body {
   color: var(--ink);
 }
 
+body.splash-active {
+  overflow: hidden;
+}
+
 button,
 input,
 select {
@@ -40,6 +44,86 @@ button {
   margin: 0 auto;
   background: var(--bg);
   padding-bottom: 74px;
+}
+
+.splash-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 999;
+  display: grid;
+  grid-template-rows: 1fr auto;
+  align-items: center;
+  justify-items: center;
+  padding: max(28px, env(safe-area-inset-top)) 24px max(34px, env(safe-area-inset-bottom));
+  background:
+    radial-gradient(circle at 50% 22%, rgba(214, 242, 255, 0.95), rgba(255, 255, 255, 0.84) 38%, rgba(239, 249, 246, 0.96) 76%),
+    linear-gradient(180deg, #f7fcff 0%, #eef8f5 100%);
+  color: #18466d;
+  opacity: 1;
+  transition: opacity 420ms ease, visibility 420ms ease;
+}
+
+.splash-screen.is-hidden {
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.splash-card {
+  display: grid;
+  justify-items: center;
+  gap: 18px;
+  width: min(78vw, 310px);
+  transform: translateY(-4vh);
+  animation: splashRise 680ms ease both;
+}
+
+.splash-logo {
+  width: min(68vw, 248px);
+  height: auto;
+  mix-blend-mode: multiply;
+  filter: drop-shadow(0 14px 22px rgba(20, 72, 112, 0.08));
+}
+
+.splash-loader {
+  width: 26px;
+  height: 26px;
+  border: 3px solid rgba(24, 70, 109, 0.16);
+  border-top-color: #1d67a2;
+  border-radius: 50%;
+  animation: splashSpin 840ms linear infinite;
+}
+
+.splash-card p {
+  margin: -6px 0 0;
+  color: #788898;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.splash-screen > strong {
+  margin-bottom: 52px;
+  color: rgba(28, 44, 55, 0.72);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+@keyframes splashSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes splashRise {
+  from {
+    opacity: 0;
+    transform: translateY(calc(-4vh + 12px)) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(-4vh) scale(1);
+  }
 }
 
 .app-top {
@@ -67,17 +151,6 @@ button {
   display: flex;
   align-items: center;
   gap: 6px;
-}
-
-.top-tool {
-  height: 28px;
-  border: 1px solid rgba(15, 123, 99, 0.18);
-  border-radius: 999px;
-  padding: 0 10px;
-  background: #fff;
-  color: var(--mint-dark);
-  font-size: 12px;
-  font-weight: 900;
 }
 
 h1,
@@ -622,33 +695,6 @@ dialog::backdrop {
   width: 100%;
   min-height: 42px;
   margin-top: 14px;
-}
-
-.install-guide {
-  display: grid;
-  gap: 10px;
-  margin-top: 13px;
-}
-
-.install-guide section {
-  padding: 12px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--soft);
-}
-
-.install-guide strong {
-  display: block;
-  margin-bottom: 4px;
-  color: var(--mint-dark);
-  font-size: 14px;
-}
-
-.install-guide p {
-  margin: 0;
-  color: var(--muted);
-  font-size: 13px;
-  line-height: 1.45;
 }
 
 @media (max-width: 380px) {
