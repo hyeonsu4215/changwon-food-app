@@ -200,12 +200,10 @@ main {
 }
 
 .home-hero {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  align-items: center;
+  display: block;
   gap: 12px;
   margin-bottom: 10px;
-  padding: 15px;
+  padding: 15px 16px;
   border-radius: 8px;
   background:
     linear-gradient(90deg, rgba(255, 255, 255, 0.94), rgba(255, 255, 255, 0.76)),
@@ -216,7 +214,7 @@ main {
 }
 
 .home-hero h2 {
-  max-width: 230px;
+  max-width: 260px;
   font-size: 21px;
   line-height: 1.22;
 }
@@ -227,19 +225,6 @@ main {
   font-size: 12px;
   font-weight: 800;
   line-height: 1.35;
-}
-
-.hero-button {
-  width: 76px;
-  min-height: 76px;
-  border: 0;
-  border-radius: 50%;
-  background: var(--coral);
-  color: #fff;
-  box-shadow: 0 10px 24px rgba(255, 112, 88, 0.28);
-  font-size: 13px;
-  font-weight: 950;
-  line-height: 1.2;
 }
 
 .tab-panel {
@@ -267,7 +252,8 @@ dialog {
 }
 
 .privacy-note {
-  margin: 0 0 12px;
+  flex: 1;
+  margin: 0;
   padding: 10px 11px;
   border-radius: 8px;
   background: #f0f7ff;
@@ -275,6 +261,13 @@ dialog {
   font-size: 12px;
   font-weight: 850;
   line-height: 1.4;
+}
+
+.condition-tools {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+  margin-bottom: 12px;
 }
 
 .control-title {
@@ -308,13 +301,13 @@ input[type="range"] {
 .category-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 9px;
+  gap: 7px;
 }
 
 .category-chip {
   display: grid;
   min-width: 0;
-  min-height: 112px;
+  min-height: 94px;
   place-items: center;
   align-content: center;
   gap: 3px;
@@ -322,13 +315,13 @@ input[type="range"] {
   border-radius: 8px;
   background: #fff;
   color: var(--ink);
-  padding: 7px 4px 8px;
+  padding: 6px 4px 7px;
   box-shadow: 0 6px 16px rgba(22, 34, 45, 0.08);
 }
 
 .category-chip img {
-  width: 64px;
-  height: 64px;
+  width: 50px;
+  height: 50px;
   border-radius: 50%;
   object-fit: cover;
   background: var(--mint-soft);
@@ -340,13 +333,13 @@ input[type="range"] {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 12px;
+  font-size: 11.5px;
   font-weight: 950;
 }
 
 .category-chip small {
   color: var(--muted);
-  font-size: 10px;
+  font-size: 9.5px;
   font-weight: 900;
 }
 
@@ -444,6 +437,22 @@ input[type="range"] {
   color: var(--muted);
   font-size: 12px;
   font-weight: 900;
+}
+
+.reset-button {
+  width: auto;
+  min-width: 82px;
+  min-height: auto;
+  margin-top: 0;
+  padding: 0 10px;
+  color: var(--mint-dark);
+}
+
+.search-submit {
+  min-height: 48px;
+  margin-top: 12px;
+  background: var(--mint);
+  box-shadow: 0 10px 24px rgba(15, 123, 99, 0.2);
 }
 
 .toggle-strip label {
@@ -760,6 +769,11 @@ input[type="range"] {
   font-size: 13px;
 }
 
+.search-ready {
+  background: #fff;
+  border-style: solid;
+}
+
 .worldcup-start,
 .worldcup-result,
 .dashboard-card {
@@ -872,6 +886,73 @@ input[type="range"] {
   transform: translate(-50%, -50%) scale(1);
 }
 
+.search-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(238, 245, 241, 0.68);
+  backdrop-filter: blur(8px);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 180ms ease;
+}
+
+.search-overlay.is-visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.search-modal {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  width: min(78vw, 280px);
+  padding: 26px 20px 24px;
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: 0 18px 42px rgba(17, 31, 42, 0.18);
+  text-align: center;
+}
+
+.search-glass {
+  display: grid;
+  width: 62px;
+  height: 62px;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--mint-soft);
+  color: var(--mint);
+  animation: searchPulse 900ms ease-in-out infinite;
+}
+
+.search-glass svg {
+  width: 34px;
+  height: 34px;
+  fill: currentColor;
+}
+
+.search-modal strong {
+  color: var(--ink);
+  font-size: 17px;
+  font-weight: 950;
+}
+
+.search-modal p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+@keyframes searchPulse {
+  50% {
+    transform: scale(1.08);
+  }
+}
+
 .bottom-nav {
   position: fixed;
   left: 50%;
@@ -956,18 +1037,12 @@ dialog::backdrop {
 
 @media (max-width: 380px) {
   .home-hero {
-    grid-template-columns: 1fr;
-  }
-
-  .hero-button {
-    width: 100%;
-    min-height: 42px;
-    border-radius: 8px;
+    display: block;
   }
 
   .category-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 7px;
+    gap: 6px;
   }
 
   .mood-grid {
@@ -976,12 +1051,12 @@ dialog::backdrop {
   }
 
   .category-chip {
-    min-height: 103px;
+    min-height: 88px;
   }
 
   .category-chip img {
-    width: 56px;
-    height: 56px;
+    width: 46px;
+    height: 46px;
   }
 
   .toggle-strip {

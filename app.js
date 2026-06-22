@@ -29,6 +29,8 @@ const state = {
   salty: 3,
   sweet: 2,
   page: 0,
+  hasSearched: false,
+  isSearching: false,
   wishlist: JSON.parse(localStorage.getItem("changwonFoodWishlist") || "[]"),
   history: JSON.parse(localStorage.getItem("changwonFoodHistory") || "[]"),
   tasteOverrides: JSON.parse(localStorage.getItem("changwonFoodTasteOverrides") || "{}"),
@@ -49,8 +51,9 @@ const els = {
   splashScreen: document.querySelector("#splashScreen"),
   locationStatus: document.querySelector("#locationStatus"),
   conditionSummary: document.querySelector("#conditionSummary"),
-  quickRecommendButton: document.querySelector("#quickRecommendButton"),
+  searchButton: document.querySelector("#searchButton"),
   resetFiltersButton: document.querySelector("#resetFiltersButton"),
+  searchOverlay: document.querySelector("#searchOverlay"),
   budgetRange: document.querySelector("#budgetRange"),
   budgetValue: document.querySelector("#budgetValue"),
   categoryGrid: document.querySelector("#categoryGrid"),
@@ -213,6 +216,11 @@ function toast(message) {
   });
 }
 
+function markConditionsChanged() {
+  state.page = 0;
+  state.hasSearched = false;
+}
+
 function scoreMenu(menu) {
   const restaurant = restaurantsById.get(menu.restaurantId);
   const distance = restaurant?.lat && restaurant?.lng ? haversine(currentBase(), restaurant) : Infinity;
@@ -332,6 +340,16 @@ function cardHtml(item, rank) {
 }
 
 function renderRecommendations() {
+  if (!state.hasSearched) {
+    els.recommendTitle.textContent = "조건을 선택해 주세요";
+    els.menuList.innerHTML = `
+      <div class="empty-state search-ready">
+        음식 종류와 예산, 맛 취향을 고른 뒤 아래의 조건에 맞게 찾기를 눌러주세요.
+      </div>
+    `;
+    els.nextRecommendButton.style.display = "none";
+    return;
+  }
   const { all, items, start } = pageMenus();
   els.recommendTitle.textContent = all.length ? `추천 ${start + 1}-${Math.min(start + 10, all.length)}위` : "추천 결과 없음";
   els.menuList.innerHTML = items.length
@@ -427,6 +445,7 @@ function render() {
   renderWorldcup();
   renderWishlist();
   renderDashboard();
+  els.searchOverlay?.classList.toggle("is-visible", state.isSearching);
 }
 
 function resetFilters() {
@@ -441,8 +460,21 @@ function resetFilters() {
   state.spicy = 2;
   state.salty = 3;
   state.sweet = 2;
+  markConditionsChanged();
+  render();
+}
+
+function searchMenus() {
+  state.isSearching = true;
+  state.hasSearched = false;
   state.page = 0;
   render();
+  window.setTimeout(() => {
+    state.isSearching = false;
+    state.hasSearched = true;
+    render();
+    document.querySelector(".recommend-section").scrollIntoView({ behavior: "smooth", block: "start" });
+  }, 900);
 }
 
 function requestLocation() {
@@ -987,15 +1019,11 @@ function switchTab(tabId) {
 function bindEvents() {
   els.locationButton.addEventListener("click", requestLocation);
   els.shareButton.addEventListener("click", shareAppLink);
-  els.quickRecommendButton.addEventListener("click", () => {
-    state.page = 0;
-    renderRecommendations();
-    document.querySelector(".recommend-section").scrollIntoView({ behavior: "smooth", block: "start" });
-  });
+  els.searchButton.addEventListener("click", searchMenus);
   els.resetFiltersButton.addEventListener("click", resetFilters);
   els.budgetRange.addEventListener("input", (event) => {
     state.budget = Number(event.target.value);
-    state.page = 0;
+    markConditionsChanged();
     render();
   });
   for (const [key, input, label] of [
@@ -1005,7 +1033,7 @@ function bindEvents() {
   ]) {
     input.addEventListener("input", (event) => {
       state[key] = Number(event.target.value);
-      state.page = 0;
+      markConditionsChanged();
       label.textContent = event.target.value;
       render();
     });
@@ -1013,7 +1041,7 @@ function bindEvents() {
   for (const key of ["onlyOpen", "needTakeout", "needDelivery", "needAlone", "wantMeat"]) {
     els[key].addEventListener("change", (event) => {
       state[key] = event.target.checked;
-      state.page = 0;
+      markConditionsChanged();
       render();
     });
   }
@@ -1022,7 +1050,7 @@ function bindEvents() {
     if (!button) return;
     const value = button.dataset.category;
     state.categories.has(value) ? state.categories.delete(value) : state.categories.add(value);
-    state.page = 0;
+    markConditionsChanged();
     render();
   });
   els.moodGrid.addEventListener("click", (event) => {
@@ -1030,7 +1058,7 @@ function bindEvents() {
     if (!button) return;
     const value = button.dataset.mood;
     state.moods.has(value) ? state.moods.delete(value) : state.moods.add(value);
-    state.page = 0;
+    markConditionsChanged();
     render();
   });
   els.worldcupCategoryGrid.addEventListener("click", (event) => {
@@ -1048,6 +1076,10 @@ function bindEvents() {
     document.querySelector(".recommend-section").scrollIntoView({ behavior: "smooth" });
   });
   els.rouletteButton.addEventListener("click", () => {
+    if (!state.hasSearched) {
+      toast("먼저 조건에 맞게 찾아주세요!");
+      return;
+    }
     const pool = getRecommendedMenus().slice(0, 20);
     if (!pool.length) return;
     const pick = pool[Math.floor(Math.random() * pool.length)];

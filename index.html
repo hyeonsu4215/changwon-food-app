@@ -43,11 +43,13 @@
               <h2>지금 먹기 좋은 메뉴를 골라줄게요</h2>
               <p id="conditionSummary">전체 음식 · 8,000원 이하 · 가까운 곳 우선</p>
             </div>
-            <button id="quickRecommendButton" class="hero-button">바로 추천</button>
           </section>
 
           <section class="control-surface" aria-label="추천 조건">
-            <p class="privacy-note">찜, 먹은 기록, 내 입맛 수정은 이 기기 안에만 저장돼요.</p>
+            <div class="condition-tools">
+              <p class="privacy-note">찜, 먹은 기록, 내 입맛 수정은 이 기기 안에만 저장돼요.</p>
+              <button id="resetFiltersButton" class="text-button reset-button">조건 초기화</button>
+            </div>
 
             <div class="filter-block">
               <div class="control-title">
@@ -102,7 +104,7 @@
               </div>
             </details>
 
-            <button id="resetFiltersButton" class="text-button">조건 초기화</button>
+            <button id="searchButton" class="wide-button search-submit">조건에 맞게 찾기</button>
           </section>
 
           <section class="recommend-section">
@@ -195,6 +197,15 @@
     </dialog>
 
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
+    <div id="searchOverlay" class="search-overlay" aria-hidden="true">
+      <div class="search-modal">
+        <div class="search-glass" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><path d="M10.8 18.1a7.3 7.3 0 1 1 0-14.6 7.3 7.3 0 0 1 0 14.6Zm0-2.2a5.1 5.1 0 1 0 0-10.2 5.1 5.1 0 0 0 0 10.2Zm5.5.1 4.2 4.2-1.6 1.6-4.2-4.2 1.6-1.6Z" /></svg>
+        </div>
+        <strong>최적의 조건으로 검색중...</strong>
+        <p>창대앞 메뉴를 고르고 있어요.</p>
+      </div>
+    </div>
 
     <script src="./data.js"></script>
     <script src="./supabase-config.js"></script>
