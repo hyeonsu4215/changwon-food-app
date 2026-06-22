@@ -39,10 +39,18 @@ const state = {
   publicTasteSummary: {},
   publicReviewSummary: {},
   publicReviews: {},
+  reviewVisibleCount: {},
   supabase: null,
   supabaseUserId: null,
   worldcup: null,
   worldcupCategories: new Set(),
+  roulette: {
+    active: false,
+    items: [],
+    selected: null,
+    spinning: false,
+  },
+  locationPreference: localStorage.getItem("changwonFoodLocationPreference") || "",
 };
 
 const els = {
@@ -73,6 +81,12 @@ const els = {
   menuList: document.querySelector("#menuList"),
   nextRecommendButton: document.querySelector("#nextRecommendButton"),
   rouletteButton: document.querySelector("#rouletteButton"),
+  roulettePanel: document.querySelector("#roulettePanel"),
+  rouletteWheel: document.querySelector("#rouletteWheel"),
+  rouletteStatus: document.querySelector("#rouletteStatus"),
+  stopRouletteButton: document.querySelector("#stopRouletteButton"),
+  closeRouletteButton: document.querySelector("#closeRouletteButton"),
+  rouletteResult: document.querySelector("#rouletteResult"),
   worldcupSize: document.querySelector("#worldcupSize"),
   worldcupCategoryGrid: document.querySelector("#worldcupCategoryGrid"),
   worldcupBoard: document.querySelector("#worldcupBoard"),
@@ -82,6 +96,7 @@ const els = {
   detailDialog: document.querySelector("#detailDialog"),
   dialogContent: document.querySelector("#dialogContent"),
   closeDialog: document.querySelector("#closeDialog"),
+  locationDialog: document.querySelector("#locationDialog"),
   toast: document.querySelector("#toast"),
 };
 
@@ -198,8 +213,37 @@ function reviewSummary(menuId) {
 function menuReviews(menuId) {
   const remote = state.publicReviews[menuId] || [];
   const local = Object.values(state.reviews).filter((review) => review.menuId === menuId);
-  const merged = [...local, ...remote].sort((a, b) => new Date(b.created_at || b.updatedAt || 0) - new Date(a.created_at || a.updatedAt || 0));
-  return merged.slice(0, 5);
+  const seen = new Set();
+  const merged = [...local, ...remote]
+    .filter((review) => {
+      const key = review.id || `${review.menuId || review.menu_id}:${review.user_id || review.nickname || ""}:${review.updatedAt || review.updated_at || review.created_at || ""}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .sort((a, b) => new Date(b.created_at || b.updatedAt || b.updated_at || 0) - new Date(a.created_at || a.updatedAt || a.updated_at || 0));
+  const limit = state.reviewVisibleCount[menuId] || 5;
+  return merged.slice(0, limit);
+}
+
+function menuReviewTotal(menuId) {
+  const remote = state.publicReviews[menuId] || [];
+  const local = Object.values(state.reviews).filter((review) => review.menuId === menuId);
+  const seen = new Set();
+  return [...local, ...remote].filter((review) => {
+    const key = review.id || `${review.menuId || review.menu_id}:${review.user_id || review.nickname || ""}:${review.updatedAt || review.updated_at || review.created_at || ""}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  }).length;
+}
+
+function starButtons(value) {
+  const rating = clampScore(value || 5, 1, 5);
+  return Array.from({ length: 5 }, (_, index) => {
+    const score = index + 1;
+    return `<button type="button" class="${score <= rating ? "is-selected" : ""}" data-rating-value="${score}" aria-label="${score}점">★</button>`;
+  }).join("");
 }
 
 function isWished(id) {
@@ -358,6 +402,73 @@ function renderRecommendations() {
   els.nextRecommendButton.style.display = all.length > 10 ? "block" : "none";
 }
 
+function openRoulette() {
+  if (!state.hasSearched) {
+    toast("먼저 조건에 맞게 찾아주세요!");
+    return;
+  }
+  const pool = getRecommendedMenus().slice(0, 20);
+  if (!pool.length) {
+    toast("룰렛 후보가 없어요");
+    return;
+  }
+  state.roulette = {
+    active: true,
+    items: pool.slice(0, Math.min(8, pool.length)),
+    selected: null,
+    spinning: true,
+  };
+  renderRoulette();
+  els.roulettePanel?.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function stopRoulette() {
+  if (!state.roulette.active || !state.roulette.spinning) return;
+  const items = state.roulette.items;
+  const selected = items[Math.floor(Math.random() * items.length)];
+  state.roulette.selected = selected;
+  state.roulette.spinning = false;
+  renderRoulette();
+  window.setTimeout(() => {
+    state.roulette.selected = selected;
+    renderRoulette();
+  }, 1200);
+}
+
+function closeRoulette() {
+  state.roulette = { active: false, items: [], selected: null, spinning: false };
+  renderRoulette();
+}
+
+function renderRoulette() {
+  if (!els.roulettePanel || !els.rouletteWheel) return;
+  const roulette = state.roulette;
+  els.roulettePanel.classList.toggle("is-active", roulette.active);
+  if (!roulette.active) return;
+  const items = roulette.items;
+  els.rouletteWheel.classList.toggle("is-spinning", roulette.spinning);
+  els.rouletteWheel.classList.toggle("is-stopping", Boolean(roulette.selected) && !roulette.spinning);
+  els.rouletteWheel.innerHTML = items
+    .map(
+      (item, index) => `
+        <span style="--i:${index}; --count:${items.length};">
+          ${escapeHtml(item.name)}
+        </span>
+      `,
+    )
+    .join("");
+  els.rouletteStatus.textContent = roulette.spinning
+    ? "룰렛이 돌아가고 있어요. 원하는 순간 STOP!"
+    : roulette.selected
+      ? `${roulette.selected.name} 선택!`
+      : "추천 후보로 룰렛을 준비했어요.";
+  els.stopRouletteButton.disabled = !roulette.spinning;
+  els.rouletteResult.innerHTML =
+    roulette.selected && !roulette.spinning
+      ? `<article class="menu-card">${cardHtml(roulette.selected, 1)}</article>`
+      : "";
+}
+
 function renderChips() {
   const counts = countBy(DATA.menus, (menu) => menu.category);
   const countMap = new Map(counts);
@@ -431,6 +542,9 @@ function renderLocationStatus() {
   } else if (state.locationStatus === "unsupported") {
     els.locationStatus.textContent = "이 브라우저에서는 위치 서비스를 사용할 수 없어 정문 기준으로 계산 중";
     els.locationButton.textContent = "위치 불가";
+  } else if (state.locationStatus === "idle") {
+    els.locationStatus.textContent = "위치를 허용하면 현재 위치 기준 거리로 추천해요.";
+    els.locationButton.textContent = "위치 선택";
   } else {
     els.locationStatus.textContent = "위치 서비스를 사용해 거리 계산을 준비하고 있어요.";
     els.locationButton.textContent = "위치 확인 중";
@@ -445,6 +559,7 @@ function render() {
   renderWorldcup();
   renderWishlist();
   renderDashboard();
+  renderRoulette();
   els.searchOverlay?.classList.toggle("is-visible", state.isSearching);
 }
 
@@ -505,6 +620,47 @@ function requestLocation() {
   );
 }
 
+function showLocationDialog() {
+  if (els.locationDialog && !els.locationDialog.open) {
+    els.locationDialog.showModal();
+  }
+}
+
+function chooseLocationPreference(choice) {
+  els.locationDialog?.close();
+  if (choice === "always") {
+    state.locationPreference = "always";
+    localStorage.setItem("changwonFoodLocationPreference", "always");
+    requestLocation();
+    return;
+  }
+  if (choice === "deny") {
+    state.locationPreference = "deny";
+    localStorage.setItem("changwonFoodLocationPreference", "deny");
+    state.location = null;
+    state.locationStatus = "denied";
+    render();
+    return;
+  }
+  state.locationPreference = "once";
+  requestLocation();
+}
+
+function handleLocationAfterSplash() {
+  if (state.locationPreference === "always") {
+    requestLocation();
+    return;
+  }
+  if (state.locationPreference === "deny") {
+    state.locationStatus = "denied";
+    render();
+    return;
+  }
+  state.locationStatus = "idle";
+  render();
+  showLocationDialog();
+}
+
 function showDetail(id) {
   const item = DATA.menus.map(scoreMenu).find((menu) => menu.id === id);
   if (!item) return;
@@ -514,6 +670,8 @@ function showDetail(id) {
   const summary = reviewSummary(item.id);
   const myReview = state.reviews[item.id] || {};
   const reviewList = menuReviews(item.id);
+  const reviewTotal = menuReviewTotal(item.id);
+  const reviewLimit = state.reviewVisibleCount[item.id] || 5;
   els.dialogContent.innerHTML = `
     <p class="eyebrow">Menu detail</p>
     <h2>${item.name}</h2>
@@ -563,7 +721,10 @@ function showDetail(id) {
       <div class="rating-grid">
         <label>
           <span>별점 <b data-review-output="rating">${myReview.rating || 5}</b></span>
-          <input type="range" min="1" max="5" value="${myReview.rating || 5}" data-review-field="rating" />
+          <div class="star-rating" data-rating-stars="${item.id}">
+            ${starButtons(myReview.rating || 5)}
+          </div>
+          <input type="hidden" min="1" max="5" value="${myReview.rating || 5}" data-review-field="rating" />
         </label>
         <label>
           <span>위생도 <b data-review-output="hygiene">${myReview.hygiene ?? 3}</b></span>
@@ -593,6 +754,11 @@ function showDetail(id) {
               )
               .join("")
           : "<p>아직 작성된 후기가 없어요.</p>"
+      }
+      ${
+        reviewTotal > reviewLimit
+          ? `<button class="text-button more-review-button" data-more-reviews="${item.id}">후기 더 보기 ${reviewLimit}/${reviewTotal}</button>`
+          : ""
       }
     </section>
     <div class="card-actions">
@@ -691,6 +857,23 @@ function saveReview(id) {
   showDetail(id);
 }
 
+async function deleteReview(id) {
+  if (!state.reviews[id]) return;
+  delete state.reviews[id];
+  saveReviews();
+  toast("후기 삭제!");
+  if (state.supabase && state.supabaseUserId) {
+    await state.supabase
+      .from("menu_reviews")
+      .delete()
+      .eq("user_id", state.supabaseUserId)
+      .eq("menu_id", id)
+      .catch((error) => console.warn("review delete failed", error));
+    await loadRemoteSummaries();
+  }
+  render();
+}
+
 async function initSupabase() {
   const config = window.CHANGWON_SUPABASE_CONFIG;
   if (!config?.enabled || !config.url || !config.anonKey) return;
@@ -729,7 +912,7 @@ async function loadRemoteSummaries() {
   const [tasteResult, reviewResult, reviewRows] = await Promise.all([
     state.supabase.from("menu_taste_summary").select("*"),
     state.supabase.from("menu_review_summary").select("*"),
-    state.supabase.from("menu_reviews").select("menu_id,nickname,rating,hygiene,kindness,review_text,created_at,updated_at").eq("status", "visible").order("created_at", { ascending: false }).limit(80),
+    state.supabase.from("menu_reviews").select("id,user_id,menu_id,nickname,rating,hygiene,kindness,review_text,created_at,updated_at").eq("status", "visible").order("created_at", { ascending: false }).limit(200),
   ]).catch(() => []);
 
   if (tasteResult?.data) {
@@ -768,7 +951,7 @@ async function upsertRemoteTaste(menuId, taste) {
 
 async function upsertRemoteReview(review) {
   if (!state.supabase || !state.supabaseUserId) return;
-  await state.supabase
+  const result = await state.supabase
     .from("menu_reviews")
     .upsert(
       {
@@ -780,10 +963,12 @@ async function upsertRemoteReview(review) {
         hygiene: clampScore(review.hygiene, 0, 5),
         kindness: clampScore(review.kindness, 0, 5),
         review_text: review.review_text,
+        status: "visible",
       },
       { onConflict: "user_id,menu_id" },
     )
-    .catch(() => null);
+    .catch((error) => ({ error }));
+  if (result?.error) console.warn("review sync failed", result.error);
   await loadRemoteSummaries();
 }
 
@@ -990,7 +1175,12 @@ function renderDashboard() {
           ? myReviews
               .map((review) => {
                 const menu = DATA.menus.find((item) => item.id === review.menuId);
-                return `<p>${menu?.name || "메뉴"} · ★ ${review.rating} <span>${escapeHtml(review.review_text || "")}</span></p>`;
+                return `
+                  <div class="my-review-row">
+                    <p>${menu?.name || "메뉴"} · ★ ${review.rating} <span>${escapeHtml(review.review_text || "")}</span></p>
+                    <button class="inline-danger" data-delete-review="${review.menuId}">삭제</button>
+                  </div>
+                `;
               })
               .join("")
           : "<p>아직 남긴 후기가 없습니다.</p>"
@@ -1017,7 +1207,7 @@ function switchTab(tabId) {
 }
 
 function bindEvents() {
-  els.locationButton.addEventListener("click", requestLocation);
+  els.locationButton.addEventListener("click", showLocationDialog);
   els.shareButton.addEventListener("click", shareAppLink);
   els.searchButton.addEventListener("click", searchMenus);
   els.resetFiltersButton.addEventListener("click", resetFilters);
@@ -1075,17 +1265,12 @@ function bindEvents() {
     renderRecommendations();
     document.querySelector(".recommend-section").scrollIntoView({ behavior: "smooth" });
   });
-  els.rouletteButton.addEventListener("click", () => {
-    if (!state.hasSearched) {
-      toast("먼저 조건에 맞게 찾아주세요!");
-      return;
-    }
-    const pool = getRecommendedMenus().slice(0, 20);
-    if (!pool.length) return;
-    const pick = pool[Math.floor(Math.random() * pool.length)];
-    showDetail(pick.id);
-  });
+  els.rouletteButton.addEventListener("click", openRoulette);
+  els.stopRouletteButton?.addEventListener("click", stopRoulette);
+  els.closeRouletteButton?.addEventListener("click", closeRoulette);
   document.body.addEventListener("click", (event) => {
+    const locationChoice = event.target.closest("[data-location-choice]");
+    if (locationChoice) chooseLocationPreference(locationChoice.dataset.locationChoice);
     const detail = event.target.closest("[data-detail]");
     if (detail) showDetail(detail.dataset.detail);
     const wish = event.target.closest("[data-wish]");
@@ -1098,6 +1283,26 @@ function bindEvents() {
     if (resetTasteButton) resetTaste(resetTasteButton.dataset.resetTaste);
     const saveReviewButton = event.target.closest("[data-save-review]");
     if (saveReviewButton) saveReview(saveReviewButton.dataset.saveReview);
+    const deleteReviewButton = event.target.closest("[data-delete-review]");
+    if (deleteReviewButton) deleteReview(deleteReviewButton.dataset.deleteReview);
+    const moreReviewsButton = event.target.closest("[data-more-reviews]");
+    if (moreReviewsButton) {
+      const id = moreReviewsButton.dataset.moreReviews;
+      state.reviewVisibleCount[id] = (state.reviewVisibleCount[id] || 5) + 5;
+      showDetail(id);
+    }
+    const ratingButton = event.target.closest("[data-rating-value]");
+    if (ratingButton) {
+      const editor = ratingButton.closest("[data-review-editor]");
+      const value = Number(ratingButton.dataset.ratingValue);
+      const input = editor?.querySelector('[data-review-field="rating"]');
+      const output = editor?.querySelector('[data-review-output="rating"]');
+      if (input) input.value = String(value);
+      if (output) output.textContent = String(value);
+      editor?.querySelectorAll("[data-rating-value]").forEach((button) => {
+        button.classList.toggle("is-selected", Number(button.dataset.ratingValue) <= value);
+      });
+    }
     const start = event.target.closest("#startWorldcup");
     if (start) startWorldcup();
     const restart = event.target.closest("#restartWorldcup");
@@ -1141,7 +1346,7 @@ function finishSplash() {
   const hideSplash = () => {
     els.splashScreen?.classList.add("is-hidden");
     document.body.classList.remove("splash-active");
-    requestLocation();
+    handleLocationAfterSplash();
   };
   window.setTimeout(hideSplash, 2400);
 }

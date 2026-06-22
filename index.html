@@ -118,6 +118,23 @@
             <div id="menuList" class="menu-list"></div>
             <button id="nextRecommendButton" class="wide-button">다시 추천하기</button>
           </section>
+
+          <section id="roulettePanel" class="roulette-panel" aria-label="랜덤 룰렛">
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow">Roulette</p>
+                <h2>메뉴 룰렛</h2>
+              </div>
+              <button id="closeRouletteButton" class="icon-button">닫기</button>
+            </div>
+            <div class="roulette-wheel-wrap">
+              <div id="rouletteWheel" class="roulette-wheel"></div>
+              <div class="roulette-pointer"></div>
+            </div>
+            <p id="rouletteStatus" class="roulette-status">추천 후보로 룰렛을 준비했어요.</p>
+            <button id="stopRouletteButton" class="wide-button roulette-stop">STOP</button>
+            <div id="rouletteResult" class="menu-list"></div>
+          </section>
         </section>
 
         <section id="worldcupTab" class="tab-panel">
@@ -194,6 +211,19 @@
     <dialog id="detailDialog">
       <div id="dialogContent"></div>
       <button id="closeDialog" class="dialog-close">닫기</button>
+    </dialog>
+
+    <dialog id="locationDialog">
+      <div>
+        <p class="eyebrow">Location</p>
+        <h2>현재 위치를 사용할까요?</h2>
+        <p class="dialog-help">거리 추천을 위해 위치를 사용할 수 있어요. 원하지 않으면 창원대 정문 기준으로 계산합니다.</p>
+        <div class="location-actions">
+          <button data-location-choice="always">항상 허용</button>
+          <button data-location-choice="once">한번만 허용</button>
+          <button data-location-choice="deny">허용하지 않음</button>
+        </div>
+      </div>
     </dialog>
 
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
