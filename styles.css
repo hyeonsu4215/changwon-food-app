@@ -572,6 +572,14 @@ input[type="range"] {
   line-height: 1.45;
 }
 
+.recommend-copy {
+  margin: -2px 0 8px;
+  color: #405064;
+  font-size: 12px;
+  font-weight: 850;
+  line-height: 1.45;
+}
+
 .price {
   flex: 0 0 auto;
   color: var(--mint-dark);
@@ -657,6 +665,42 @@ input[type="range"] {
   color: var(--mint-dark);
   font-size: 11px;
   font-weight: 900;
+}
+
+.reason-copy-list {
+  display: grid;
+  gap: 5px;
+  margin: 0;
+  padding-left: 18px;
+  color: #405064;
+  font-size: 12px;
+  font-weight: 820;
+  line-height: 1.45;
+}
+
+.detail-fold {
+  margin: 10px 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--soft);
+  overflow: hidden;
+}
+
+.detail-fold summary {
+  min-height: 42px;
+  padding: 12px;
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 950;
+}
+
+.detail-fold .personal-taste,
+.detail-fold .review-form {
+  margin: 0;
+  border: 0;
+  border-top: 1px solid var(--line);
+  border-radius: 0;
+  box-shadow: none;
 }
 
 .taste-summary,
@@ -968,6 +1012,39 @@ input[type="range"] {
   font-size: 12px;
 }
 
+.sync-status {
+  margin-bottom: 5px;
+  color: var(--mint-dark) !important;
+  font-weight: 900;
+}
+
+.dashboard-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-top: 10px;
+}
+
+.dashboard-actions button,
+.dashboard-actions a {
+  display: inline-flex;
+  min-height: 34px;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 8px;
+  padding: 0 10px;
+  background: var(--mint);
+  color: #fff;
+  text-decoration: none;
+  font-size: 12px;
+  font-weight: 950;
+}
+
+.dashboard-actions button:nth-child(2) {
+  background: var(--coral);
+}
+
 .stats-detail summary {
   color: var(--mint-dark);
   font-size: 14px;
@@ -1258,6 +1335,26 @@ input[type="range"] {
 .store-menu-list strong {
   color: var(--mint-dark);
   white-space: nowrap;
+}
+
+.info-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 850;
+}
+
+.info-footer a {
+  color: var(--mint-dark);
+  text-decoration: none;
+  font-weight: 950;
 }
 
 .location-actions {

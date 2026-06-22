@@ -1,6 +1,8 @@
 const DATA = window.CHANGWON_FOOD_DATA;
 
 const FALLBACK_LOCATION = { label: "창원대 정문 임시 기준", lat: 35.24235, lng: 128.68965 };
+const DATA_UPDATED_AT = "2026.06.22";
+const FEEDBACK_FORM_URL = "https://forms.gle/BUYoZiSUXtFDE81J7";
 const MOOD_OPTIONS = ["혼밥", "단체", "가성비", "든든함", "빠른식사", "비오는날", "해장", "시험기간", "데이트", "스트레스", "포장", "배달"];
 const CATEGORY_META = {
   "도시락": { order: 1, icon: "dosirak.png" },
@@ -44,6 +46,9 @@ const state = {
   supabaseUserId: null,
   supabaseReady: false,
   supabaseError: "",
+  syncStatus: "idle",
+  lastSyncAt: "",
+  pendingReviewRetry: null,
   supabaseInitPromise: null,
   worldcup: null,
   worldcupCategories: new Set(),
@@ -376,25 +381,45 @@ function tags(item) {
   return [...base, ...item.tags.slice(0, 3)];
 }
 
+function compactTags(item) {
+  return tags(item)
+    .filter((tag, index, arr) => arr.indexOf(tag) === index)
+    .slice(0, 4);
+}
+
+function recommendationReasons(item) {
+  const reasons = [];
+  const tasteDiff = Math.abs(item.taste.spicy - state.spicy) + Math.abs(item.taste.salty - state.salty) + Math.abs(item.taste.sweet - state.sweet);
+  if (tasteDiff <= 2) reasons.push("입맛 설정과 잘 맞아요.");
+  if (item.price <= state.budget) reasons.push(`예산 ${money(state.budget)} 안에 들어요.`);
+  if (Number.isFinite(item.distance)) reasons.push(`${meters(item.distance)} 거리라 이동 부담이 적어요.`);
+  if (item.reviewSummary?.review_count > 0) reasons.push(`후기 평점 ${Number(item.reviewSummary.avg_rating).toFixed(1)}점이에요.`);
+  if (item.restaurant?.alone) reasons.push("혼밥하기 편한 곳이에요.");
+  if (item.value >= 4) reasons.push("가격 대비 만족도가 좋아요.");
+  return reasons.slice(0, 4);
+}
+
 function cardHtml(item, rank) {
   const wished = isWished(item.id);
   const reviewLine = item.reviewSummary?.review_count
     ? `<p class="review-line">별점 ${Number(item.reviewSummary.avg_rating).toFixed(1)} · 위생 ${Number(item.reviewSummary.avg_hygiene).toFixed(1)} · 친절 ${Number(item.reviewSummary.avg_kindness).toFixed(1)} · 후기 ${item.reviewSummary.review_count}</p>`
     : "";
+  const reasonText = recommendationReasons(item).slice(0, 2).join(" ");
   return `
     <div class="menu-card__top">
       <div>
         <h3>${rank}. ${item.name}</h3>
         <p class="store-line">${item.restaurant?.name || item.restaurantName} · ${item.category} · ${meters(item.distance)}</p>
         ${reviewLine}
+        <p class="recommend-copy">${reasonText || "현재 조건과 가까운 메뉴예요."}</p>
       </div>
       <div class="card-side">
         <button class="heart-button ${wished ? "is-wished" : ""}" data-wish="${item.id}" aria-label="${wished ? "찜 해제" : "찜하기"}">${wished ? "♥" : "♡"}</button>
         <div class="price">${money(item.price)}</div>
       </div>
     </div>
-    <div class="reason-list">${item.reasons.map((reason) => `<span>${reason}</span>`).join("")}</div>
-    <div class="meta-tags">${tags(item).slice(0, 8).map((tag) => `<span>${tag}</span>`).join("")}</div>
+    <div class="reason-list">${item.reasons.slice(0, 3).map((reason) => `<span>${reason}</span>`).join("")}</div>
+    <div class="meta-tags">${compactTags(item).map((tag) => `<span>${tag}</span>`).join("")}</div>
     <div class="card-actions">
       <button data-detail="${item.id}">상세</button>
       <button data-ate="${item.id}">먹음</button>
@@ -465,6 +490,10 @@ function renderStoreSearch() {
                   .slice(0, 8)
                   .map((menu) => `<button data-detail="${menu.id}"><span>${escapeHtml(menu.name)}</span><strong>${money(menu.price)}</strong></button>`)
                   .join("")}
+              </div>
+              <div class="info-footer">
+                <span>정보 기준일 ${DATA_UPDATED_AT}</span>
+                <a href="${FEEDBACK_FORM_URL}" target="_blank" rel="noreferrer">정보 제보</a>
               </div>
             </article>
           `;
@@ -796,8 +825,14 @@ function showDetail(id) {
     <p class="eyebrow">Menu detail</p>
     <h2>${item.name}</h2>
     <p class="store-line">${item.restaurant?.name || item.restaurantName} · ${item.category} · ${meters(item.distance)}</p>
-    <div class="reason-list">${item.reasons.map((reason) => `<span>${reason}</span>`).join("")}</div>
-    <div class="meta-tags">${tags(item).map((tag) => `<span>${tag}</span>`).join("")}</div>
+    <div class="reason-list">${item.reasons.slice(0, 3).map((reason) => `<span>${reason}</span>`).join("")}</div>
+    <div class="meta-tags">${compactTags(item).map((tag) => `<span>${tag}</span>`).join("")}</div>
+    <section class="taste-summary">
+      <h3>왜 추천했나요?</h3>
+      <ul class="reason-copy-list">
+        ${recommendationReasons(item).map((reason) => `<li>${reason}</li>`).join("")}
+      </ul>
+    </section>
     <section class="taste-summary">
       <h3>입맛 기준</h3>
       <p>현재 추천 기준: ${item.taste.source} · 맵기 ${Number(item.taste.spicy).toFixed(1)} · 짠맛 ${Number(item.taste.salty).toFixed(1)} · 단맛 ${Number(item.taste.sweet).toFixed(1)}</p>
@@ -808,6 +843,8 @@ function showDetail(id) {
       <h3>후기 평균</h3>
       <p>${summary?.review_count ? `별점 ${Number(summary.avg_rating).toFixed(1)} · 위생 ${Number(summary.avg_hygiene).toFixed(1)} · 친절 ${Number(summary.avg_kindness).toFixed(1)} · 후기 ${summary.review_count}개` : "아직 후기가 없어요."}</p>
     </section>
+    <details class="detail-fold">
+      <summary>내 입맛 수정</summary>
     <section class="personal-taste" data-taste-editor="${item.id}">
       <div class="control-title">
         <strong>내 입맛으로 수정</strong>
@@ -829,6 +866,9 @@ function showDetail(id) {
         <button data-reset-taste="${item.id}">기본값으로</button>
       </div>
     </section>
+    </details>
+    <details class="detail-fold">
+      <summary>후기 남기기</summary>
     <section class="review-form" data-review-editor="${item.id}">
       <div class="control-title">
         <strong>후기 남기기</strong>
@@ -858,6 +898,7 @@ function showDetail(id) {
       <textarea data-review-field="review_text" maxlength="300" placeholder="후기를 300자 이내로 남겨주세요.">${escapeHtml(myReview.review_text || "")}</textarea>
       <button data-save-review="${item.id}">후기 저장</button>
     </section>
+    </details>
     <section class="review-list">
       <h3>최근 후기</h3>
       ${
@@ -885,6 +926,10 @@ function showDetail(id) {
       <button data-wish="${item.id}">${wished ? "찜 해제" : "찜하기"}</button>
       <button data-ate="${item.id}">먹은 기록 추가</button>
       <a href="${mapUrl(item)}" target="_blank" rel="noreferrer">지도에서 보기</a>
+    </div>
+    <div class="info-footer">
+      <span>정보 기준일 ${DATA_UPDATED_AT}</span>
+      <a href="${FEEDBACK_FORM_URL}" target="_blank" rel="noreferrer">정보 제보/오류 신고</a>
     </div>
   `;
   if (!els.detailDialog.open) els.detailDialog.showModal();
@@ -972,8 +1017,13 @@ async function saveReview(id) {
   saveNickname(nickname);
   state.reviews[id] = review;
   saveReviews();
+  state.syncStatus = "saving";
+  state.pendingReviewRetry = null;
+  render();
   toast("서버 공유 중...");
   const synced = await upsertRemoteReview(review);
+  state.syncStatus = synced ? "synced" : "failed";
+  state.pendingReviewRetry = synced ? null : review;
   toast(synced ? "후기 공유 완료!" : "서버 공유 실패");
   render();
   showDetail(id);
@@ -983,6 +1033,7 @@ async function deleteReview(id) {
   if (!state.reviews[id]) return;
   delete state.reviews[id];
   saveReviews();
+  state.syncStatus = "saving";
   toast("후기 삭제!");
   if (state.supabase && state.supabaseUserId) {
     const result = await supabaseRest(`/menu_reviews?user_id=eq.${encodeURIComponent(state.supabaseUserId)}&menu_id=eq.${encodeURIComponent(id)}`, {
@@ -992,6 +1043,7 @@ async function deleteReview(id) {
     if (!result.ok) console.warn("review delete failed", result.error);
     await loadRemoteSummaries();
   }
+  state.syncStatus = "synced";
   render();
 }
 
@@ -1059,6 +1111,7 @@ function loadScript(src) {
 
 async function loadRemoteSummaries() {
   if (!state.supabase) return;
+  state.syncStatus = state.syncStatus === "saving" ? "saving" : "refreshing";
   const [tasteResult, reviewResult, reviewRows] = await Promise.all([
     state.supabase.from("menu_taste_summary").select("*"),
     state.supabase.from("menu_review_summary").select("*"),
@@ -1078,7 +1131,35 @@ async function loadRemoteSummaries() {
       return acc;
     }, {});
   }
+  state.lastSyncAt = new Date().toISOString();
+  state.syncStatus = "synced";
   render();
+}
+
+async function refreshRemoteData() {
+  const ready = await ensureSupabaseReady();
+  if (!ready) {
+    state.syncStatus = "failed";
+    render();
+    toast("서버 연결 실패");
+    return;
+  }
+  await loadRemoteSummaries();
+  toast("평균 데이터 갱신!");
+}
+
+async function retryPendingReview() {
+  if (!state.pendingReviewRetry) {
+    toast("다시 시도할 후기가 없어요");
+    return;
+  }
+  state.syncStatus = "saving";
+  render();
+  const synced = await upsertRemoteReview(state.pendingReviewRetry);
+  state.syncStatus = synced ? "synced" : "failed";
+  state.pendingReviewRetry = synced ? null : state.pendingReviewRetry;
+  render();
+  toast(synced ? "후기 공유 완료!" : "서버 공유 실패");
 }
 
 async function supabaseRest(path, options = {}) {
@@ -1347,6 +1428,13 @@ function renderDashboard() {
   const reviewStats = myReviewStats();
   const myReviews = Object.values(state.reviews).slice(0, 6);
   const reviewServerCount = Object.values(state.publicReviews).reduce((sum, reviews) => sum + reviews.length, 0);
+  const syncStatusText = {
+    idle: "대기 중",
+    saving: "저장 중",
+    refreshing: "평균 데이터 갱신 중",
+    synced: state.lastSyncAt ? `최근 갱신 ${formatDateTime(state.lastSyncAt)}` : "서버 연결됨",
+    failed: "서버 공유 실패",
+  }[state.syncStatus] || "대기 중";
   const syncLabel = state.supabaseReady
     ? `서버 연결됨 · 공개 후기 ${reviewServerCount}개 불러옴`
     : `서버 연결 안 됨${state.supabaseError ? ` · ${escapeHtml(state.supabaseError)}` : ""}`;
@@ -1358,7 +1446,13 @@ function renderDashboard() {
         <input id="nicknameInput" type="text" maxlength="20" value="${escapeHtml(state.nickname)}" placeholder="닉네임을 입력해주세요" />
       </label>
       <p>찜, 먹은 기록, 내 입맛 수정은 서버가 아니라 이 기기 브라우저 안에만 저장돼요.</p>
+      <p>후기와 평균 평점, 모두의 입맛 평균은 서버에 공유돼요.</p>
       <p class="sync-status">${syncLabel}</p>
+      <p class="sync-status">상태: ${syncStatusText}</p>
+      <div class="dashboard-actions">
+        <button data-refresh-remote>평균 데이터 새로고침</button>
+        ${state.pendingReviewRetry ? `<button data-retry-review>후기 공유 다시 시도</button>` : ""}
+      </div>
     </div>
     <div class="dashboard-card">
       <h3>내 식사 기록</h3>
@@ -1395,6 +1489,10 @@ function renderDashboard() {
     <div class="dashboard-card">
       <h3>데이터 현황</h3>
       <p>음식점 ${DATA.meta.restaurantCount}곳, 대표 메뉴 ${DATA.meta.menuCount}개를 기준으로 추천해요.</p>
+      <p>데이터 최종 수정일: ${DATA_UPDATED_AT}</p>
+      <div class="dashboard-actions">
+        <a href="${FEEDBACK_FORM_URL}" target="_blank" rel="noreferrer">정보 제보 / 잘못된 정보 신고</a>
+      </div>
     </div>
     <details class="dashboard-card stats-detail">
       <summary>데이터 기록 통계 보기</summary>
@@ -1544,6 +1642,10 @@ function bindEvents() {
       state.reviewVisibleCount[id] = (state.reviewVisibleCount[id] || 5) + 5;
       showDetail(id);
     }
+    const refreshRemoteButton = event.target.closest("[data-refresh-remote]");
+    if (refreshRemoteButton) refreshRemoteData();
+    const retryReviewButton = event.target.closest("[data-retry-review]");
+    if (retryReviewButton) retryPendingReview();
     const ratingButton = event.target.closest("[data-rating-value]");
     if (ratingButton) {
       const editor = ratingButton.closest("[data-review-editor]");
