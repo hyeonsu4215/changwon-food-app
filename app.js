@@ -213,32 +213,41 @@ function reviewSummary(menuId) {
   };
 }
 
-function menuReviews(menuId) {
+function reviewFingerprint(review) {
+  return [
+    review.menuId || review.menu_id || "",
+    review.nickname || "",
+    Number(review.rating || 0),
+    Number(review.hygiene || 0),
+    Number(review.kindness || 0),
+    String(review.review_text || "").trim(),
+  ].join("|");
+}
+
+function uniqueMenuReviews(menuId) {
   const remote = state.publicReviews[menuId] || [];
   const local = Object.values(state.reviews).filter((review) => review.menuId === menuId);
   const seen = new Set();
-  const merged = [...local, ...remote]
+  return [...local, ...remote]
     .filter((review) => {
-      const key = review.id || `${review.menuId || review.menu_id}:${review.user_id || review.nickname || ""}:${review.updatedAt || review.updated_at || review.created_at || ""}`;
+      const ownRemoteCopy = review.user_id && review.user_id === state.supabaseUserId && state.reviews[menuId];
+      if (ownRemoteCopy) return false;
+      const key = reviewFingerprint(review);
       if (seen.has(key)) return false;
       seen.add(key);
       return true;
     })
     .sort((a, b) => new Date(b.created_at || b.updatedAt || b.updated_at || 0) - new Date(a.created_at || a.updatedAt || a.updated_at || 0));
+}
+
+function menuReviews(menuId) {
+  const merged = uniqueMenuReviews(menuId);
   const limit = state.reviewVisibleCount[menuId] || 5;
   return merged.slice(0, limit);
 }
 
 function menuReviewTotal(menuId) {
-  const remote = state.publicReviews[menuId] || [];
-  const local = Object.values(state.reviews).filter((review) => review.menuId === menuId);
-  const seen = new Set();
-  return [...local, ...remote].filter((review) => {
-    const key = review.id || `${review.menuId || review.menu_id}:${review.user_id || review.nickname || ""}:${review.updatedAt || review.updated_at || review.created_at || ""}`;
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  }).length;
+  return uniqueMenuReviews(menuId).length;
 }
 
 function starButtons(value) {
