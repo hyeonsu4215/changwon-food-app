@@ -854,12 +854,10 @@ async function saveReview(id) {
   saveNickname(nickname);
   state.reviews[id] = review;
   saveReviews();
-  toast("기기 저장 완료!");
-  render();
+  toast("서버 공유 중...");
   const synced = await upsertRemoteReview(review);
-  if (!synced) {
-    toast("서버 공유 실패");
-  }
+  toast(synced ? "후기 공유 완료!" : "서버 공유 실패");
+  render();
   showDetail(id);
 }
 
@@ -869,12 +867,11 @@ async function deleteReview(id) {
   saveReviews();
   toast("후기 삭제!");
   if (state.supabase && state.supabaseUserId) {
-    await state.supabase
-      .from("menu_reviews")
-      .delete()
-      .eq("user_id", state.supabaseUserId)
-      .eq("menu_id", id)
-      .catch((error) => console.warn("review delete failed", error));
+    const result = await supabaseRest(`/menu_reviews?user_id=eq.${encodeURIComponent(state.supabaseUserId)}&menu_id=eq.${encodeURIComponent(id)}`, {
+      method: "DELETE",
+      headers: { Prefer: "return=minimal" },
+    });
+    if (!result.ok) console.warn("review delete failed", result.error);
     await loadRemoteSummaries();
   }
   render();
@@ -882,30 +879,21 @@ async function deleteReview(id) {
 
 async function ensureSupabaseReady() {
   if (state.supabase && state.supabaseUserId) return true;
-  await initSupabase();
-  return Boolean(state.supabase && state.supabaseUserId);
-}
-
-async function initSupabase() {
-  if (state.supabaseInitPromise) return state.supabaseInitPromise;
-  state.supabaseInitPromise = initSupabaseClient();
-  return state.supabaseInitPromise;
-}
-
-async function initSupabaseClient() {
   const config = window.CHANGWON_SUPABASE_CONFIG;
   if (!config?.enabled || !config.url || !config.anonKey) {
     state.supabaseError = "Supabase 설정이 꺼져 있어요.";
-    return;
+    return false;
   }
   if (!window.supabase?.createClient) {
     await loadScript("https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2").catch(() => null);
   }
   if (!window.supabase?.createClient) {
     state.supabaseError = "Supabase 라이브러리를 불러오지 못했어요.";
-    return;
+    return false;
   }
-  state.supabase = window.supabase.createClient(config.url, config.anonKey);
+  if (!state.supabase) {
+    state.supabase = window.supabase.createClient(config.url, config.anonKey);
+  }
   const auth = await state.supabase.auth.getSession().catch(() => null);
   if (!auth?.data?.session && state.supabase.auth.signInAnonymously) {
     const signIn = await state.supabase.auth.signInAnonymously().catch((error) => ({ error }));
@@ -920,7 +908,19 @@ async function initSupabaseClient() {
   if (!state.supabaseReady && !state.supabaseError) {
     state.supabaseError = "익명 사용자 정보를 만들지 못했어요.";
   }
-  await loadRemoteSummaries();
+  return state.supabaseReady;
+}
+
+async function initSupabase() {
+  if (state.supabaseInitPromise) return state.supabaseInitPromise;
+  state.supabaseInitPromise = (async () => {
+    const ready = await ensureSupabaseReady();
+    if (ready) await loadRemoteSummaries();
+    return ready;
+  })().finally(() => {
+    state.supabaseInitPromise = null;
+  });
+  return state.supabaseInitPromise;
 }
 
 function loadScript(src) {
@@ -963,24 +963,59 @@ async function loadRemoteSummaries() {
   render();
 }
 
+async function supabaseRest(path, options = {}) {
+  const config = window.CHANGWON_SUPABASE_CONFIG;
+  if (!config?.url || !config?.anonKey) return { ok: false, error: "Supabase 설정이 없습니다." };
+  const sessionResult = await state.supabase?.auth.getSession().catch(() => null);
+  const accessToken = sessionResult?.data?.session?.access_token || config.anonKey;
+  const controller = new AbortController();
+  const timer = window.setTimeout(() => controller.abort(), 10000);
+  try {
+    const response = await fetch(`${config.url}/rest/v1${path}`, {
+      method: options.method || "GET",
+      signal: controller.signal,
+      headers: {
+        apikey: config.anonKey,
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+        ...(options.headers || {}),
+      },
+      body: options.body,
+    });
+    const text = await response.text();
+    let data = null;
+    try {
+      data = text ? JSON.parse(text) : null;
+    } catch {
+      data = text;
+    }
+    if (!response.ok) {
+      return { ok: false, status: response.status, error: data?.message || data?.hint || text || `HTTP ${response.status}` };
+    }
+    return { ok: true, status: response.status, data };
+  } catch (error) {
+    return { ok: false, error: error?.name === "AbortError" ? "서버 응답 시간이 초과됐어요." : error?.message || "서버 요청에 실패했어요." };
+  } finally {
+    window.clearTimeout(timer);
+  }
+}
+
 async function upsertRemoteTaste(menuId, taste) {
   const ready = await ensureSupabaseReady();
   if (!ready) return false;
-  const result = await state.supabase
-    .from("menu_taste_votes")
-    .upsert(
-      {
-        user_id: state.supabaseUserId,
-        menu_id: menuId,
-        spicy: clampScore(taste.spicy),
-        salty: clampScore(taste.salty),
-        sweet: clampScore(taste.sweet),
-      },
-      { onConflict: "user_id,menu_id" },
-    )
-    .catch((error) => ({ error }));
-  if (result?.error) {
-    state.supabaseError = result.error.message || "입맛 공유 저장에 실패했어요.";
+  const result = await supabaseRest("/menu_taste_votes?on_conflict=user_id,menu_id", {
+    method: "POST",
+    headers: { Prefer: "resolution=merge-duplicates,return=representation" },
+    body: JSON.stringify({
+      user_id: state.supabaseUserId,
+      menu_id: menuId,
+      spicy: clampScore(taste.spicy),
+      salty: clampScore(taste.salty),
+      sweet: clampScore(taste.sweet),
+    }),
+  });
+  if (!result.ok) {
+    state.supabaseError = result.error || "입맛 공유 저장에 실패했어요.";
     console.warn("taste sync failed", result.error);
     return false;
   }
@@ -994,30 +1029,27 @@ async function upsertRemoteReview(review) {
     console.warn("review sync skipped", state.supabaseError || "Supabase is not ready");
     return false;
   }
-  const result = await state.supabase
-    .from("menu_reviews")
-    .upsert(
-      {
-        user_id: state.supabaseUserId,
-        menu_id: review.menuId,
-        restaurant_id: review.restaurantId,
-        nickname: review.nickname,
-        rating: clampScore(review.rating, 1, 5),
-        hygiene: clampScore(review.hygiene, 0, 5),
-        kindness: clampScore(review.kindness, 0, 5),
-        review_text: review.review_text,
-        status: "visible",
-      },
-      { onConflict: "user_id,menu_id" },
-    )
-    .catch((error) => ({ error }));
-  if (result?.error) {
-    state.supabaseError = result.error.message || "후기 공유 저장에 실패했어요.";
+  const result = await supabaseRest("/menu_reviews?on_conflict=user_id,menu_id", {
+    method: "POST",
+    headers: { Prefer: "resolution=merge-duplicates,return=representation" },
+    body: JSON.stringify({
+      user_id: state.supabaseUserId,
+      menu_id: review.menuId,
+      restaurant_id: review.restaurantId,
+      nickname: review.nickname,
+      rating: clampScore(review.rating, 1, 5),
+      hygiene: clampScore(review.hygiene, 0, 5),
+      kindness: clampScore(review.kindness, 0, 5),
+      review_text: review.review_text,
+      status: "visible",
+    }),
+  });
+  if (!result.ok) {
+    state.supabaseError = result.error || "후기 공유 저장에 실패했어요.";
     console.warn("review sync failed", result.error);
     return false;
   }
   await loadRemoteSummaries();
-  toast("후기 공유 완료!");
   return true;
 }
 
