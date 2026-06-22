@@ -133,6 +133,7 @@
             </div>
             <p id="rouletteStatus" class="roulette-status">추천 후보로 룰렛을 준비했어요.</p>
             <button id="stopRouletteButton" class="wide-button roulette-stop">STOP</button>
+            <button id="rerollRouletteButton" class="wide-button roulette-reroll">룰렛 다시 돌리기</button>
             <div id="rouletteResult" class="menu-list"></div>
           </section>
         </section>
@@ -169,6 +170,22 @@
           <div id="wishlistList" class="menu-list"></div>
         </section>
 
+        <section id="storeSearchTab" class="tab-panel">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Store search</p>
+              <h2>가게 검색</h2>
+            </div>
+          </div>
+          <section class="control-surface store-search-surface" aria-label="가게 검색">
+            <label class="store-search-field">
+              <span>가게 이름 또는 메뉴명</span>
+              <input id="storeSearchInput" type="search" placeholder="예: 리코리코, 부리또, 김밥" autocomplete="off" />
+            </label>
+            <div id="storeSearchResults" class="menu-list"></div>
+          </section>
+        </section>
+
         <section id="dataTab" class="tab-panel">
           <div class="section-heading">
             <div>
@@ -192,6 +209,12 @@
             <svg viewBox="0 0 24 24"><path d="M8 4h8v3h3v2.2A5.2 5.2 0 0 1 14.4 14H14v2.2h3.2V20H6.8v-3.8H10V14h-.4A5.2 5.2 0 0 1 5 9.2V7h3V4Zm8 5V7H8v2.2A3.2 3.2 0 0 0 11.2 12h1.6A3.2 3.2 0 0 0 16 9.2Zm2 0a3.2 3.2 0 0 0 1-.2V9h-1Zm-12-.2A3.2 3.2 0 0 0 6 9h1v-.2Z" /></svg>
           </span>
           <span>월드컵</span>
+        </button>
+        <button class="nav-search-cta" data-tab="storeSearchTab" aria-label="가게 검색">
+          <span class="nav-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M10.6 18.2a7.6 7.6 0 1 1 0-15.2 7.6 7.6 0 0 1 0 15.2Zm0-2.4a5.2 5.2 0 1 0 0-10.4 5.2 5.2 0 0 0 0 10.4Zm5.9.4 4.2 4.2-1.7 1.7-4.2-4.2 1.7-1.7Z" /></svg>
+          </span>
+          <span>검색</span>
         </button>
         <button data-tab="wishlistTab" aria-label="찜">
           <span class="nav-icon" aria-hidden="true">

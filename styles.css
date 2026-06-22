@@ -227,9 +227,10 @@ main {
 }
 
 .home-hero h2 {
-  max-width: 260px;
-  font-size: 21px;
+  max-width: 100%;
+  font-size: 20px;
   line-height: 1.22;
+  white-space: nowrap;
 }
 
 .home-hero p:last-child {
@@ -710,25 +711,26 @@ input[type="range"] {
 
 .star-rating {
   display: flex;
-  gap: 6px;
+  gap: 4px;
   align-items: center;
 }
 
 .star-rating button {
-  width: 36px;
-  height: 36px;
-  border: 1px solid var(--line);
-  border-radius: 50%;
-  background: #fff;
+  width: 32px;
+  height: 34px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
   color: #b7c0c8;
-  font-size: 21px;
+  font-size: 28px;
   line-height: 1;
+  text-shadow: 0 0 0 #9aa8b4;
 }
 
 .star-rating button.is-selected {
-  border-color: rgba(255, 188, 53, 0.45);
-  background: #fff8df;
+  background: transparent;
   color: #f5aa13;
+  text-shadow: none;
 }
 
 .rating-grid {
@@ -846,6 +848,53 @@ input[type="range"] {
 .worldcup-result,
 .dashboard-card {
   padding: 14px;
+}
+
+.worldcup-start {
+  position: relative;
+  overflow: hidden;
+  min-height: 230px;
+  display: grid;
+  align-content: end;
+  gap: 10px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.68), rgba(255, 255, 255, 0.96)),
+    radial-gradient(circle at 50% 24%, rgba(255, 212, 95, 0.52), transparent 33%),
+    linear-gradient(135deg, #e4f5ef, #f7faf8);
+}
+
+.worldcup-start::before {
+  content: "VS";
+  position: absolute;
+  right: 22px;
+  top: 18px;
+  color: rgba(15, 123, 99, 0.1);
+  font-size: 78px;
+  font-weight: 950;
+  letter-spacing: 0;
+}
+
+.worldcup-trophy {
+  position: absolute;
+  left: 50%;
+  top: 18px;
+  transform: translateX(-50%);
+  font-size: 72px;
+  filter: drop-shadow(0 12px 18px rgba(17, 31, 42, 0.12));
+}
+
+.worldcup-start h3 {
+  position: relative;
+  margin-top: 108px;
+  font-size: 21px;
+}
+
+.worldcup-start p {
+  position: relative;
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 850;
 }
 
 .worldcup-start button,
@@ -1042,38 +1091,64 @@ input[type="range"] {
   position: relative;
   width: 100%;
   height: 100%;
-  border: 10px solid #fff;
+  border: 8px solid #fff;
   border-radius: 50%;
   background:
-    conic-gradient(from 0deg, #0f7b63, #ffd45f, #ff7058, #78c6ff, #0f7b63);
+    repeating-conic-gradient(
+      from -90deg,
+      #e4f5ef 0deg 34deg,
+      #ffffff 34deg 36deg
+    );
   box-shadow: 0 18px 36px rgba(17, 31, 42, 0.18);
   overflow: hidden;
+  transform: rotate(var(--roulette-rotation, 0deg));
 }
 
 .roulette-wheel::after {
   content: "";
   position: absolute;
-  inset: 34%;
+  inset: 37%;
   border-radius: 50%;
   background: #fff;
   box-shadow: inset 0 0 0 1px var(--line);
 }
 
-.roulette-wheel span {
+.roulette-segment {
   position: absolute;
   left: 50%;
   top: 50%;
-  width: 42%;
+  width: 50%;
+  height: 1px;
   transform-origin: 0 0;
-  transform: rotate(calc((360deg / var(--count)) * var(--i))) translate(22%, -50%);
-  color: #fff;
-  font-size: 10px;
+  transform: rotate(calc(-90deg + (360deg / var(--count)) * var(--i) + (180deg / var(--count))));
+  z-index: 1;
+}
+
+.roulette-segment span {
+  position: absolute;
+  left: 31%;
+  top: 50%;
+  display: block;
+  width: 74px;
+  transform: translateY(-50%) rotate(0deg);
+  border: 1px solid rgba(15, 123, 99, 0.18);
+  border-radius: 999px;
+  padding: 4px 5px;
+  background: rgba(255, 255, 255, 0.94);
+  color: var(--ink);
+  font-size: 9.5px;
   font-weight: 950;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.26);
+  text-align: center;
+  line-height: 1.15;
+  box-shadow: 0 3px 8px rgba(17, 31, 42, 0.08);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  z-index: 1;
+}
+
+.roulette-segment.is-picked span {
+  background: var(--yellow);
+  border-color: rgba(245, 170, 19, 0.55);
 }
 
 .roulette-wheel.is-spinning {
@@ -1109,6 +1184,82 @@ input[type="range"] {
   background: var(--coral);
 }
 
+.roulette-reroll {
+  display: none;
+  background: var(--mint);
+}
+
+.store-search-surface {
+  display: grid;
+  gap: 12px;
+}
+
+.store-search-field {
+  display: grid;
+  gap: 6px;
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.store-search-field input {
+  width: 100%;
+  min-height: 46px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 0 16px;
+  background: #fff;
+  color: var(--ink);
+}
+
+.store-card {
+  padding: 13px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: var(--shadow);
+}
+
+.store-map-button {
+  display: inline-flex;
+  min-height: 34px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  padding: 0 10px;
+  background: var(--ink);
+  color: #fff;
+  text-decoration: none;
+  font-size: 12px;
+  font-weight: 950;
+}
+
+.store-menu-list {
+  display: grid;
+  gap: 7px;
+  margin-top: 10px;
+}
+
+.store-menu-list button {
+  display: flex;
+  min-height: 38px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0 10px;
+  background: var(--soft);
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.store-menu-list strong {
+  color: var(--mint-dark);
+  white-space: nowrap;
+}
+
 .location-actions {
   display: grid;
   gap: 8px;
@@ -1138,7 +1289,7 @@ input[type="range"] {
 
 @keyframes rouletteSpin {
   to {
-    transform: rotate(360deg);
+    transform: rotate(calc(var(--roulette-rotation, 0deg) + 360deg));
   }
 }
 
@@ -1148,7 +1299,7 @@ input[type="range"] {
   }
 
   to {
-    transform: rotate(1080deg);
+    transform: rotate(var(--roulette-rotation, 0deg));
   }
 }
 
@@ -1167,7 +1318,7 @@ input[type="range"] {
   min-height: 62px;
   transform: translateX(-50%);
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(5, 1fr);
   gap: 2px;
   padding: 7px;
   border: 1px solid rgba(20, 45, 54, 0.1);
@@ -1223,6 +1374,33 @@ input[type="range"] {
 .bottom-nav button.is-active .nav-icon svg {
   width: 18px;
   height: 18px;
+}
+
+.bottom-nav .nav-search-cta {
+  transform: translateY(-13px);
+}
+
+.bottom-nav .nav-search-cta .nav-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: var(--ink);
+  color: #fff;
+  box-shadow: 0 10px 20px rgba(17, 31, 42, 0.22);
+}
+
+.bottom-nav .nav-search-cta .nav-icon svg {
+  width: 23px;
+  height: 23px;
+}
+
+.bottom-nav .nav-search-cta.is-active {
+  background: transparent;
+  color: var(--mint-dark);
+}
+
+.bottom-nav .nav-search-cta.is-active .nav-icon {
+  background: var(--mint);
 }
 
 dialog {

@@ -47,10 +47,15 @@ const state = {
   supabaseInitPromise: null,
   worldcup: null,
   worldcupCategories: new Set(),
+  activeTab: "recommendTab",
+  lastBackAt: 0,
+  storeSearchTerm: "",
   roulette: {
     active: false,
     items: [],
     selected: null,
+    selectedIndex: -1,
+    rotation: 0,
     spinning: false,
   },
   locationPreference: localStorage.getItem("changwonFoodLocationPreference") || "",
@@ -88,8 +93,11 @@ const els = {
   rouletteWheel: document.querySelector("#rouletteWheel"),
   rouletteStatus: document.querySelector("#rouletteStatus"),
   stopRouletteButton: document.querySelector("#stopRouletteButton"),
+  rerollRouletteButton: document.querySelector("#rerollRouletteButton"),
   closeRouletteButton: document.querySelector("#closeRouletteButton"),
   rouletteResult: document.querySelector("#rouletteResult"),
+  storeSearchInput: document.querySelector("#storeSearchInput"),
+  storeSearchResults: document.querySelector("#storeSearchResults"),
   worldcupSize: document.querySelector("#worldcupSize"),
   worldcupCategoryGrid: document.querySelector("#worldcupCategoryGrid"),
   worldcupBoard: document.querySelector("#worldcupBoard"),
@@ -254,7 +262,7 @@ function starButtons(value) {
   const rating = clampScore(value || 5, 1, 5);
   return Array.from({ length: 5 }, (_, index) => {
     const score = index + 1;
-    return `<button type="button" class="${score <= rating ? "is-selected" : ""}" data-rating-value="${score}" aria-label="${score}점">★</button>`;
+    return `<button type="button" class="${score <= rating ? "is-selected" : ""}" data-rating-value="${score}" aria-label="${score}점">${score <= rating ? "★" : "☆"}</button>`;
   }).join("");
 }
 
@@ -395,6 +403,76 @@ function cardHtml(item, rank) {
   `;
 }
 
+function restaurantReviewSummary(restaurantId) {
+  const menuIds = DATA.menus.filter((menu) => menu.restaurantId === restaurantId).map((menu) => menu.id);
+  const summaries = menuIds.map((id) => state.publicReviewSummary[id]).filter((summary) => summary?.review_count > 0);
+  const local = Object.values(state.reviews).filter((review) => menuIds.includes(review.menuId));
+  const rows = [
+    ...summaries.map((summary) => ({
+      rating: Number(summary.avg_rating) * Number(summary.review_count),
+      hygiene: Number(summary.avg_hygiene) * Number(summary.review_count),
+      kindness: Number(summary.avg_kindness) * Number(summary.review_count),
+      count: Number(summary.review_count),
+    })),
+    ...local.map((review) => ({
+      rating: Number(review.rating || 0),
+      hygiene: Number(review.hygiene || 0),
+      kindness: Number(review.kindness || 0),
+      count: 1,
+    })),
+  ];
+  const total = rows.reduce((sum, row) => sum + row.count, 0);
+  if (!total) return null;
+  return {
+    rating: rows.reduce((sum, row) => sum + row.rating, 0) / total,
+    hygiene: rows.reduce((sum, row) => sum + row.hygiene, 0) / total,
+    kindness: rows.reduce((sum, row) => sum + row.kindness, 0) / total,
+    count: total,
+  };
+}
+
+function renderStoreSearch() {
+  if (!els.storeSearchResults) return;
+  const term = state.storeSearchTerm.trim().toLowerCase();
+  const restaurants = DATA.restaurants
+    .map((restaurant) => {
+      const menus = DATA.menus.filter((menu) => menu.restaurantId === restaurant.id);
+      const haystack = `${restaurant.name} ${restaurant.category || ""} ${menus.map((menu) => `${menu.name} ${menu.category} ${menu.tags.join(" ")}`).join(" ")}`.toLowerCase();
+      return { restaurant, menus, summary: restaurantReviewSummary(restaurant.id), matches: !term || haystack.includes(term) };
+    })
+    .filter((row) => row.matches)
+    .slice(0, 20);
+
+  els.storeSearchResults.innerHTML = restaurants.length
+    ? restaurants
+        .map(({ restaurant, menus, summary }) => {
+          const scoredMenus = menus.filter((menu) => menu.available).map(scoreMenu).sort((a, b) => a.price - b.price);
+          const statLine = summary
+            ? `별점 ${summary.rating.toFixed(1)} · 위생 ${summary.hygiene.toFixed(1)} · 친절 ${summary.kindness.toFixed(1)} · 후기 ${summary.count}개`
+            : "아직 등록된 평점이 없어요.";
+          return `
+            <article class="store-card">
+              <div class="menu-card__top">
+                <div>
+                  <h3>${escapeHtml(restaurant.name)}</h3>
+                  <p class="store-line">${restaurant.category || "음식점"} · ${meters(haversine(currentBase(), restaurant))}</p>
+                  <p class="review-line">${statLine}</p>
+                </div>
+                <a class="store-map-button" href="${mapUrl({ restaurant, restaurantName: restaurant.name })}" target="_blank" rel="noreferrer">지도</a>
+              </div>
+              <div class="store-menu-list">
+                ${scoredMenus
+                  .slice(0, 8)
+                  .map((menu) => `<button data-detail="${menu.id}"><span>${escapeHtml(menu.name)}</span><strong>${money(menu.price)}</strong></button>`)
+                  .join("")}
+              </div>
+            </article>
+          `;
+        })
+        .join("")
+    : `<div class="empty-state">검색 결과가 없어요. 가게 이름이나 메뉴명을 조금 다르게 입력해보세요.</div>`;
+}
+
 function renderRecommendations() {
   if (!state.hasSearched) {
     els.recommendTitle.textContent = "조건을 선택해 주세요";
@@ -419,26 +497,35 @@ function openRoulette() {
     toast("먼저 조건에 맞게 찾아주세요!");
     return;
   }
-  const pool = getRecommendedMenus().slice(0, 20);
-  if (!pool.length) {
+  const pool = getRecommendedMenus().slice(0, 10);
+  if (pool.length < 2) {
     toast("룰렛 후보가 없어요");
     return;
   }
   state.roulette = {
     active: true,
-    items: pool.slice(0, Math.min(8, pool.length)),
+    items: pool,
     selected: null,
+    selectedIndex: -1,
+    rotation: 0,
     spinning: true,
   };
   renderRoulette();
+  pushAppState("roulette");
   els.roulettePanel?.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
 function stopRoulette() {
   if (!state.roulette.active || !state.roulette.spinning) return;
   const items = state.roulette.items;
-  const selected = items[Math.floor(Math.random() * items.length)];
+  const selectedIndex = Math.floor(Math.random() * items.length);
+  const selected = items[selectedIndex];
+  const segment = 360 / items.length;
+  const targetCenter = selectedIndex * segment + segment / 2;
+  const extraTurns = 5 * 360;
   state.roulette.selected = selected;
+  state.roulette.selectedIndex = selectedIndex;
+  state.roulette.rotation = extraTurns - targetCenter;
   state.roulette.spinning = false;
   renderRoulette();
   window.setTimeout(() => {
@@ -448,7 +535,24 @@ function stopRoulette() {
 }
 
 function closeRoulette() {
-  state.roulette = { active: false, items: [], selected: null, spinning: false };
+  state.roulette = { active: false, items: [], selected: null, selectedIndex: -1, rotation: 0, spinning: false };
+  renderRoulette();
+}
+
+function rerollRoulette() {
+  if (!state.roulette.active) {
+    openRoulette();
+    return;
+  }
+  const pool = getRecommendedMenus().slice(0, 10);
+  state.roulette = {
+    active: true,
+    items: pool.length ? pool : state.roulette.items,
+    selected: null,
+    selectedIndex: -1,
+    rotation: 0,
+    spinning: true,
+  };
   renderRoulette();
 }
 
@@ -460,21 +564,24 @@ function renderRoulette() {
   const items = roulette.items;
   els.rouletteWheel.classList.toggle("is-spinning", roulette.spinning);
   els.rouletteWheel.classList.toggle("is-stopping", Boolean(roulette.selected) && !roulette.spinning);
+  els.rouletteWheel.style.setProperty("--roulette-rotation", `${roulette.rotation}deg`);
   els.rouletteWheel.innerHTML = items
     .map(
       (item, index) => `
-        <span style="--i:${index}; --count:${items.length};">
-          ${escapeHtml(item.name)}
-        </span>
+        <div class="roulette-segment ${index === roulette.selectedIndex ? "is-picked" : ""}" style="--i:${index}; --count:${items.length};">
+          <span>${escapeHtml(item.name)}</span>
+        </div>
       `,
     )
     .join("");
   els.rouletteStatus.textContent = roulette.spinning
     ? "룰렛이 돌아가고 있어요. 원하는 순간 STOP!"
-    : roulette.selected
+      : roulette.selected
       ? `${roulette.selected.name} 선택!`
       : "추천 후보로 룰렛을 준비했어요.";
   els.stopRouletteButton.disabled = !roulette.spinning;
+  els.stopRouletteButton.style.display = roulette.spinning ? "block" : "none";
+  els.rerollRouletteButton.style.display = roulette.spinning ? "none" : "block";
   els.rouletteResult.innerHTML =
     roulette.selected && !roulette.spinning
       ? `<article class="menu-card">${cardHtml(roulette.selected, 1)}</article>`
@@ -572,6 +679,7 @@ function render() {
   renderWishlist();
   renderDashboard();
   renderRoulette();
+  renderStoreSearch();
   els.searchOverlay?.classList.toggle("is-visible", state.isSearching);
 }
 
@@ -780,6 +888,7 @@ function showDetail(id) {
     </div>
   `;
   if (!els.detailDialog.open) els.detailDialog.showModal();
+  pushAppState("detail");
 }
 
 function saveWishlist() {
@@ -1151,6 +1260,8 @@ function renderWorldcup() {
   if (!state.worldcup) {
     els.worldcupBoard.innerHTML = `
       <div class="worldcup-start">
+        <div class="worldcup-trophy" aria-hidden="true">🏆</div>
+        <h3>오늘의 메뉴 이상형 월드컵</h3>
         <p>현재 추천 조건과 월드컵 카테고리를 기준으로 후보를 뽑아요.</p>
         <button id="startWorldcup">월드컵 시작</button>
       </div>
@@ -1298,7 +1409,49 @@ function renderDashboard() {
 function switchTab(tabId) {
   document.querySelectorAll(".tab-panel").forEach((panel) => panel.classList.toggle("is-active", panel.id === tabId));
   document.querySelectorAll(".bottom-nav button").forEach((button) => button.classList.toggle("is-active", button.dataset.tab === tabId));
+  state.activeTab = tabId;
+  closeRoulette();
+  pushAppState(tabId);
   window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function pushAppState(screen = state.activeTab) {
+  if (!history.pushState) return;
+  history.pushState({ changwonFoodApp: true, screen }, "", window.location.href);
+}
+
+function handleBackNavigation() {
+  if (els.detailDialog?.open) {
+    els.detailDialog.close();
+    pushAppState(state.activeTab);
+    return;
+  }
+  if (els.locationDialog?.open) {
+    els.locationDialog.close();
+    pushAppState(state.activeTab);
+    return;
+  }
+  if (state.roulette.active) {
+    closeRoulette();
+    pushAppState(state.activeTab);
+    return;
+  }
+  if (state.activeTab !== "recommendTab") {
+    document.querySelectorAll(".tab-panel").forEach((panel) => panel.classList.toggle("is-active", panel.id === "recommendTab"));
+    document.querySelectorAll(".bottom-nav button").forEach((button) => button.classList.toggle("is-active", button.dataset.tab === "recommendTab"));
+    state.activeTab = "recommendTab";
+    pushAppState("recommendTab");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+    return;
+  }
+  const now = Date.now();
+  if (now - state.lastBackAt < 1700) {
+    history.back();
+    return;
+  }
+  state.lastBackAt = now;
+  toast("한 번 더 누르면 종료돼요");
+  pushAppState("recommendTab");
 }
 
 function bindEvents() {
@@ -1362,7 +1515,12 @@ function bindEvents() {
   });
   els.rouletteButton.addEventListener("click", openRoulette);
   els.stopRouletteButton?.addEventListener("click", stopRoulette);
+  els.rerollRouletteButton?.addEventListener("click", rerollRoulette);
   els.closeRouletteButton?.addEventListener("click", closeRoulette);
+  els.storeSearchInput?.addEventListener("input", (event) => {
+    state.storeSearchTerm = event.target.value;
+    renderStoreSearch();
+  });
   document.body.addEventListener("click", (event) => {
     const locationChoice = event.target.closest("[data-location-choice]");
     if (locationChoice) chooseLocationPreference(locationChoice.dataset.locationChoice);
@@ -1395,7 +1553,9 @@ function bindEvents() {
       if (input) input.value = String(value);
       if (output) output.textContent = String(value);
       editor?.querySelectorAll("[data-rating-value]").forEach((button) => {
-        button.classList.toggle("is-selected", Number(button.dataset.ratingValue) <= value);
+        const selected = Number(button.dataset.ratingValue) <= value;
+        button.classList.toggle("is-selected", selected);
+        button.textContent = selected ? "★" : "☆";
       });
     }
     const start = event.target.closest("#startWorldcup");
@@ -1435,6 +1595,7 @@ function bindEvents() {
     button.addEventListener("click", () => switchTab(button.dataset.tab));
   });
   els.closeDialog.addEventListener("click", () => els.detailDialog.close());
+  window.addEventListener("popstate", handleBackNavigation);
 }
 
 function finishSplash() {
@@ -1448,6 +1609,10 @@ function finishSplash() {
 
 renderChips();
 bindEvents();
+if (history.replaceState && history.pushState) {
+  history.replaceState({ changwonFoodApp: true, screen: "entry" }, "", window.location.href);
+  history.pushState({ changwonFoodApp: true, screen: "recommendTab" }, "", window.location.href);
+}
 render();
 finishSplash();
 initSupabase();
