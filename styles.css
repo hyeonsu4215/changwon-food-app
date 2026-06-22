@@ -43,7 +43,7 @@ button {
   min-height: 100vh;
   margin: 0 auto;
   background: var(--bg);
-  padding-bottom: 74px;
+  padding-bottom: 92px;
 }
 
 .splash-screen {
@@ -875,31 +875,68 @@ input[type="range"] {
 .bottom-nav {
   position: fixed;
   left: 50%;
-  bottom: 8px;
+  bottom: max(10px, env(safe-area-inset-bottom));
   z-index: 20;
-  width: min(96vw, 500px);
-  min-height: 56px;
+  width: min(88vw, 430px);
+  min-height: 62px;
   transform: translateX(-50%);
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  overflow: hidden;
-  border: 1px solid rgba(216, 227, 232, 0.92);
-  border-radius: 18px;
-  background: rgba(255, 255, 255, 0.95);
-  box-shadow: 0 12px 30px rgba(22, 34, 45, 0.18);
+  gap: 2px;
+  padding: 7px;
+  border: 1px solid rgba(20, 45, 54, 0.1);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.88);
+  box-shadow: 0 16px 38px rgba(17, 31, 42, 0.18);
+  backdrop-filter: blur(18px);
 }
 
 .bottom-nav button {
+  display: grid;
+  min-width: 0;
+  min-height: 48px;
+  place-items: center;
+  align-content: center;
+  gap: 2px;
   border: 0;
+  border-radius: 999px;
   background: transparent;
   color: var(--muted);
-  font-size: 12px;
+  font-size: 10.5px;
   font-weight: 900;
+  transition: background 160ms ease, color 160ms ease, transform 160ms ease;
 }
 
 .bottom-nav button.is-active {
   color: var(--mint-dark);
   background: var(--mint-soft);
+  transform: translateY(-1px);
+}
+
+.nav-icon {
+  display: inline-grid;
+  width: 22px;
+  height: 22px;
+  place-items: center;
+}
+
+.nav-icon svg {
+  width: 20px;
+  height: 20px;
+  fill: currentColor;
+}
+
+.bottom-nav button.is-active .nav-icon {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 6px 14px rgba(15, 123, 99, 0.16);
+}
+
+.bottom-nav button.is-active .nav-icon svg {
+  width: 18px;
+  height: 18px;
 }
 
 dialog {

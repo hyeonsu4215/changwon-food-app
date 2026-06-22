@@ -162,10 +162,30 @@
       </main>
 
       <nav class="bottom-nav" aria-label="하단 메뉴">
-        <button class="is-active" data-tab="recommendTab">추천</button>
-        <button data-tab="worldcupTab">월드컵</button>
-        <button data-tab="wishlistTab">찜</button>
-        <button data-tab="dataTab">기록</button>
+        <button class="is-active" data-tab="recommendTab" aria-label="추천">
+          <span class="nav-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M3 10.8 12 3l9 7.8v9.7a.5.5 0 0 1-.5.5h-5.2v-6.4H8.7V21H3.5a.5.5 0 0 1-.5-.5v-9.7Z" /></svg>
+          </span>
+          <span>추천</span>
+        </button>
+        <button data-tab="worldcupTab" aria-label="월드컵">
+          <span class="nav-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M8 4h8v3h3v2.2A5.2 5.2 0 0 1 14.4 14H14v2.2h3.2V20H6.8v-3.8H10V14h-.4A5.2 5.2 0 0 1 5 9.2V7h3V4Zm8 5V7H8v2.2A3.2 3.2 0 0 0 11.2 12h1.6A3.2 3.2 0 0 0 16 9.2Zm2 0a3.2 3.2 0 0 0 1-.2V9h-1Zm-12-.2A3.2 3.2 0 0 0 6 9h1v-.2Z" /></svg>
+          </span>
+          <span>월드컵</span>
+        </button>
+        <button data-tab="wishlistTab" aria-label="찜">
+          <span class="nav-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M12 21s-7.4-4.5-9.3-9.1C1.2 8.3 3.2 5 6.6 5c2 0 3.4 1 4.2 2.1C11.6 6 13 5 15 5c3.4 0 5.4 3.3 3.9 6.9C17 16.5 12 21 12 21Z" /></svg>
+          </span>
+          <span>찜</span>
+        </button>
+        <button data-tab="dataTab" aria-label="기록">
+          <span class="nav-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M5 20V9h3v11H5Zm5.5 0V4h3v16h-3ZM16 20v-7h3v7h-3Z" /></svg>
+          </span>
+          <span>기록</span>
+        </button>
       </nav>
     </div>
 
