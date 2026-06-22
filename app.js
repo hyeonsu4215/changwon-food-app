@@ -42,6 +42,9 @@ const state = {
   reviewVisibleCount: {},
   supabase: null,
   supabaseUserId: null,
+  supabaseReady: false,
+  supabaseError: "",
+  supabaseInitPromise: null,
   worldcup: null,
   worldcupCategories: new Set(),
   roulette: {
@@ -832,7 +835,7 @@ function resetTaste(id) {
   showDetail(id);
 }
 
-function saveReview(id) {
+async function saveReview(id) {
   const editor = document.querySelector(`[data-review-editor="${id}"]`);
   const menu = DATA.menus.find((item) => item.id === id);
   if (!editor || !menu) return;
@@ -851,9 +854,12 @@ function saveReview(id) {
   saveNickname(nickname);
   state.reviews[id] = review;
   saveReviews();
-  upsertRemoteReview(review);
-  toast("후기 저장!");
+  toast("기기 저장 완료!");
   render();
+  const synced = await upsertRemoteReview(review);
+  if (!synced) {
+    toast("서버 공유 실패");
+  }
   showDetail(id);
 }
 
@@ -874,20 +880,46 @@ async function deleteReview(id) {
   render();
 }
 
+async function ensureSupabaseReady() {
+  if (state.supabase && state.supabaseUserId) return true;
+  await initSupabase();
+  return Boolean(state.supabase && state.supabaseUserId);
+}
+
 async function initSupabase() {
+  if (state.supabaseInitPromise) return state.supabaseInitPromise;
+  state.supabaseInitPromise = initSupabaseClient();
+  return state.supabaseInitPromise;
+}
+
+async function initSupabaseClient() {
   const config = window.CHANGWON_SUPABASE_CONFIG;
-  if (!config?.enabled || !config.url || !config.anonKey) return;
+  if (!config?.enabled || !config.url || !config.anonKey) {
+    state.supabaseError = "Supabase 설정이 꺼져 있어요.";
+    return;
+  }
   if (!window.supabase?.createClient) {
     await loadScript("https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2").catch(() => null);
   }
-  if (!window.supabase?.createClient) return;
+  if (!window.supabase?.createClient) {
+    state.supabaseError = "Supabase 라이브러리를 불러오지 못했어요.";
+    return;
+  }
   state.supabase = window.supabase.createClient(config.url, config.anonKey);
   const auth = await state.supabase.auth.getSession().catch(() => null);
   if (!auth?.data?.session && state.supabase.auth.signInAnonymously) {
-    await state.supabase.auth.signInAnonymously().catch(() => null);
+    const signIn = await state.supabase.auth.signInAnonymously().catch((error) => ({ error }));
+    if (signIn?.error) {
+      state.supabaseError = signIn.error.message || "익명 로그인에 실패했어요.";
+      console.warn("anonymous sign-in failed", signIn.error);
+    }
   }
   const user = await state.supabase.auth.getUser().catch(() => null);
   state.supabaseUserId = user?.data?.user?.id || null;
+  state.supabaseReady = Boolean(state.supabaseUserId);
+  if (!state.supabaseReady && !state.supabaseError) {
+    state.supabaseError = "익명 사용자 정보를 만들지 못했어요.";
+  }
   await loadRemoteSummaries();
 }
 
@@ -932,8 +964,9 @@ async function loadRemoteSummaries() {
 }
 
 async function upsertRemoteTaste(menuId, taste) {
-  if (!state.supabase || !state.supabaseUserId) return;
-  await state.supabase
+  const ready = await ensureSupabaseReady();
+  if (!ready) return false;
+  const result = await state.supabase
     .from("menu_taste_votes")
     .upsert(
       {
@@ -945,12 +978,22 @@ async function upsertRemoteTaste(menuId, taste) {
       },
       { onConflict: "user_id,menu_id" },
     )
-    .catch(() => null);
+    .catch((error) => ({ error }));
+  if (result?.error) {
+    state.supabaseError = result.error.message || "입맛 공유 저장에 실패했어요.";
+    console.warn("taste sync failed", result.error);
+    return false;
+  }
   await loadRemoteSummaries();
+  return true;
 }
 
 async function upsertRemoteReview(review) {
-  if (!state.supabase || !state.supabaseUserId) return;
+  const ready = await ensureSupabaseReady();
+  if (!ready) {
+    console.warn("review sync skipped", state.supabaseError || "Supabase is not ready");
+    return false;
+  }
   const result = await state.supabase
     .from("menu_reviews")
     .upsert(
@@ -968,8 +1011,14 @@ async function upsertRemoteReview(review) {
       { onConflict: "user_id,menu_id" },
     )
     .catch((error) => ({ error }));
-  if (result?.error) console.warn("review sync failed", result.error);
+  if (result?.error) {
+    state.supabaseError = result.error.message || "후기 공유 저장에 실패했어요.";
+    console.warn("review sync failed", result.error);
+    return false;
+  }
   await loadRemoteSummaries();
+  toast("후기 공유 완료!");
+  return true;
 }
 
 async function shareAppLink() {
@@ -1145,6 +1194,10 @@ function renderDashboard() {
   const historyItems = historyRows().slice(0, 8);
   const reviewStats = myReviewStats();
   const myReviews = Object.values(state.reviews).slice(0, 6);
+  const reviewServerCount = Object.values(state.publicReviews).reduce((sum, reviews) => sum + reviews.length, 0);
+  const syncLabel = state.supabaseReady
+    ? `서버 연결됨 · 공개 후기 ${reviewServerCount}개 불러옴`
+    : `서버 연결 안 됨${state.supabaseError ? ` · ${escapeHtml(state.supabaseError)}` : ""}`;
   els.dataDashboard.innerHTML = `
     <div class="dashboard-card privacy-card">
       <h3>내 프로필</h3>
@@ -1153,6 +1206,7 @@ function renderDashboard() {
         <input id="nicknameInput" type="text" maxlength="20" value="${escapeHtml(state.nickname)}" placeholder="닉네임을 입력해주세요" />
       </label>
       <p>찜, 먹은 기록, 내 입맛 수정은 서버가 아니라 이 기기 브라우저 안에만 저장돼요.</p>
+      <p class="sync-status">${syncLabel}</p>
     </div>
     <div class="dashboard-card">
       <h3>내 식사 기록</h3>
