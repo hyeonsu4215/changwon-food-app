@@ -4,6 +4,13 @@ const FALLBACK_LOCATION = { label: "창원대 정문 임시 기준", lat: 35.242
 const DATA_UPDATED_AT = "2026.06.22";
 const FEEDBACK_FORM_URL = "https://forms.gle/BUYoZiSUXtFDE81J7";
 const MOOD_OPTIONS = ["혼밥", "단체", "가성비", "든든함", "빠른식사", "비오는날", "해장", "시험기간", "데이트", "스트레스", "포장", "배달"];
+const HISTORY_RANGE_OPTIONS = [
+  { label: "1주일", days: 7 },
+  { label: "1달", days: 30 },
+  { label: "3달", days: 90 },
+  { label: "6개월", days: 180 },
+  { label: "1년", days: 365 },
+];
 const CATEGORY_META = {
   "도시락": { order: 1, icon: "dosirak.png" },
   "분식": { order: 2, icon: "bunsik.png" },
@@ -35,6 +42,8 @@ const state = {
   isSearching: false,
   wishlist: JSON.parse(localStorage.getItem("changwonFoodWishlist") || "[]"),
   history: JSON.parse(localStorage.getItem("changwonFoodHistory") || "[]"),
+  historyRangeDays: Number(localStorage.getItem("changwonFoodHistoryRangeDays") || "7"),
+  historyVisibleCount: 5,
   tasteOverrides: JSON.parse(localStorage.getItem("changwonFoodTasteOverrides") || "{}"),
   reviews: JSON.parse(localStorage.getItem("changwonFoodReviews") || "{}"),
   nickname: localStorage.getItem("changwonFoodNickname") || "",
@@ -276,6 +285,8 @@ function isWished(id) {
 }
 
 function toast(message) {
+  const toastHost = els.detailDialog?.open ? els.detailDialog : document.body;
+  if (els.toast.parentElement !== toastHost) toastHost.appendChild(els.toast);
   els.toast.textContent = message;
   els.toast.classList.remove("is-visible");
   window.requestAnimationFrame(() => {
@@ -972,6 +983,7 @@ function toggleWishlist(id) {
 function addHistory(id) {
   state.history.unshift({ historyId: createHistoryId(), id, eatenAt: new Date().toISOString() });
   state.history = state.history.slice(0, 200);
+  state.historyVisibleCount = Math.max(5, state.historyVisibleCount);
   saveHistory();
   toast("먹은기록저장!");
   render();
@@ -1325,6 +1337,27 @@ function historyRows() {
     .filter(Boolean);
 }
 
+function filteredHistoryRows(rows = historyRows()) {
+  const days = Number(state.historyRangeDays) || 7;
+  const fromTime = Date.now() - days * 24 * 60 * 60 * 1000;
+  return rows.filter((entry) => {
+    const eatenTime = new Date(entry.eatenAt).getTime();
+    return Number.isFinite(eatenTime) && eatenTime >= fromTime;
+  });
+}
+
+function setHistoryRange(days) {
+  state.historyRangeDays = Number(days) || 7;
+  state.historyVisibleCount = 5;
+  localStorage.setItem("changwonFoodHistoryRangeDays", String(state.historyRangeDays));
+  renderDashboard();
+}
+
+function showMoreHistory() {
+  state.historyVisibleCount += 5;
+  renderDashboard();
+}
+
 function mostEatenRows() {
   const counts = countBy(historyRows(), (entry) => entry.menu.name).slice(0, 5);
   return counts.length ? barRows(counts) : "<p>아직 먹음 기록이 없습니다.</p>";
@@ -1467,7 +1500,8 @@ function renderDashboard() {
     DATA.menus.flatMap((menu) => menu.tags),
     (tag) => tag,
   ).slice(0, 8);
-  const historyItems = historyRows().slice(0, 8);
+  const filteredHistoryItems = filteredHistoryRows();
+  const historyItems = filteredHistoryItems.slice(0, state.historyVisibleCount);
   const reviewStats = myReviewStats();
   const myReviews = Object.values(state.reviews).slice(0, 6);
   const reviewServerCount = Object.values(state.publicReviews).reduce((sum, reviews) => sum + reviews.length, 0);
@@ -1499,7 +1533,16 @@ function renderDashboard() {
     </div>
     <div class="dashboard-card">
       <h3>내 식사 기록</h3>
-      <p>기록 ${state.history.length}개</p>
+      <p>전체 ${state.history.length}개 · 선택 기간 ${filteredHistoryItems.length}개</p>
+      <div class="history-filter" aria-label="식사 기록 기간">
+        ${HISTORY_RANGE_OPTIONS.map(
+          (option) => `
+            <button class="${Number(state.historyRangeDays) === option.days ? "is-active" : ""}" data-history-range="${option.days}">
+              ${option.label}
+            </button>
+          `,
+        ).join("")}
+      </div>
       ${
         historyItems.length
           ? `<div class="history-list">
@@ -1521,7 +1564,12 @@ function renderDashboard() {
                 )
                 .join("")}
             </div>`
-          : "<p>아직 기록이 없습니다.</p>"
+          : "<p>선택한 기간에 기록이 없습니다.</p>"
+      }
+      ${
+        filteredHistoryItems.length > historyItems.length
+          ? `<button class="history-more-button" data-more-history>더 보기 ${filteredHistoryItems.length - historyItems.length}개 남음</button>`
+          : ""
       }
     </div>
     <div class="dashboard-card">
@@ -1703,6 +1751,10 @@ function bindEvents() {
     if (deleteReviewButton) deleteReview(deleteReviewButton.dataset.deleteReview);
     const deleteHistoryButton = event.target.closest("[data-delete-history]");
     if (deleteHistoryButton) deleteHistoryEntry(deleteHistoryButton.dataset.deleteHistory);
+    const historyRangeButton = event.target.closest("[data-history-range]");
+    if (historyRangeButton) setHistoryRange(historyRangeButton.dataset.historyRange);
+    const moreHistoryButton = event.target.closest("[data-more-history]");
+    if (moreHistoryButton) showMoreHistory();
     const moreReviewsButton = event.target.closest("[data-more-reviews]");
     if (moreReviewsButton) {
       const id = moreReviewsButton.dataset.moreReviews;
