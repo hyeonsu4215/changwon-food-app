@@ -970,10 +970,34 @@ function toggleWishlist(id) {
 }
 
 function addHistory(id) {
-  state.history.unshift({ id, eatenAt: new Date().toISOString() });
+  state.history.unshift({ historyId: createHistoryId(), id, eatenAt: new Date().toISOString() });
   state.history = state.history.slice(0, 200);
   saveHistory();
-  toast("먹음 기록 저장!");
+  toast("먹은기록저장!");
+  render();
+}
+
+function updateHistoryEntry(key, localDateTime) {
+  const index = historyIndexFromKey(key);
+  if (index < 0 || !localDateTime) return;
+  const date = new Date(localDateTime);
+  if (Number.isNaN(date.getTime())) return;
+  state.history[index] = {
+    ...state.history[index],
+    historyId: state.history[index].historyId || createHistoryId(),
+    eatenAt: date.toISOString(),
+  };
+  saveHistory();
+  toast("식사기록수정!");
+  render();
+}
+
+function deleteHistoryEntry(key) {
+  const index = historyIndexFromKey(key);
+  if (index < 0) return;
+  state.history.splice(index, 1);
+  saveHistory();
+  toast("식사기록삭제!");
   render();
 }
 
@@ -1273,11 +1297,30 @@ function formatDateTime(value) {
   return date.toLocaleString("ko-KR", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" });
 }
 
+function toDateTimeLocal(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  const pad = (number) => String(number).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+function createHistoryId() {
+  if (window.crypto?.randomUUID) return window.crypto.randomUUID();
+  return `history-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+function historyIndexFromKey(key) {
+  const byId = state.history.findIndex((entry) => entry.historyId === key);
+  if (byId >= 0) return byId;
+  const byIndex = Number(key);
+  return Number.isInteger(byIndex) && byIndex >= 0 && byIndex < state.history.length ? byIndex : -1;
+}
+
 function historyRows() {
   return state.history
-    .map((entry) => {
+    .map((entry, index) => {
       const menu = DATA.menus.find((item) => item.id === entry.id);
-      return menu ? { ...entry, menu } : null;
+      return menu ? { ...entry, historyIndex: index, historyKey: entry.historyId || String(index), menu } : null;
     })
     .filter(Boolean);
 }
@@ -1457,7 +1500,29 @@ function renderDashboard() {
     <div class="dashboard-card">
       <h3>내 식사 기록</h3>
       <p>기록 ${state.history.length}개</p>
-      ${historyItems.length ? historyItems.map((entry) => `<p>${entry.menu.name} · ${entry.menu.restaurantName} <span>${formatDateTime(entry.eatenAt)}</span></p>`).join("") : "<p>아직 기록이 없습니다.</p>"}
+      ${
+        historyItems.length
+          ? `<div class="history-list">
+              ${historyItems
+                .map(
+                  (entry) => `
+                    <div class="history-row">
+                      <div class="history-row-info">
+                        <strong>${escapeHtml(entry.menu.name)}</strong>
+                        <span>${escapeHtml(entry.menu.restaurantName)}</span>
+                      </div>
+                      <label>
+                        <span>먹은 시간</span>
+                        <input type="datetime-local" value="${toDateTimeLocal(entry.eatenAt)}" data-history-time="${entry.historyKey}" />
+                      </label>
+                      <button class="inline-danger" data-delete-history="${entry.historyKey}">삭제</button>
+                    </div>
+                  `,
+                )
+                .join("")}
+            </div>`
+          : "<p>아직 기록이 없습니다.</p>"
+      }
     </div>
     <div class="dashboard-card">
       <h3>자주 먹은 메뉴</h3>
@@ -1636,6 +1701,8 @@ function bindEvents() {
     if (saveReviewButton) saveReview(saveReviewButton.dataset.saveReview);
     const deleteReviewButton = event.target.closest("[data-delete-review]");
     if (deleteReviewButton) deleteReview(deleteReviewButton.dataset.deleteReview);
+    const deleteHistoryButton = event.target.closest("[data-delete-history]");
+    if (deleteHistoryButton) deleteHistoryEntry(deleteHistoryButton.dataset.deleteHistory);
     const moreReviewsButton = event.target.closest("[data-more-reviews]");
     if (moreReviewsButton) {
       const id = moreReviewsButton.dataset.moreReviews;
@@ -1683,6 +1750,10 @@ function bindEvents() {
     if (!reviewInput) return;
     const output = reviewInput.closest("[data-review-editor]")?.querySelector(`[data-review-output="${reviewInput.dataset.reviewField}"]`);
     if (output) output.textContent = reviewInput.value;
+  });
+  document.body.addEventListener("change", (event) => {
+    const historyTimeInput = event.target.closest("[data-history-time]");
+    if (historyTimeInput) updateHistoryEntry(historyTimeInput.dataset.historyTime, historyTimeInput.value);
   });
   els.clearWishlist.addEventListener("click", () => {
     state.wishlist = [];
