@@ -57,31 +57,13 @@
               <div id="categoryGrid" class="category-grid"></div>
             </div>
 
-            <div class="filter-block">
-              <div class="control-title">
-                <strong>이용 상황</strong>
-                <span>여러 개 선택 가능</span>
-              </div>
-              <div id="moodGrid" class="mood-grid"></div>
-            </div>
-
-            <details class="advanced-filter">
-              <summary>예산과 맛 취향 조절</summary>
-
+            <div class="advanced-filter is-essential">
               <div class="budget-box">
                 <div class="control-title">
                   <strong>예산</strong>
                   <span id="budgetValue">8,000원 이하</span>
                 </div>
                 <input type="range" id="budgetRange" min="3000" max="30000" step="500" value="8000" />
-              </div>
-
-              <div class="toggle-strip" aria-label="추가 조건">
-                <label><input type="checkbox" id="onlyOpen" /> 영업중</label>
-                <label><input type="checkbox" id="needTakeout" /> 포장</label>
-                <label><input type="checkbox" id="needDelivery" /> 배달</label>
-                <label><input type="checkbox" id="needAlone" /> 혼밥</label>
-                <label><input type="checkbox" id="wantMeat" /> 고기</label>
               </div>
 
               <div class="taste-panel" aria-label="맛 조건">
@@ -97,6 +79,26 @@
                   <span>단맛 <b id="sweetValue">2</b></span>
                   <input type="range" id="sweetPreference" min="0" max="5" value="2" />
                 </label>
+              </div>
+            </div>
+
+            <details class="advanced-filter">
+              <summary>이용상황 자세히 선택</summary>
+
+              <div class="filter-block">
+                <div class="control-title">
+                  <strong>이용 상황</strong>
+                  <span>여러 개 선택 가능</span>
+                </div>
+                <div id="moodGrid" class="mood-grid"></div>
+              </div>
+
+              <div class="toggle-strip" aria-label="추가 조건">
+                <label><input type="checkbox" id="onlyOpen" /> 영업중</label>
+                <label><input type="checkbox" id="needTakeout" /> 포장</label>
+                <label><input type="checkbox" id="needDelivery" /> 배달</label>
+                <label><input type="checkbox" id="needAlone" /> 혼밥</label>
+                <label><input type="checkbox" id="wantMeat" /> 고기</label>
               </div>
             </details>
 
@@ -127,6 +129,13 @@
               <option value="16">16강</option>
             </select>
           </div>
+          <section class="control-surface compact-surface" aria-label="월드컵 카테고리">
+            <div class="control-title">
+              <strong>월드컵 카테고리</strong>
+              <span>안 고르면 전체</span>
+            </div>
+            <div id="worldcupCategoryGrid" class="mood-grid"></div>
+          </section>
           <div id="worldcupBoard" class="worldcup-board"></div>
         </section>
 
@@ -168,6 +177,7 @@
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
     <script src="./data.js"></script>
+    <script src="./supabase-config.js"></script>
     <script src="./app.js"></script>
   </body>
 </html>
