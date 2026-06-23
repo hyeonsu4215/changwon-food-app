@@ -3,6 +3,7 @@ const DATA = window.CHANGWON_FOOD_DATA;
 const FALLBACK_LOCATION = { label: "창원대 정문 임시 기준", lat: 35.24235, lng: 128.68965 };
 const DATA_UPDATED_AT = "2026.06.22";
 const FEEDBACK_FORM_URL = "https://forms.gle/BUYoZiSUXtFDE81J7";
+const VISIT_REVIEW_RADIUS_M = 50;
 const MOOD_OPTIONS = ["혼밥", "단체", "가성비", "든든함", "빠른식사", "비오는날", "해장", "시험기간", "데이트", "스트레스", "포장", "배달"];
 const HISTORY_RANGE_OPTIONS = [
   { label: "1주일", days: 7 },
@@ -152,15 +153,19 @@ function meters(value) {
   return `${(value / 1000).toFixed(1)}km`;
 }
 
-function haversine(a, b) {
+function getDistanceMeters(lat1, lon1, lat2, lon2) {
   const R = 6371000;
   const toRad = (deg) => (deg * Math.PI) / 180;
-  const dLat = toRad(b.lat - a.lat);
-  const dLng = toRad(b.lng - a.lng);
-  const lat1 = toRad(a.lat);
-  const lat2 = toRad(b.lat);
-  const x = Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lon2 - lon1);
+  const fromLat = toRad(lat1);
+  const toLat = toRad(lat2);
+  const x = Math.sin(dLat / 2) ** 2 + Math.cos(fromLat) * Math.cos(toLat) * Math.sin(dLng / 2) ** 2;
   return 2 * R * Math.atan2(Math.sqrt(x), Math.sqrt(1 - x));
+}
+
+function haversine(a, b) {
+  return getDistanceMeters(a.lat, a.lng, b.lat, b.lng);
 }
 
 function currentBase() {
@@ -780,6 +785,61 @@ function requestLocation() {
   );
 }
 
+function getCurrentGpsLocation() {
+  return new Promise((resolve, reject) => {
+    if (!navigator.geolocation) {
+      reject(new Error("unsupported"));
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const location = {
+          label: "현재 위치",
+          lat: pos.coords.latitude,
+          lng: pos.coords.longitude,
+          accuracy: pos.coords.accuracy,
+        };
+        state.location = location;
+        state.locationStatus = "ready";
+        resolve(location);
+      },
+      (error) => reject(error),
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 },
+    );
+  });
+}
+
+function canWriteVisitReview(userLat, userLon, restaurantLat, restaurantLon) {
+  const distance = getDistanceMeters(userLat, userLon, restaurantLat, restaurantLon);
+  return {
+    ok: distance <= VISIT_REVIEW_RADIUS_M,
+    distance,
+  };
+}
+
+async function verifyVisitReviewLocation(restaurant) {
+  if (!restaurant?.lat || !restaurant?.lng) {
+    alert("가게 위치 정보가 없어 방문 인증 후기를 작성할 수 없습니다.");
+    return false;
+  }
+  let userLocation;
+  try {
+    toast("방문 위치 확인 중...");
+    userLocation = await getCurrentGpsLocation();
+  } catch {
+    state.locationStatus = "denied";
+    renderLocationStatus();
+    alert("방문 인증 후기를 작성하려면 위치 권한이 필요합니다.");
+    return false;
+  }
+  const result = canWriteVisitReview(userLocation.lat, userLocation.lng, restaurant.lat, restaurant.lng);
+  if (!result.ok) {
+    alert("가게 반경 50m 이내에서만 방문 인증 후기를 작성할 수 있습니다.");
+    return false;
+  }
+  return true;
+}
+
 function showLocationDialog() {
   if (els.locationDialog && !els.locationDialog.open) {
     els.locationDialog.showModal();
@@ -883,8 +943,9 @@ function showDetail(id) {
     <section class="review-form" data-review-editor="${item.id}">
       <div class="control-title">
         <strong>후기 남기기</strong>
-        <span>300자 이내</span>
+        <span>방문 인증 필요 · 300자 이내</span>
       </div>
+      <p class="visit-review-note">가게 반경 ${VISIT_REVIEW_RADIUS_M}m 이내에서만 방문 인증 후기를 작성할 수 있어요.</p>
       <label>
         <span>닉네임</span>
         <input type="text" data-review-field="nickname" maxlength="20" value="${escapeHtml(myReview.nickname || state.nickname || "")}" placeholder="닉네임" />
@@ -1038,6 +1099,9 @@ async function saveReview(id) {
   const editor = document.querySelector(`[data-review-editor="${id}"]`);
   const menu = DATA.menus.find((item) => item.id === id);
   if (!editor || !menu) return;
+  const restaurant = restaurantsById.get(menu.restaurantId);
+  const isVisitVerified = await verifyVisitReviewLocation(restaurant);
+  if (!isVisitVerified) return;
   const field = (name) => editor.querySelector(`[data-review-field="${name}"]`);
   const nickname = field("nickname")?.value.trim().slice(0, 20) || "익명";
   const review = {

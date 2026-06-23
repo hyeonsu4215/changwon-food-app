@@ -753,6 +753,17 @@ input[type="range"] {
   resize: vertical;
 }
 
+.visit-review-note {
+  margin: -2px 0 4px;
+  padding: 8px 9px;
+  border-radius: 8px;
+  background: var(--mint-soft);
+  color: var(--mint-dark);
+  font-size: 11px;
+  font-weight: 850;
+  line-height: 1.45;
+}
+
 .star-rating {
   display: flex;
   gap: 4px;
