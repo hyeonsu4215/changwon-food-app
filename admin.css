@@ -109,7 +109,9 @@ button {
 
 .admin-form button,
 .admin-top button,
-.panel-heading button {
+.panel-heading button,
+.form-actions button,
+.review-tools > button {
   min-height: 40px;
   border: 0;
   border-radius: 8px;
@@ -232,6 +234,79 @@ button {
   justify-content: space-between;
   gap: 12px;
   margin-bottom: 12px;
+}
+
+.heading-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.catalog-editor {
+  margin: 14px 0;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #f8fbfa;
+}
+
+.catalog-editor h3 {
+  margin: 0 0 10px;
+  font-size: 16px;
+}
+
+.catalog-form {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.catalog-form label {
+  display: grid;
+  gap: 5px;
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.catalog-form label.wide,
+.catalog-form .wide {
+  grid-column: span 4;
+}
+
+.catalog-form input,
+.catalog-form select {
+  width: 100%;
+  min-height: 38px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  padding: 0 10px;
+  color: var(--ink);
+}
+
+.check-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+  padding: 8px 0;
+}
+
+.check-grid label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.form-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.form-actions button:nth-child(2) {
+  background: #e6edf1;
+  color: #405064;
 }
 
 .admin-list {
@@ -357,5 +432,14 @@ button {
   .panel-heading,
   .row-top {
     display: grid;
+  }
+
+  .catalog-form {
+    grid-template-columns: 1fr;
+  }
+
+  .catalog-form label.wide,
+  .catalog-form .wide {
+    grid-column: span 1;
   }
 }

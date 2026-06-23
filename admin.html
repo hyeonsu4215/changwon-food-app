@@ -37,6 +37,7 @@
         <nav class="admin-tabs">
           <button class="is-active" data-admin-tab="reviews">후기 관리</button>
           <button data-admin-tab="reports">정보 제보 관리</button>
+          <button data-admin-tab="catalog">가게/메뉴 관리</button>
         </nav>
 
         <section id="reviewsPanel" class="admin-card">
@@ -83,6 +84,90 @@
             <button data-report-filter="rejected">보류</button>
           </div>
           <div id="reportList" class="admin-list"></div>
+        </section>
+
+        <section id="catalogPanel" class="admin-card" hidden>
+          <div class="panel-heading">
+            <div>
+              <h2>가게/메뉴 관리</h2>
+              <p>엑셀 대신 Supabase에 저장된 가게와 대표 메뉴를 추가하거나 수정합니다.</p>
+            </div>
+            <div class="heading-actions">
+              <button id="seedCatalog">현재 앱 데이터 초기 업로드</button>
+              <button id="refreshCatalog">새로고침</button>
+            </div>
+          </div>
+          <div class="review-tools">
+            <div class="segmented">
+              <button class="is-active" data-catalog-mode="restaurants">가게</button>
+              <button data-catalog-mode="menus">메뉴</button>
+            </div>
+            <button data-new-catalog>새 항목 추가</button>
+            <span id="catalogCount" class="count-text"></span>
+          </div>
+
+          <section id="restaurantEditor" class="catalog-editor">
+            <h3>가게 추가/수정</h3>
+            <form id="restaurantForm" class="catalog-form">
+              <label><span>ID</span><input name="id" required placeholder="예: C030" /></label>
+              <label><span>가게명</span><input name="name" required /></label>
+              <label><span>지역</span><input name="area" placeholder="정문" /></label>
+              <label class="wide"><span>주소</span><input name="address" /></label>
+              <label><span>위도</span><input name="lat" type="number" step="0.000001" /></label>
+              <label><span>경도</span><input name="lng" type="number" step="0.000001" /></label>
+              <label><span>전화번호</span><input name="phone" /></label>
+              <label><span>오픈</span><input name="openTime" placeholder="10:00:00" /></label>
+              <label><span>마감</span><input name="closeTime" placeholder="21:00:00" /></label>
+              <label><span>브레이크</span><input name="breakTime" /></label>
+              <label><span>휴무</span><input name="closedDays" /></label>
+              <label><span>좌석</span><input name="seats" type="number" min="0" /></label>
+              <label><span>리뷰수</span><input name="reviewCount" type="number" min="0" /></label>
+              <label><span>출처</span><input name="source" /></label>
+              <label><span>확인일</span><input name="lastChecked" type="date" /></label>
+              <label class="wide"><span>메모</span><input name="memo" /></label>
+              <div class="check-grid wide">
+                <label><input name="takeout" type="checkbox" /> 포장</label>
+                <label><input name="delivery" type="checkbox" /> 배달</label>
+                <label><input name="alone" type="checkbox" /> 혼밥</label>
+                <label><input name="group" type="checkbox" /> 단체</label>
+                <label><input name="active" type="checkbox" checked /> 앱에 표시</label>
+              </div>
+              <div class="form-actions wide">
+                <button type="submit">가게 저장</button>
+                <button type="button" data-clear-restaurant>초기화</button>
+              </div>
+            </form>
+          </section>
+
+          <section id="menuEditor" class="catalog-editor" hidden>
+            <h3>메뉴 추가/수정</h3>
+            <form id="menuForm" class="catalog-form">
+              <label><span>ID</span><input name="id" required placeholder="예: M101" /></label>
+              <label><span>가게</span><select name="restaurantId" required></select></label>
+              <label><span>메뉴명</span><input name="name" required /></label>
+              <label><span>카테고리</span><input name="category" required placeholder="한식" /></label>
+              <label><span>가격</span><input name="price" type="number" min="0" required /></label>
+              <label><span>맵기</span><input name="spicy" type="number" min="0" max="5" step="0.5" /></label>
+              <label><span>짠맛</span><input name="salty" type="number" min="0" max="5" step="0.5" /></label>
+              <label><span>단맛</span><input name="sweet" type="number" min="0" max="5" step="0.5" /></label>
+              <label><span>양</span><input name="portion" type="number" min="0" max="5" step="0.5" /></label>
+              <label><span>가성비</span><input name="value" type="number" min="0" max="5" step="0.5" /></label>
+              <label><span>속도</span><input name="speed" type="number" min="0" max="5" step="0.5" /></label>
+              <label class="wide"><span>태그</span><input name="tags" placeholder="혼밥, 가성비, 포장" /></label>
+              <label><span>출처</span><input name="source" /></label>
+              <label><span>확인일</span><input name="lastChecked" type="date" /></label>
+              <label class="wide"><span>추천 메모</span><input name="recommendNote" /></label>
+              <div class="check-grid wide">
+                <label><input name="signature" type="checkbox" /> 대표 메뉴</label>
+                <label><input name="available" type="checkbox" checked /> 판매중</label>
+              </div>
+              <div class="form-actions wide">
+                <button type="submit">메뉴 저장</button>
+                <button type="button" data-clear-menu>초기화</button>
+              </div>
+            </form>
+          </section>
+          <div id="catalogList" class="admin-list"></div>
         </section>
       </section>
     </main>

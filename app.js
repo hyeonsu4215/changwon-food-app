@@ -53,6 +53,8 @@ const state = {
   publicReviews: {},
   myReports: [],
   reviewVisibleCount: {},
+  catalogSource: "static",
+  catalogStatus: "내장 데이터 사용 중",
   supabase: null,
   supabaseUserId: null,
   supabaseReady: false,
@@ -137,6 +139,73 @@ const els = {
 };
 
 const restaurantsById = new Map(DATA.restaurants.map((restaurant) => [restaurant.id, restaurant]));
+
+function dbRestaurantToApp(row) {
+  return {
+    id: row.id,
+    name: row.name || "",
+    area: row.area || "",
+    address: row.address || "",
+    lat: Number(row.lat || 0),
+    lng: Number(row.lng || 0),
+    phone: row.phone || "",
+    openTime: row.open_time || "",
+    closeTime: row.close_time || "",
+    breakTime: row.break_time || "",
+    closedDays: row.closed_days || "",
+    takeout: Boolean(row.takeout),
+    delivery: Boolean(row.delivery),
+    alone: Boolean(row.alone),
+    group: Boolean(row.group_available),
+    seats: Number(row.seats || 0),
+    reviewCount: Number(row.review_count || 0),
+    source: row.source || "",
+    lastChecked: row.last_checked || "",
+    memo: row.memo || "",
+  };
+}
+
+function dbMenuToApp(row, restaurantMap = restaurantsById) {
+  const restaurant = restaurantMap.get(row.restaurant_id);
+  return {
+    id: row.id,
+    restaurantId: row.restaurant_id,
+    restaurantName: row.restaurant_name || restaurant?.name || "",
+    name: row.name || "",
+    category: row.category || "기타",
+    price: Number(row.price || 0),
+    spicy: Number(row.spicy || 0),
+    salty: Number(row.salty || 0),
+    sweet: Number(row.sweet || 0),
+    portion: Number(row.portion || 0),
+    value: Number(row.value || 0),
+    speed: Number(row.speed || 0),
+    signature: Boolean(row.signature),
+    available: Boolean(row.available),
+    tags: Array.isArray(row.tags) ? row.tags : [],
+    source: row.source || "",
+    lastChecked: row.last_checked || "",
+    recommendNote: row.recommend_note || "",
+  };
+}
+
+function setCatalogData(restaurants, menus, sourceLabel) {
+  DATA.restaurants = restaurants;
+  restaurantsById.clear();
+  DATA.restaurants.forEach((restaurant) => restaurantsById.set(restaurant.id, restaurant));
+  DATA.menus = menus.map((menu) => ({
+    ...menu,
+    restaurantName: menu.restaurantName || restaurantsById.get(menu.restaurantId)?.name || "",
+  }));
+  DATA.meta = {
+    ...(DATA.meta || {}),
+    restaurantCount: DATA.restaurants.length,
+    menuCount: DATA.menus.length,
+    generatedFrom: sourceLabel,
+  };
+  state.catalogSource = sourceLabel;
+  state.catalogStatus = sourceLabel === "supabase" ? "Supabase 데이터 사용 중" : "내장 데이터 사용 중";
+}
 
 function clampScore(value, min = 0, max = 5) {
   const number = Number(value);
@@ -1195,7 +1264,10 @@ async function initSupabase() {
   if (state.supabaseInitPromise) return state.supabaseInitPromise;
   state.supabaseInitPromise = (async () => {
     const ready = await ensureSupabaseReady();
-    if (ready) await loadRemoteSummaries();
+    if (ready) {
+      await loadRemoteCatalog();
+      await loadRemoteSummaries();
+    }
     return ready;
   })().finally(() => {
     state.supabaseInitPromise = null;
@@ -1217,6 +1289,39 @@ function loadScript(src) {
     script.onerror = reject;
     document.head.appendChild(script);
   });
+}
+
+async function loadRemoteCatalog() {
+  if (!state.supabase) return false;
+  const [restaurantResult, menuResult] = await Promise.all([
+    state.supabase.from("restaurants").select("*").eq("active", true).order("name", { ascending: true }),
+    state.supabase.from("menus").select("*").eq("available", true).order("name", { ascending: true }),
+  ]).catch((error) => {
+    console.warn("catalog load failed", error);
+    return [];
+  });
+
+  if (restaurantResult?.error || menuResult?.error) {
+    state.catalogSource = "static";
+    state.catalogStatus = "Supabase 가게/메뉴 테이블이 없어 내장 데이터 사용 중";
+    console.warn("catalog table unavailable", restaurantResult?.error || menuResult?.error);
+    return false;
+  }
+
+  const restaurantRows = restaurantResult?.data || [];
+  const menuRows = menuResult?.data || [];
+  if (!restaurantRows.length || !menuRows.length) {
+    state.catalogSource = "static";
+    state.catalogStatus = "Supabase 데이터가 비어 있어 내장 데이터 사용 중";
+    return false;
+  }
+
+  const nextRestaurants = restaurantRows.map(dbRestaurantToApp);
+  const tempMap = new Map(nextRestaurants.map((restaurant) => [restaurant.id, restaurant]));
+  const nextMenus = menuRows.filter((row) => tempMap.has(row.restaurant_id)).map((row) => dbMenuToApp(row, tempMap));
+  setCatalogData(nextRestaurants, nextMenus, "supabase");
+  renderChips();
+  return true;
 }
 
 async function loadRemoteSummaries() {
@@ -1258,6 +1363,7 @@ async function refreshRemoteData() {
     toast("서버 연결 실패");
     return;
   }
+  await loadRemoteCatalog();
   await loadRemoteSummaries();
   toast("평균 데이터 갱신!");
 }
@@ -1787,6 +1893,7 @@ function renderDashboard() {
     <div class="dashboard-card">
       <h3>데이터 현황</h3>
       <p>음식점 ${DATA.meta.restaurantCount}곳, 대표 메뉴 ${DATA.meta.menuCount}개를 기준으로 추천해요.</p>
+      <p>가게/메뉴 기준: ${escapeHtml(state.catalogStatus)}</p>
       <p>데이터 최종 수정일: ${DATA_UPDATED_AT}</p>
       <div class="dashboard-actions">
         <button data-report-open data-report-type="wrong_info" data-report-target-type="general" data-report-target-id="" data-report-target-label="전체 데이터">정보 제보 / 잘못된 정보 신고</button>

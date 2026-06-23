@@ -5,12 +5,15 @@ const state = {
   user: null,
   reviews: [],
   reports: [],
+  restaurants: [...DATA.restaurants],
+  menus: [...DATA.menus],
   reviewFilter: "all",
   reviewMode: "all",
   reviewRestaurantId: "all",
   reviewPage: 0,
   reviewPageSize: 10,
   reportFilter: "all",
+  catalogMode: "restaurants",
 };
 
 const els = {
@@ -23,18 +26,34 @@ const els = {
   adminPanel: document.querySelector("#adminPanel"),
   reviewsPanel: document.querySelector("#reviewsPanel"),
   reportsPanel: document.querySelector("#reportsPanel"),
+  catalogPanel: document.querySelector("#catalogPanel"),
   reviewList: document.querySelector("#reviewList"),
   reviewPager: document.querySelector("#reviewPager"),
   reviewCount: document.querySelector("#reviewCount"),
   reviewRestaurantFilter: document.querySelector("#reviewRestaurantFilter"),
   reviewStoreField: document.querySelector("#reviewStoreField"),
   reportList: document.querySelector("#reportList"),
+  catalogList: document.querySelector("#catalogList"),
+  catalogCount: document.querySelector("#catalogCount"),
+  restaurantEditor: document.querySelector("#restaurantEditor"),
+  menuEditor: document.querySelector("#menuEditor"),
+  restaurantForm: document.querySelector("#restaurantForm"),
+  menuForm: document.querySelector("#menuForm"),
+  seedCatalog: document.querySelector("#seedCatalog"),
+  refreshCatalog: document.querySelector("#refreshCatalog"),
   refreshReviews: document.querySelector("#refreshReviews"),
   refreshReports: document.querySelector("#refreshReports"),
 };
 
 const restaurantsById = new Map(DATA.restaurants.map((restaurant) => [restaurant.id, restaurant]));
 const menusById = new Map(DATA.menus.map((menu) => [menu.id, menu]));
+
+function refreshCatalogMaps() {
+  restaurantsById.clear();
+  state.restaurants.forEach((restaurant) => restaurantsById.set(restaurant.id, restaurant));
+  menusById.clear();
+  state.menus.forEach((menu) => menusById.set(menu.id, menu));
+}
 
 function escapeHtml(value) {
   return String(value ?? "")
@@ -49,6 +68,125 @@ function formatDate(value) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "-";
   return date.toLocaleString("ko-KR", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" });
+}
+
+function toDateInput(value) {
+  if (!value || value === "X") return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toISOString().slice(0, 10);
+}
+
+function dateInputToIso(value) {
+  return value ? `${value}T00:00:00` : null;
+}
+
+function dbRestaurantToApp(row) {
+  return {
+    id: row.id,
+    name: row.name || "",
+    area: row.area || "",
+    address: row.address || "",
+    lat: Number(row.lat || 0),
+    lng: Number(row.lng || 0),
+    phone: row.phone || "",
+    openTime: row.open_time || "",
+    closeTime: row.close_time || "",
+    breakTime: row.break_time || "",
+    closedDays: row.closed_days || "",
+    takeout: Boolean(row.takeout),
+    delivery: Boolean(row.delivery),
+    alone: Boolean(row.alone),
+    group: Boolean(row.group_available),
+    seats: Number(row.seats || 0),
+    reviewCount: Number(row.review_count || 0),
+    source: row.source || "",
+    lastChecked: row.last_checked || "",
+    memo: row.memo || "",
+    active: row.active !== false,
+  };
+}
+
+function dbMenuToApp(row) {
+  const restaurant = restaurantsById.get(row.restaurant_id);
+  return {
+    id: row.id,
+    restaurantId: row.restaurant_id,
+    restaurantName: row.restaurant_name || restaurant?.name || "",
+    name: row.name || "",
+    category: row.category || "기타",
+    price: Number(row.price || 0),
+    spicy: Number(row.spicy || 0),
+    salty: Number(row.salty || 0),
+    sweet: Number(row.sweet || 0),
+    portion: Number(row.portion || 0),
+    value: Number(row.value || 0),
+    speed: Number(row.speed || 0),
+    signature: Boolean(row.signature),
+    available: Boolean(row.available),
+    tags: Array.isArray(row.tags) ? row.tags : [],
+    source: row.source || "",
+    lastChecked: row.last_checked || "",
+    recommendNote: row.recommend_note || "",
+  };
+}
+
+function appRestaurantToDb(restaurant) {
+  return {
+    id: restaurant.id,
+    name: restaurant.name,
+    area: restaurant.area || "",
+    address: restaurant.address || "",
+    lat: Number(restaurant.lat || 0),
+    lng: Number(restaurant.lng || 0),
+    phone: restaurant.phone || "",
+    open_time: restaurant.openTime || "",
+    close_time: restaurant.closeTime || "",
+    break_time: restaurant.breakTime || "",
+    closed_days: restaurant.closedDays || "",
+    takeout: Boolean(restaurant.takeout),
+    delivery: Boolean(restaurant.delivery),
+    alone: Boolean(restaurant.alone),
+    group_available: Boolean(restaurant.group),
+    seats: Number(restaurant.seats || 0),
+    review_count: Number(restaurant.reviewCount || 0),
+    source: restaurant.source || "",
+    last_checked: restaurant.lastChecked || null,
+    memo: restaurant.memo || "",
+    active: restaurant.active !== false,
+  };
+}
+
+function appMenuToDb(menu) {
+  const restaurant = restaurantsById.get(menu.restaurantId);
+  return {
+    id: menu.id,
+    restaurant_id: menu.restaurantId,
+    restaurant_name: restaurant?.name || menu.restaurantName || "",
+    name: menu.name,
+    category: menu.category || "기타",
+    price: Number(menu.price || 0),
+    spicy: Number(menu.spicy || 0),
+    salty: Number(menu.salty || 0),
+    sweet: Number(menu.sweet || 0),
+    portion: Number(menu.portion || 0),
+    value: Number(menu.value || 0),
+    speed: Number(menu.speed || 0),
+    signature: Boolean(menu.signature),
+    available: menu.available !== false,
+    tags: Array.isArray(menu.tags) ? menu.tags : [],
+    source: menu.source || "",
+    last_checked: menu.lastChecked || null,
+    recommend_note: menu.recommendNote || "",
+  };
+}
+
+function nextId(prefix, rows) {
+  const max = rows.reduce((value, row) => {
+    const number = Number(String(row.id || "").replace(prefix, ""));
+    return Number.isFinite(number) ? Math.max(value, number) : value;
+  }, 0);
+  return `${prefix}${String(max + 1).padStart(3, "0")}`;
 }
 
 function menuLabel(menuId) {
@@ -71,10 +209,14 @@ function reviewRestaurantName(review) {
 
 function renderRestaurantFilterOptions() {
   if (!els.reviewRestaurantFilter) return;
-  const options = DATA.restaurants
+  const options = state.restaurants
     .map((restaurant) => `<option value="${restaurant.id}">${escapeHtml(restaurant.name)}</option>`)
     .join("");
   els.reviewRestaurantFilter.innerHTML = `<option value="all">전체 가게</option>${options}`;
+  const menuSelect = els.menuForm?.elements.restaurantId;
+  if (menuSelect) {
+    menuSelect.innerHTML = options;
+  }
 }
 
 async function loadScript(src) {
@@ -136,6 +278,7 @@ async function enterAdmin() {
   els.loginPanel.hidden = true;
   els.adminPanel.hidden = false;
   els.signOutButton.hidden = false;
+  await loadCatalog();
   await Promise.all([loadReviews(), loadReports()]);
 }
 
@@ -163,6 +306,59 @@ async function signOut() {
   els.loginPanel.hidden = false;
   els.adminPanel.hidden = true;
   els.signOutButton.hidden = true;
+}
+
+async function loadCatalog() {
+  if (!els.catalogList) return;
+  const [restaurantResult, menuResult] = await Promise.all([
+    state.supabase.from("restaurants").select("*").order("name", { ascending: true }),
+    state.supabase.from("menus").select("*").order("name", { ascending: true }),
+  ]).catch((error) => {
+    console.warn("catalog load failed", error);
+    return [];
+  });
+
+  if (restaurantResult?.error || menuResult?.error) {
+    els.catalogList.innerHTML = `<div class="empty">가게/메뉴 테이블이 아직 없습니다. Supabase에서 05_catalog_tables_policies.sql을 먼저 실행해주세요.</div>`;
+    return;
+  }
+
+  if (restaurantResult?.data?.length) {
+    state.restaurants = restaurantResult.data.map(dbRestaurantToApp);
+    refreshCatalogMaps();
+  }
+  if (menuResult?.data?.length) {
+    state.menus = menuResult.data.map(dbMenuToApp);
+    refreshCatalogMaps();
+  }
+  renderRestaurantFilterOptions();
+  clearRestaurantForm();
+  clearMenuForm();
+  renderCatalog();
+}
+
+async function seedCatalogFromStatic() {
+  if (!confirm("현재 data.js의 가게/메뉴를 Supabase에 업로드할까요? 같은 ID는 덮어씁니다.")) return;
+  els.catalogList.innerHTML = `<div class="empty">초기 데이터를 업로드하는 중...</div>`;
+  state.restaurants = [...DATA.restaurants].map((restaurant) => ({ ...restaurant, active: true }));
+  state.menus = [...DATA.menus];
+  refreshCatalogMaps();
+  const restaurantRows = state.restaurants.map(appRestaurantToDb);
+  const menuRows = state.menus.map(appMenuToDb);
+  const restaurantResult = await state.supabase.from("restaurants").upsert(restaurantRows, { onConflict: "id" });
+  if (restaurantResult.error) {
+    alert(restaurantResult.error.message || "가게 업로드에 실패했습니다.");
+    renderCatalog();
+    return;
+  }
+  const menuResult = await state.supabase.from("menus").upsert(menuRows, { onConflict: "id" });
+  if (menuResult.error) {
+    alert(menuResult.error.message || "메뉴 업로드에 실패했습니다.");
+    renderCatalog();
+    return;
+  }
+  await loadCatalog();
+  alert("초기 가게/메뉴 데이터 업로드 완료!");
 }
 
 async function loadReviews() {
@@ -317,11 +513,237 @@ async function updateReportStatus(id, status) {
   renderReports();
 }
 
+function renderCatalog() {
+  if (!els.catalogList) return;
+  const isRestaurantMode = state.catalogMode === "restaurants";
+  els.restaurantEditor.hidden = !isRestaurantMode;
+  els.menuEditor.hidden = isRestaurantMode;
+  els.catalogCount.textContent = isRestaurantMode ? `가게 ${state.restaurants.length}곳` : `메뉴 ${state.menus.length}개`;
+  els.catalogList.innerHTML = isRestaurantMode ? renderRestaurantRows() : renderMenuRows();
+}
+
+function renderRestaurantRows() {
+  return state.restaurants.length
+    ? state.restaurants
+        .map(
+          (restaurant) => `
+            <article class="admin-row catalog-row">
+              <div class="row-top">
+                <strong>${escapeHtml(restaurant.name)}</strong>
+                <span class="badge ${restaurant.active === false ? "hidden" : "visible"}">${restaurant.active === false ? "숨김" : "표시"}</span>
+              </div>
+              <div class="meta">${escapeHtml(restaurant.id)} · ${escapeHtml(restaurant.address || "주소 없음")} · ${restaurant.openTime || "-"}-${restaurant.closeTime || "-"}</div>
+              <p class="message">포장 ${restaurant.takeout ? "O" : "X"} · 배달 ${restaurant.delivery ? "O" : "X"} · 혼밥 ${restaurant.alone ? "O" : "X"} · 좌석 ${restaurant.seats || 0}</p>
+              <div class="row-actions">
+                <button data-edit-restaurant="${restaurant.id}">수정</button>
+                <button class="danger" data-delete-restaurant="${restaurant.id}">삭제</button>
+              </div>
+            </article>
+          `,
+        )
+        .join("")
+    : `<div class="empty">등록된 가게가 없습니다.</div>`;
+}
+
+function renderMenuRows() {
+  return state.menus.length
+    ? state.menus
+        .map(
+          (menu) => `
+            <article class="admin-row catalog-row">
+              <div class="row-top">
+                <strong>${escapeHtml(menu.name)}</strong>
+                <span class="badge ${menu.available === false ? "hidden" : "visible"}">${menu.available === false ? "중지" : "판매중"}</span>
+              </div>
+              <div class="meta">${escapeHtml(menu.id)} · ${escapeHtml(restaurantsById.get(menu.restaurantId)?.name || menu.restaurantName || "가게 없음")} · ${escapeHtml(menu.category)} · ${Number(menu.price || 0).toLocaleString("ko-KR")}원</div>
+              <p class="message">맵기 ${menu.spicy} · 짠맛 ${menu.salty} · 단맛 ${menu.sweet} · ${escapeHtml((menu.tags || []).join(", "))}</p>
+              <div class="row-actions">
+                <button data-edit-menu="${menu.id}">수정</button>
+                <button class="danger" data-delete-menu="${menu.id}">삭제</button>
+              </div>
+            </article>
+          `,
+        )
+        .join("")
+    : `<div class="empty">등록된 메뉴가 없습니다.</div>`;
+}
+
+function clearRestaurantForm() {
+  if (!els.restaurantForm) return;
+  els.restaurantForm.reset();
+  els.restaurantForm.elements.id.value = nextId("C", state.restaurants);
+  els.restaurantForm.elements.area.value = "정문";
+  els.restaurantForm.elements.takeout.checked = true;
+  els.restaurantForm.elements.delivery.checked = false;
+  els.restaurantForm.elements.alone.checked = true;
+  els.restaurantForm.elements.group.checked = true;
+  els.restaurantForm.elements.active.checked = true;
+}
+
+function clearMenuForm() {
+  if (!els.menuForm) return;
+  els.menuForm.reset();
+  els.menuForm.elements.id.value = nextId("M", state.menus);
+  els.menuForm.elements.price.value = 0;
+  els.menuForm.elements.spicy.value = 2;
+  els.menuForm.elements.salty.value = 3;
+  els.menuForm.elements.sweet.value = 2;
+  els.menuForm.elements.portion.value = 3;
+  els.menuForm.elements.value.value = 3;
+  els.menuForm.elements.speed.value = 3;
+  els.menuForm.elements.signature.checked = true;
+  els.menuForm.elements.available.checked = true;
+}
+
+function editRestaurant(id) {
+  const restaurant = state.restaurants.find((item) => item.id === id);
+  if (!restaurant) return;
+  const form = els.restaurantForm.elements;
+  form.id.value = restaurant.id;
+  form.name.value = restaurant.name || "";
+  form.area.value = restaurant.area || "";
+  form.address.value = restaurant.address || "";
+  form.lat.value = restaurant.lat || "";
+  form.lng.value = restaurant.lng || "";
+  form.phone.value = restaurant.phone || "";
+  form.openTime.value = restaurant.openTime || "";
+  form.closeTime.value = restaurant.closeTime || "";
+  form.breakTime.value = restaurant.breakTime || "";
+  form.closedDays.value = restaurant.closedDays || "";
+  form.seats.value = restaurant.seats || 0;
+  form.reviewCount.value = restaurant.reviewCount || 0;
+  form.source.value = restaurant.source || "";
+  form.lastChecked.value = toDateInput(restaurant.lastChecked);
+  form.memo.value = restaurant.memo || "";
+  form.takeout.checked = Boolean(restaurant.takeout);
+  form.delivery.checked = Boolean(restaurant.delivery);
+  form.alone.checked = Boolean(restaurant.alone);
+  form.group.checked = Boolean(restaurant.group);
+  form.active.checked = restaurant.active !== false;
+  els.restaurantEditor.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function editMenu(id) {
+  const menu = state.menus.find((item) => item.id === id);
+  if (!menu) return;
+  const form = els.menuForm.elements;
+  form.id.value = menu.id;
+  form.restaurantId.value = menu.restaurantId;
+  form.name.value = menu.name || "";
+  form.category.value = menu.category || "";
+  form.price.value = menu.price || 0;
+  form.spicy.value = menu.spicy || 0;
+  form.salty.value = menu.salty || 0;
+  form.sweet.value = menu.sweet || 0;
+  form.portion.value = menu.portion || 0;
+  form.value.value = menu.value || 0;
+  form.speed.value = menu.speed || 0;
+  form.tags.value = (menu.tags || []).join(", ");
+  form.source.value = menu.source || "";
+  form.lastChecked.value = toDateInput(menu.lastChecked);
+  form.recommendNote.value = menu.recommendNote || "";
+  form.signature.checked = Boolean(menu.signature);
+  form.available.checked = menu.available !== false;
+  els.menuEditor.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+async function saveRestaurant(event) {
+  event.preventDefault();
+  const form = els.restaurantForm.elements;
+  const restaurant = {
+    id: form.id.value.trim(),
+    name: form.name.value.trim(),
+    area: form.area.value.trim(),
+    address: form.address.value.trim(),
+    lat: Number(form.lat.value || 0),
+    lng: Number(form.lng.value || 0),
+    phone: form.phone.value.trim(),
+    openTime: form.openTime.value.trim(),
+    closeTime: form.closeTime.value.trim(),
+    breakTime: form.breakTime.value.trim(),
+    closedDays: form.closedDays.value.trim(),
+    seats: Number(form.seats.value || 0),
+    reviewCount: Number(form.reviewCount.value || 0),
+    source: form.source.value.trim(),
+    lastChecked: dateInputToIso(form.lastChecked.value),
+    memo: form.memo.value.trim(),
+    takeout: form.takeout.checked,
+    delivery: form.delivery.checked,
+    alone: form.alone.checked,
+    group: form.group.checked,
+    active: form.active.checked,
+  };
+  const { error } = await state.supabase.from("restaurants").upsert(appRestaurantToDb(restaurant), { onConflict: "id" });
+  if (error) {
+    alert(error.message || "가게 저장에 실패했습니다.");
+    return;
+  }
+  await loadCatalog();
+  alert("가게 저장 완료!");
+}
+
+async function saveMenu(event) {
+  event.preventDefault();
+  const form = els.menuForm.elements;
+  const restaurant = restaurantsById.get(form.restaurantId.value);
+  const menu = {
+    id: form.id.value.trim(),
+    restaurantId: form.restaurantId.value,
+    restaurantName: restaurant?.name || "",
+    name: form.name.value.trim(),
+    category: form.category.value.trim(),
+    price: Number(form.price.value || 0),
+    spicy: Number(form.spicy.value || 0),
+    salty: Number(form.salty.value || 0),
+    sweet: Number(form.sweet.value || 0),
+    portion: Number(form.portion.value || 0),
+    value: Number(form.value.value || 0),
+    speed: Number(form.speed.value || 0),
+    signature: form.signature.checked,
+    available: form.available.checked,
+    tags: form.tags.value.split(",").map((tag) => tag.trim()).filter(Boolean),
+    source: form.source.value.trim(),
+    lastChecked: dateInputToIso(form.lastChecked.value),
+    recommendNote: form.recommendNote.value.trim(),
+  };
+  const { error } = await state.supabase.from("menus").upsert(appMenuToDb(menu), { onConflict: "id" });
+  if (error) {
+    alert(error.message || "메뉴 저장에 실패했습니다.");
+    return;
+  }
+  await loadCatalog();
+  alert("메뉴 저장 완료!");
+}
+
+async function deleteRestaurant(id) {
+  if (!confirm("이 가게를 삭제할까요? 연결된 메뉴도 함께 삭제됩니다.")) return;
+  const { error } = await state.supabase.from("restaurants").delete().eq("id", id);
+  if (error) {
+    alert(error.message || "가게 삭제에 실패했습니다.");
+    return;
+  }
+  await loadCatalog();
+}
+
+async function deleteMenu(id) {
+  if (!confirm("이 메뉴를 삭제할까요?")) return;
+  const { error } = await state.supabase.from("menus").delete().eq("id", id);
+  if (error) {
+    alert(error.message || "메뉴 삭제에 실패했습니다.");
+    return;
+  }
+  await loadCatalog();
+}
+
 function bindEvents() {
   els.loginForm.addEventListener("submit", handleLogin);
   els.signOutButton.addEventListener("click", signOut);
   els.refreshReviews.addEventListener("click", loadReviews);
   els.refreshReports.addEventListener("click", loadReports);
+  els.refreshCatalog?.addEventListener("click", loadCatalog);
+  els.seedCatalog?.addEventListener("click", seedCatalogFromStatic);
+  els.restaurantForm?.addEventListener("submit", saveRestaurant);
+  els.menuForm?.addEventListener("submit", saveMenu);
 
   document.body.addEventListener("click", (event) => {
     const tab = event.target.closest("[data-admin-tab]");
@@ -330,6 +752,8 @@ function bindEvents() {
       const target = tab.dataset.adminTab;
       els.reviewsPanel.hidden = target !== "reviews";
       els.reportsPanel.hidden = target !== "reports";
+      els.catalogPanel.hidden = target !== "catalog";
+      if (target === "catalog") renderCatalog();
     }
     const reviewFilter = event.target.closest("[data-review-filter]");
     if (reviewFilter) {
@@ -360,6 +784,25 @@ function bindEvents() {
     if (reviewStatus) updateReviewStatus(reviewStatus.dataset.reviewStatus, reviewStatus.dataset.status);
     const reportStatus = event.target.closest("[data-report-status]");
     if (reportStatus) updateReportStatus(reportStatus.dataset.reportStatus, reportStatus.dataset.status);
+    const catalogMode = event.target.closest("[data-catalog-mode]");
+    if (catalogMode) {
+      state.catalogMode = catalogMode.dataset.catalogMode;
+      document.querySelectorAll("[data-catalog-mode]").forEach((button) => button.classList.toggle("is-active", button === catalogMode));
+      renderCatalog();
+    }
+    if (event.target.closest("[data-new-catalog]")) {
+      state.catalogMode === "restaurants" ? clearRestaurantForm() : clearMenuForm();
+    }
+    if (event.target.closest("[data-clear-restaurant]")) clearRestaurantForm();
+    if (event.target.closest("[data-clear-menu]")) clearMenuForm();
+    const editRestaurantButton = event.target.closest("[data-edit-restaurant]");
+    if (editRestaurantButton) editRestaurant(editRestaurantButton.dataset.editRestaurant);
+    const editMenuButton = event.target.closest("[data-edit-menu]");
+    if (editMenuButton) editMenu(editMenuButton.dataset.editMenu);
+    const deleteRestaurantButton = event.target.closest("[data-delete-restaurant]");
+    if (deleteRestaurantButton) deleteRestaurant(deleteRestaurantButton.dataset.deleteRestaurant);
+    const deleteMenuButton = event.target.closest("[data-delete-menu]");
+    if (deleteMenuButton) deleteMenu(deleteMenuButton.dataset.deleteMenu);
   });
   els.reviewRestaurantFilter?.addEventListener("change", (event) => {
     state.reviewRestaurantId = event.target.value;
