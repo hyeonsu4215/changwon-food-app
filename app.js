@@ -51,6 +51,7 @@ const state = {
   publicTasteSummary: {},
   publicReviewSummary: {},
   publicReviews: {},
+  myReports: [],
   reviewVisibleCount: {},
   supabase: null,
   supabaseUserId: null,
@@ -518,7 +519,7 @@ function renderStoreSearch() {
               </div>
               <div class="info-footer">
                 <span>정보 기준일 ${DATA_UPDATED_AT}</span>
-                <button data-report-open data-report-target-type="restaurant" data-report-target-id="${restaurant.id}" data-report-target-label="${escapeHtml(restaurant.name)}">정보 제보</button>
+                <button data-report-open data-report-type="wrong_info" data-report-target-type="restaurant" data-report-target-id="${restaurant.id}" data-report-target-label="${escapeHtml(restaurant.name)}">이 가게 정보 제보</button>
               </div>
             </article>
           `;
@@ -1010,7 +1011,7 @@ function showDetail(id) {
     </div>
     <div class="info-footer">
       <span>정보 기준일 ${DATA_UPDATED_AT}</span>
-      <button data-report-open data-report-target-type="menu" data-report-target-id="${item.id}" data-report-target-label="${escapeHtml(item.restaurant?.name || item.restaurantName)} · ${escapeHtml(item.name)}">정보 제보/오류 신고</button>
+      <button data-report-open data-report-type="wrong_info" data-report-target-type="menu" data-report-target-id="${item.id}" data-report-target-label="${escapeHtml(item.restaurant?.name || item.restaurantName)} · ${escapeHtml(item.name)}">정보 제보/오류 신고</button>
     </div>
   `;
   if (!els.detailDialog.open) els.detailDialog.showModal();
@@ -1221,10 +1222,11 @@ function loadScript(src) {
 async function loadRemoteSummaries() {
   if (!state.supabase) return;
   state.syncStatus = state.syncStatus === "saving" ? "saving" : "refreshing";
-  const [tasteResult, reviewResult, reviewRows] = await Promise.all([
+  const [tasteResult, reviewResult, reviewRows, reportRows] = await Promise.all([
     state.supabase.from("menu_taste_summary").select("*"),
     state.supabase.from("menu_review_summary").select("*"),
     state.supabase.from("menu_reviews").select("id,user_id,menu_id,nickname,rating,hygiene,kindness,review_text,created_at,updated_at").eq("status", "visible").order("created_at", { ascending: false }).limit(200),
+    state.supabase.from("info_reports").select("id,report_type,target_type,target_id,target_label,message,status,created_at,updated_at").order("created_at", { ascending: false }).limit(30),
   ]).catch(() => []);
 
   if (tasteResult?.data) {
@@ -1239,6 +1241,9 @@ async function loadRemoteSummaries() {
       acc[row.menu_id].push(row);
       return acc;
     }, {});
+  }
+  if (reportRows?.data) {
+    state.myReports = reportRows.data;
   }
   state.lastSyncAt = new Date().toISOString();
   state.syncStatus = "synced";
@@ -1366,7 +1371,7 @@ function openReportDialog(button) {
   els.reportTargetType.value = button.dataset.reportTargetType || "general";
   els.reportTargetId.value = button.dataset.reportTargetId || "";
   els.reportTargetLabel.value = button.dataset.reportTargetLabel || "전체 데이터";
-  els.reportType.value = "wrong_info";
+  els.reportType.value = button.dataset.reportType || "wrong_info";
   els.reportMessage.value = "";
   els.reportReporter.value = state.nickname || "";
   els.reportDialog.showModal();
@@ -1405,6 +1410,7 @@ async function submitInfoReport(event) {
     return;
   }
   els.reportDialog.close();
+  await loadRemoteSummaries();
   toast("제보 접수 완료!");
 }
 
@@ -1614,6 +1620,60 @@ function barRows(rows) {
     .join("");
 }
 
+function reportTypeLabel(type) {
+  return (
+    {
+      wrong_info: "잘못된 정보",
+      price_update: "가격 변경",
+      new_menu: "메뉴 추가",
+      new_store: "가게 추가",
+      closed_store: "폐업/영업 종료",
+      other: "기타",
+    }[type] || "정보 제보"
+  );
+}
+
+function reportStatusMeta(status) {
+  return (
+    {
+      pending: { label: "접수됨", help: "관리자가 아직 확인하기 전이에요." },
+      checking: { label: "확인 중", help: "정보를 대조하고 있어요." },
+      done: { label: "반영 완료", help: "확인 후 앱 데이터에 반영했어요." },
+      rejected: { label: "보류", help: "추가 확인이 필요하거나 반영하지 않았어요." },
+    }[status] || { label: "접수됨", help: "관리자가 확인할 예정이에요." }
+  );
+}
+
+function myReportRows() {
+  if (!state.supabaseReady) {
+    return `<p>서버 연결 후 내가 보낸 제보 상태를 확인할 수 있어요.</p>`;
+  }
+  if (!state.myReports.length) {
+    return `<p>아직 보낸 정보 제보가 없습니다.</p>`;
+  }
+  return `
+    <div class="report-status-list">
+      ${state.myReports
+        .slice(0, 6)
+        .map((report) => {
+          const status = reportStatusMeta(report.status);
+          return `
+            <article class="report-status-row">
+              <div>
+                <strong>${escapeHtml(report.target_label || "전체 데이터")}</strong>
+                <p>${reportTypeLabel(report.report_type)} · ${formatDateTime(report.created_at)}</p>
+                <p>${escapeHtml(report.message || "")}</p>
+                <small>${status.help}</small>
+              </div>
+              <span class="report-status-badge status-${escapeHtml(report.status || "pending")}">${status.label}</span>
+            </article>
+          `;
+        })
+        .join("")}
+    </div>
+  `;
+}
+
 function renderDashboard() {
   const categories = countBy(DATA.menus, (menu) => menu.category).slice(0, 8);
   const moods = countBy(
@@ -1720,11 +1780,16 @@ function renderDashboard() {
       }
     </div>
     <div class="dashboard-card">
+      <h3>내 정보 제보</h3>
+      <p>가게 추가, 폐업, 가격 변경처럼 내가 보낸 제보의 처리 상태를 확인해요.</p>
+      ${myReportRows()}
+    </div>
+    <div class="dashboard-card">
       <h3>데이터 현황</h3>
       <p>음식점 ${DATA.meta.restaurantCount}곳, 대표 메뉴 ${DATA.meta.menuCount}개를 기준으로 추천해요.</p>
       <p>데이터 최종 수정일: ${DATA_UPDATED_AT}</p>
       <div class="dashboard-actions">
-        <button data-report-open data-report-target-type="general" data-report-target-id="" data-report-target-label="전체 데이터">정보 제보 / 잘못된 정보 신고</button>
+        <button data-report-open data-report-type="wrong_info" data-report-target-type="general" data-report-target-id="" data-report-target-label="전체 데이터">정보 제보 / 잘못된 정보 신고</button>
       </div>
     </div>
     <details class="dashboard-card stats-detail">

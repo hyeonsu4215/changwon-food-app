@@ -1408,6 +1408,22 @@ dialog .toast {
   color: var(--ink);
 }
 
+.store-report-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.store-report-actions button {
+  min-height: 38px;
+  border: 1px solid rgba(15, 123, 99, 0.18);
+  border-radius: 8px;
+  background: var(--mint-soft);
+  color: var(--mint-dark);
+  font-size: 12px;
+  font-weight: 950;
+}
+
 .store-card {
   padding: 13px;
   border: 1px solid var(--line);
@@ -1479,6 +1495,63 @@ dialog .toast {
   text-decoration: none;
   font-weight: 950;
   font-size: 11px;
+}
+
+.report-status-list {
+  display: grid;
+  gap: 8px;
+}
+
+.report-status-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--soft);
+}
+
+.report-status-row strong {
+  display: block;
+  margin-bottom: 3px;
+  color: var(--ink);
+  font-size: 13px;
+}
+
+.report-status-row p,
+.report-status-row small {
+  display: block;
+  margin: 0 0 3px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.report-status-badge {
+  flex: 0 0 auto;
+  border-radius: 999px;
+  padding: 6px 8px;
+  background: #edf2f5;
+  color: #405064;
+  font-size: 11px;
+  font-weight: 950;
+}
+
+.report-status-badge.status-checking {
+  background: #e9f6ff;
+  color: #24658f;
+}
+
+.report-status-badge.status-done {
+  background: var(--mint-soft);
+  color: var(--mint-dark);
+}
+
+.report-status-badge.status-rejected {
+  background: #fff2df;
+  color: #9a5a12;
 }
 
 .report-form {
