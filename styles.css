@@ -1470,10 +1470,72 @@ dialog .toast {
   font-weight: 850;
 }
 
-.info-footer a {
+.info-footer a,
+.info-footer button {
+  border: 0;
+  background: transparent;
+  padding: 0;
   color: var(--mint-dark);
   text-decoration: none;
   font-weight: 950;
+  font-size: 11px;
+}
+
+.report-form {
+  display: grid;
+  gap: 10px;
+}
+
+.report-form label {
+  display: grid;
+  gap: 5px;
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.report-form input,
+.report-form select,
+.report-form textarea {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  padding: 10px;
+  color: var(--ink);
+  font: inherit;
+}
+
+.report-form textarea {
+  min-height: 110px;
+  resize: vertical;
+}
+
+.report-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.report-actions button {
+  min-height: 40px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--mint);
+  color: #fff;
+  font-weight: 950;
+}
+
+.report-actions button:nth-child(2) {
+  background: #edf2f5;
+  color: #405064;
+}
+
+.report-fallback-link {
+  color: var(--mint-dark);
+  font-size: 12px;
+  font-weight: 900;
+  text-align: center;
 }
 
 .location-actions {

@@ -1,0 +1,252 @@
+:root {
+  --ink: #1b2430;
+  --muted: #647184;
+  --line: #dce3e8;
+  --bg: #eef5f1;
+  --surface: #ffffff;
+  --mint: #0f7b63;
+  --mint-dark: #075846;
+  --mint-soft: #e4f5ef;
+  --danger: #c43636;
+  --danger-soft: #ffe8e8;
+  --shadow: 0 10px 26px rgba(22, 34, 45, 0.12);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans KR", sans-serif;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+.admin-shell {
+  width: min(100%, 980px);
+  margin: 0 auto;
+  padding: 24px 16px 44px;
+}
+
+.admin-top {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+  padding: 18px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #e4f5ef, #ffffff);
+  box-shadow: var(--shadow);
+}
+
+.admin-top p,
+.panel-heading p,
+.admin-card p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.admin-top h1 {
+  margin: 4px 0 7px;
+  font-size: clamp(24px, 4vw, 34px);
+  line-height: 1.16;
+}
+
+#adminStatus {
+  color: var(--mint-dark);
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.admin-card {
+  margin-bottom: 14px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.admin-card h2 {
+  margin: 0 0 6px;
+  font-size: 20px;
+}
+
+.admin-form {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.admin-form label {
+  display: grid;
+  gap: 5px;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.admin-form input {
+  min-height: 42px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0 12px;
+}
+
+.admin-form button,
+.admin-top button,
+.panel-heading button {
+  min-height: 40px;
+  border: 0;
+  border-radius: 8px;
+  padding: 0 13px;
+  background: var(--mint);
+  color: #fff;
+  font-weight: 950;
+}
+
+.admin-tabs,
+.filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.admin-tabs button,
+.filter-row button,
+.row-actions button {
+  min-height: 34px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 0 12px;
+  background: #fff;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 950;
+}
+
+.admin-tabs button.is-active,
+.filter-row button.is-active {
+  border-color: rgba(15, 123, 99, 0.24);
+  background: var(--mint-soft);
+  color: var(--mint-dark);
+}
+
+.panel-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.admin-list {
+  display: grid;
+  gap: 10px;
+}
+
+.admin-row {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.row-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.row-top strong {
+  font-size: 15px;
+}
+
+.badge {
+  display: inline-flex;
+  min-height: 24px;
+  align-items: center;
+  border-radius: 999px;
+  padding: 0 8px;
+  background: #edf2f5;
+  color: #405064;
+  font-size: 11px;
+  font-weight: 950;
+}
+
+.badge.visible,
+.badge.done {
+  background: var(--mint-soft);
+  color: var(--mint-dark);
+}
+
+.badge.hidden,
+.badge.rejected {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.badge.pending,
+.badge.checking {
+  background: #fff4d8;
+  color: #765412;
+}
+
+.meta {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.message {
+  margin: 0;
+  color: var(--ink);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.row-actions button.danger {
+  border-color: rgba(196, 54, 54, 0.18);
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.empty {
+  padding: 24px;
+  border-radius: 8px;
+  background: #fff;
+  color: var(--muted);
+  text-align: center;
+  font-weight: 900;
+}
+
+@media (max-width: 560px) {
+  .admin-top,
+  .panel-heading,
+  .row-top {
+    display: grid;
+  }
+}

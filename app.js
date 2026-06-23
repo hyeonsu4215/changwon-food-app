@@ -123,6 +123,15 @@ const els = {
   dialogContent: document.querySelector("#dialogContent"),
   closeDialog: document.querySelector("#closeDialog"),
   locationDialog: document.querySelector("#locationDialog"),
+  reportDialog: document.querySelector("#reportDialog"),
+  reportForm: document.querySelector("#reportForm"),
+  closeReportDialog: document.querySelector("#closeReportDialog"),
+  reportTargetType: document.querySelector("#reportTargetType"),
+  reportTargetId: document.querySelector("#reportTargetId"),
+  reportTargetLabel: document.querySelector("#reportTargetLabel"),
+  reportType: document.querySelector("#reportType"),
+  reportMessage: document.querySelector("#reportMessage"),
+  reportReporter: document.querySelector("#reportReporter"),
   toast: document.querySelector("#toast"),
 };
 
@@ -509,7 +518,7 @@ function renderStoreSearch() {
               </div>
               <div class="info-footer">
                 <span>정보 기준일 ${DATA_UPDATED_AT}</span>
-                <a href="${FEEDBACK_FORM_URL}" target="_blank" rel="noreferrer">정보 제보</a>
+                <button data-report-open data-report-target-type="restaurant" data-report-target-id="${restaurant.id}" data-report-target-label="${escapeHtml(restaurant.name)}">정보 제보</button>
               </div>
             </article>
           `;
@@ -1001,7 +1010,7 @@ function showDetail(id) {
     </div>
     <div class="info-footer">
       <span>정보 기준일 ${DATA_UPDATED_AT}</span>
-      <a href="${FEEDBACK_FORM_URL}" target="_blank" rel="noreferrer">정보 제보/오류 신고</a>
+      <button data-report-open data-report-target-type="menu" data-report-target-id="${item.id}" data-report-target-label="${escapeHtml(item.restaurant?.name || item.restaurantName)} · ${escapeHtml(item.name)}">정보 제보/오류 신고</button>
     </div>
   `;
   if (!els.detailDialog.open) els.detailDialog.showModal();
@@ -1352,6 +1361,53 @@ async function upsertRemoteReview(review) {
   return true;
 }
 
+function openReportDialog(button) {
+  if (!els.reportDialog) return;
+  els.reportTargetType.value = button.dataset.reportTargetType || "general";
+  els.reportTargetId.value = button.dataset.reportTargetId || "";
+  els.reportTargetLabel.value = button.dataset.reportTargetLabel || "전체 데이터";
+  els.reportType.value = "wrong_info";
+  els.reportMessage.value = "";
+  els.reportReporter.value = state.nickname || "";
+  els.reportDialog.showModal();
+}
+
+async function submitInfoReport(event) {
+  event.preventDefault();
+  const message = els.reportMessage.value.trim().slice(0, 500);
+  if (!message) {
+    toast("제보 내용을 입력해주세요");
+    return;
+  }
+  const ready = await ensureSupabaseReady();
+  if (!ready) {
+    toast("서버 연결 실패");
+    window.open(FEEDBACK_FORM_URL, "_blank", "noopener,noreferrer");
+    return;
+  }
+  const result = await supabaseRest("/info_reports", {
+    method: "POST",
+    headers: { Prefer: "return=representation" },
+    body: JSON.stringify({
+      user_id: state.supabaseUserId,
+      report_type: els.reportType.value,
+      target_type: els.reportTargetType.value || "general",
+      target_id: els.reportTargetId.value || null,
+      target_label: els.reportTargetLabel.value || "전체 데이터",
+      reporter: els.reportReporter.value.trim().slice(0, 40) || null,
+      message,
+      status: "pending",
+    }),
+  });
+  if (!result.ok) {
+    console.warn("info report failed", result.error);
+    toast("제보 저장 실패");
+    return;
+  }
+  els.reportDialog.close();
+  toast("제보 접수 완료!");
+}
+
 async function shareAppLink() {
   const url = "https://changwon-food-app.vercel.app/";
   const shareData = {
@@ -1668,7 +1724,7 @@ function renderDashboard() {
       <p>음식점 ${DATA.meta.restaurantCount}곳, 대표 메뉴 ${DATA.meta.menuCount}개를 기준으로 추천해요.</p>
       <p>데이터 최종 수정일: ${DATA_UPDATED_AT}</p>
       <div class="dashboard-actions">
-        <a href="${FEEDBACK_FORM_URL}" target="_blank" rel="noreferrer">정보 제보 / 잘못된 정보 신고</a>
+        <button data-report-open data-report-target-type="general" data-report-target-id="" data-report-target-label="전체 데이터">정보 제보 / 잘못된 정보 신고</button>
       </div>
     </div>
     <details class="dashboard-card stats-detail">
@@ -1696,6 +1752,11 @@ function pushAppState(screen = state.activeTab) {
 }
 
 function handleBackNavigation() {
+  if (els.reportDialog?.open) {
+    els.reportDialog.close();
+    pushAppState("reportClosed");
+    return;
+  }
   if (els.detailDialog?.open) {
     els.detailDialog.close();
     pushAppState(state.activeTab);
@@ -1829,6 +1890,8 @@ function bindEvents() {
     if (refreshRemoteButton) refreshRemoteData();
     const retryReviewButton = event.target.closest("[data-retry-review]");
     if (retryReviewButton) retryPendingReview();
+    const reportOpenButton = event.target.closest("[data-report-open]");
+    if (reportOpenButton) openReportDialog(reportOpenButton);
     const ratingButton = event.target.closest("[data-rating-value]");
     if (ratingButton) {
       const editor = ratingButton.closest("[data-review-editor]");
@@ -1884,6 +1947,8 @@ function bindEvents() {
     button.addEventListener("click", () => switchTab(button.dataset.tab));
   });
   els.closeDialog.addEventListener("click", () => els.detailDialog.close());
+  els.closeReportDialog?.addEventListener("click", () => els.reportDialog.close());
+  els.reportForm?.addEventListener("submit", submitInfoReport);
   window.addEventListener("popstate", handleBackNavigation);
 }
 

@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>창대앞 뭐먹지 관리자</title>
+    <link rel="stylesheet" href="./admin.css" />
+  </head>
+  <body>
+    <main class="admin-shell">
+      <header class="admin-top">
+        <div>
+          <p>Admin mode</p>
+          <h1>창대앞 뭐먹지 관리자</h1>
+          <span id="adminStatus">로그인이 필요합니다.</span>
+        </div>
+        <button id="signOutButton" hidden>로그아웃</button>
+      </header>
+
+      <section id="loginPanel" class="admin-card">
+        <h2>관리자 로그인</h2>
+        <p>Supabase Auth에 등록된 관리자 계정으로 로그인하세요.</p>
+        <form id="loginForm" class="admin-form">
+          <label>
+            <span>이메일</span>
+            <input id="adminEmail" type="email" autocomplete="email" required />
+          </label>
+          <label>
+            <span>비밀번호</span>
+            <input id="adminPassword" type="password" autocomplete="current-password" required />
+          </label>
+          <button type="submit">로그인</button>
+        </form>
+      </section>
+
+      <section id="adminPanel" hidden>
+        <nav class="admin-tabs">
+          <button class="is-active" data-admin-tab="reviews">후기 관리</button>
+          <button data-admin-tab="reports">정보 제보 관리</button>
+        </nav>
+
+        <section id="reviewsPanel" class="admin-card">
+          <div class="panel-heading">
+            <div>
+              <h2>후기 관리</h2>
+              <p>악성 후기나 부적절한 후기를 숨김 처리할 수 있습니다.</p>
+            </div>
+            <button id="refreshReviews">새로고침</button>
+          </div>
+          <div class="filter-row">
+            <button class="is-active" data-review-filter="all">전체</button>
+            <button data-review-filter="visible">공개</button>
+            <button data-review-filter="hidden">숨김</button>
+          </div>
+          <div id="reviewList" class="admin-list"></div>
+        </section>
+
+        <section id="reportsPanel" class="admin-card" hidden>
+          <div class="panel-heading">
+            <div>
+              <h2>정보 제보 관리</h2>
+              <p>사용자가 보낸 가격, 영업시간, 메뉴, 가게 정보 제보를 처리합니다.</p>
+            </div>
+            <button id="refreshReports">새로고침</button>
+          </div>
+          <div class="filter-row">
+            <button class="is-active" data-report-filter="all">전체</button>
+            <button data-report-filter="pending">대기</button>
+            <button data-report-filter="checking">확인중</button>
+            <button data-report-filter="done">반영완료</button>
+            <button data-report-filter="rejected">보류</button>
+          </div>
+          <div id="reportList" class="admin-list"></div>
+        </section>
+      </section>
+    </main>
+
+    <script src="./data.js"></script>
+    <script src="./supabase-config.js"></script>
+    <script src="./admin.js"></script>
+  </body>
+</html>

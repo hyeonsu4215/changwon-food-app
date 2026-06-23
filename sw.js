@@ -1,9 +1,12 @@
-const CACHE_NAME = "changwon-food-app-v16";
+const CACHE_NAME = "changwon-food-app-v17";
 const ASSETS = [
   "./",
   "./index.html",
+  "./admin.html",
   "./styles.css",
+  "./admin.css",
   "./app.js",
+  "./admin.js",
   "./data.js",
   "./supabase-config.js",
   "./manifest.webmanifest",

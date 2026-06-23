@@ -249,6 +249,44 @@
       </div>
     </dialog>
 
+    <dialog id="reportDialog">
+      <form id="reportForm" class="report-form">
+        <p class="eyebrow">Report</p>
+        <h2>정보 제보 / 오류 신고</h2>
+        <p class="dialog-help">가격, 영업시간, 위치, 메뉴 정보가 다르거나 새 가게를 제보할 때 사용해주세요.</p>
+        <input type="hidden" id="reportTargetType" />
+        <input type="hidden" id="reportTargetId" />
+        <label>
+          <span>제보 유형</span>
+          <select id="reportType" required>
+            <option value="wrong_info">잘못된 정보</option>
+            <option value="price_update">가격 변경</option>
+            <option value="new_menu">메뉴 추가</option>
+            <option value="new_store">가게 추가</option>
+            <option value="closed_store">폐업/영업 종료</option>
+            <option value="other">기타</option>
+          </select>
+        </label>
+        <label>
+          <span>대상</span>
+          <input id="reportTargetLabel" type="text" readonly />
+        </label>
+        <label>
+          <span>내용</span>
+          <textarea id="reportMessage" maxlength="500" required placeholder="어떤 정보가 잘못되었는지, 어떤 내용을 추가하면 좋을지 적어주세요."></textarea>
+        </label>
+        <label>
+          <span>닉네임 또는 연락 메모</span>
+          <input id="reportReporter" type="text" maxlength="40" placeholder="선택 입력" />
+        </label>
+        <div class="report-actions">
+          <button type="submit">제보 보내기</button>
+          <button type="button" id="closeReportDialog">닫기</button>
+        </div>
+        <a class="report-fallback-link" href="https://forms.gle/BUYoZiSUXtFDE81J7" target="_blank" rel="noreferrer">구글폼으로 제보하기</a>
+      </form>
+    </dialog>
+
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
     <div id="searchOverlay" class="search-overlay" aria-hidden="true">
       <div class="search-modal">
