@@ -4,6 +4,7 @@ const FALLBACK_LOCATION = { label: "창원대 정문 임시 기준", lat: 35.242
 const DATA_UPDATED_AT = "2026.06.22";
 const FEEDBACK_FORM_URL = "https://forms.gle/BUYoZiSUXtFDE81J7";
 const VISIT_REVIEW_RADIUS_M = 50;
+const WEATHER_CACHE_MS = 60 * 60 * 1000;
 const MOOD_OPTIONS = ["혼밥", "단체", "가성비", "든든함", "빠른식사", "비오는날", "해장", "시험기간", "데이트", "스트레스", "포장", "배달"];
 const HISTORY_RANGE_OPTIONS = [
   { label: "1주일", days: 7 },
@@ -55,6 +56,8 @@ const state = {
   reviewVisibleCount: {},
   catalogSource: "static",
   catalogStatus: "내장 데이터 사용 중",
+  weather: JSON.parse(localStorage.getItem("changwonFoodWeather") || "null"),
+  weatherStatus: "idle",
   supabase: null,
   supabaseUserId: null,
   supabaseReady: false,
@@ -85,6 +88,7 @@ const els = {
   splashScreen: document.querySelector("#splashScreen"),
   locationStatus: document.querySelector("#locationStatus"),
   conditionSummary: document.querySelector("#conditionSummary"),
+  weatherCard: document.querySelector("#weatherCard"),
   searchButton: document.querySelector("#searchButton"),
   resetFiltersButton: document.querySelector("#resetFiltersButton"),
   searchOverlay: document.querySelector("#searchOverlay"),
@@ -385,6 +389,43 @@ function markConditionsChanged() {
   state.hasSearched = false;
 }
 
+function weatherKind(weather = state.weather) {
+  if (!weather) return null;
+  const main = String(weather.main || "").toLowerCase();
+  const text = `${weather.description || ""} ${main}`.toLowerCase();
+  const temp = Number(weather.temp);
+  if (weather.rain1h > 0 || text.includes("rain") || text.includes("비")) return "rain";
+  if (weather.snow1h > 0 || text.includes("snow") || text.includes("눈")) return "cold";
+  if (Number.isFinite(temp) && temp >= 28) return "hot";
+  if (Number.isFinite(temp) && temp <= 8) return "cold";
+  if (Number(weather.humidity || 0) >= 78 && (main.includes("cloud") || text.includes("흐"))) return "humid";
+  return null;
+}
+
+function weatherIcon(kind) {
+  return { rain: "☔", hot: "☀", cold: "♨", humid: "☁" }[kind] || "🌤";
+}
+
+function weatherBoost(menu) {
+  const kind = weatherKind();
+  if (!kind) return null;
+  const name = `${menu.name} ${menu.category} ${(menu.tags || []).join(" ")}`;
+  const includes = (words) => words.some((word) => name.includes(word));
+  if (kind === "rain" && includes(["비오는날", "칼국수", "국밥", "탕", "찌개", "라멘", "우동", "마라", "찜", "해장", "든든함"])) {
+    return { score: 12, label: "비 오는 날", reason: "비 오는 날이라 따뜻한 국물이나 든든한 메뉴에 가산점이 들어갔어요." };
+  }
+  if (kind === "hot" && includes(["밀면", "냉", "토스트", "샐러드", "가볍게", "빠른식사", "카페"])) {
+    return { score: 10, label: "더운 날", reason: "더운 날이라 가볍거나 시원하게 먹기 좋은 메뉴에 가산점이 들어갔어요." };
+  }
+  if (kind === "cold" && includes(["라멘", "마라", "탕", "찌개", "국밥", "찜", "칼국수", "우동", "든든함"])) {
+    return { score: 12, label: "추운 날", reason: "쌀쌀한 날씨라 따뜻하고 든든한 메뉴에 가산점이 들어갔어요." };
+  }
+  if (kind === "humid" && includes(["든든함", "한식", "국밥", "탕", "찌개", "빠른식사"])) {
+    return { score: 6, label: "흐린 날", reason: "흐리고 습한 날이라 부담 적고 든든한 메뉴를 조금 더 추천해요." };
+  }
+  return null;
+}
+
 function scoreMenu(menu) {
   const restaurant = restaurantsById.get(menu.restaurantId);
   const distance = restaurant?.lat && restaurant?.lng ? haversine(currentBase(), restaurant) : Infinity;
@@ -400,6 +441,11 @@ function scoreMenu(menu) {
   score -= menu.value * 3;
   score -= menu.portion * 1.6;
   score -= menu.signature ? 4 : 0;
+  const weather = weatherBoost(menu);
+  if (weather) {
+    score -= weather.score;
+    reasons.push(weather.label);
+  }
 
   if (tasteDiff <= 2) reasons.push("입맛 근접");
   if (menu.price <= state.budget) reasons.push("예산 안");
@@ -428,6 +474,7 @@ function scoreMenu(menu) {
     customTaste: Boolean(state.tasteOverrides[menu.id]),
     publicTaste: state.publicTasteSummary[menu.id] || null,
     reviewSummary: reviewSummary(menu.id),
+    weatherBoost: weather,
     score,
     reasons: reasons.slice(0, 4),
   };
@@ -485,6 +532,7 @@ function compactTags(item) {
 function recommendationReasons(item) {
   const reasons = [];
   const tasteDiff = Math.abs(item.taste.spicy - state.spicy) + Math.abs(item.taste.salty - state.salty) + Math.abs(item.taste.sweet - state.sweet);
+  if (item.weatherBoost?.reason) reasons.push(item.weatherBoost.reason);
   if (tasteDiff <= 2) reasons.push("입맛 설정과 잘 맞아요.");
   if (item.price <= state.budget) reasons.push(`예산 ${money(state.budget)} 안에 들어요.`);
   if (Number.isFinite(item.distance)) reasons.push(`${meters(item.distance)} 거리라 이동 부담이 적어요.`);
@@ -794,10 +842,78 @@ function renderLocationStatus() {
   }
 }
 
+function renderWeatherCard() {
+  if (!els.weatherCard) return;
+  const weather = state.weather;
+  if (!weather) {
+    els.weatherCard.innerHTML = `
+      <div>
+        <p class="eyebrow">Weather</p>
+        <strong>${state.weatherStatus === "loading" ? "창원대 앞 날씨 확인 중" : "날씨 정보를 준비하지 못했어요"}</strong>
+        <span>날씨 정보가 준비되면 추천 이유에 함께 반영돼요.</span>
+      </div>
+    `;
+    return;
+  }
+  const kind = weatherKind(weather);
+  const fetchedAt = formatDateTime(weather.fetchedAt);
+  const helper =
+    kind === "rain"
+      ? "비 오는 날 어울리는 따뜻한 메뉴를 조금 더 추천해요."
+      : kind === "hot"
+        ? "더운 날 먹기 편한 메뉴를 조금 더 추천해요."
+        : kind === "cold"
+          ? "쌀쌀한 날 어울리는 든든한 메뉴를 조금 더 추천해요."
+          : "현재 날씨는 추천 점수에 약하게만 반영돼요.";
+  els.weatherCard.innerHTML = `
+    <div class="weather-main">
+      <span class="weather-symbol" aria-hidden="true">${weatherIcon(kind)}</span>
+      <div>
+        <p class="eyebrow">Weather</p>
+        <strong>${escapeHtml(weather.location || "창원대 앞")} · ${Number(weather.temp).toFixed(0)}°C · ${escapeHtml(weather.description || "날씨")}</strong>
+        <span>${helper} ${fetchedAt ? `최근 갱신 ${fetchedAt}` : ""}</span>
+      </div>
+    </div>
+  `;
+}
+
+function saveWeather(weather) {
+  state.weather = weather;
+  localStorage.setItem("changwonFoodWeather", JSON.stringify(weather));
+}
+
+function cachedWeatherFresh(weather = state.weather) {
+  const time = new Date(weather?.fetchedAt || 0).getTime();
+  return Number.isFinite(time) && Date.now() - time < WEATHER_CACHE_MS;
+}
+
+async function loadWeather() {
+  if (cachedWeatherFresh()) {
+    state.weatherStatus = "cached";
+    renderWeatherCard();
+    return;
+  }
+  state.weatherStatus = "loading";
+  renderWeatherCard();
+  try {
+    const response = await fetch("/api/weather", { headers: { Accept: "application/json" } });
+    const result = await response.json();
+    if (!response.ok || !result?.ok || !result.weather) throw new Error(result?.error || "날씨 조회 실패");
+    saveWeather(result.weather);
+    state.weatherStatus = result.cached ? "cached" : "synced";
+    render();
+  } catch (error) {
+    state.weatherStatus = "failed";
+    console.warn("weather load failed", error);
+    renderWeatherCard();
+  }
+}
+
 function render() {
   syncControls();
   renderConditionSummary();
   renderLocationStatus();
+  renderWeatherCard();
   renderRecommendations();
   renderWorldcup();
   renderWishlist();
@@ -2142,6 +2258,7 @@ if (history.replaceState && history.pushState) {
 render();
 finishSplash();
 initSupabase();
+loadWeather();
 
 if ("serviceWorker" in navigator && ["http:", "https:"].includes(window.location.protocol)) {
   window.addEventListener("load", () => {

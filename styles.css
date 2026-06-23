@@ -241,6 +241,50 @@ main {
   line-height: 1.35;
 }
 
+.weather-card {
+  margin: 0 0 10px;
+  padding: 12px 13px;
+  border: 1px solid rgba(15, 123, 99, 0.16);
+  border-radius: 8px;
+  background: linear-gradient(135deg, #f7fffb, #eef7ff);
+  box-shadow: 0 8px 20px rgba(22, 34, 45, 0.08);
+}
+
+.weather-main {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.weather-symbol {
+  display: grid;
+  flex: 0 0 auto;
+  width: 42px;
+  height: 42px;
+  place-items: center;
+  border-radius: 50%;
+  background: #fff;
+  color: var(--mint-dark);
+  font-size: 23px;
+  box-shadow: 0 8px 18px rgba(15, 123, 99, 0.12);
+}
+
+.weather-card strong {
+  display: block;
+  color: var(--ink);
+  font-size: 14px;
+  line-height: 1.35;
+}
+
+.weather-card span:not(.weather-symbol) {
+  display: block;
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 850;
+  line-height: 1.45;
+}
+
 .tab-panel {
   display: none;
 }
