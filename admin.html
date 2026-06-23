@@ -52,7 +52,19 @@
             <button data-review-filter="visible">공개</button>
             <button data-review-filter="hidden">숨김</button>
           </div>
+          <div class="review-tools">
+            <div class="segmented">
+              <button class="is-active" data-review-mode="all">전체 리뷰</button>
+              <button data-review-mode="store">가게별 관리</button>
+            </div>
+            <label id="reviewStoreField" class="store-filter" hidden>
+              <span>가게 선택</span>
+              <select id="reviewRestaurantFilter"></select>
+            </label>
+            <span id="reviewCount" class="count-text"></span>
+          </div>
           <div id="reviewList" class="admin-list"></div>
+          <div id="reviewPager" class="pager"></div>
         </section>
 
         <section id="reportsPanel" class="admin-card" hidden>

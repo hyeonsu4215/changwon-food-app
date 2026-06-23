@@ -35,7 +35,7 @@ button {
 }
 
 .admin-shell {
-  width: min(100%, 980px);
+  width: min(100%, 1180px);
   margin: 0 auto;
   padding: 24px 16px 44px;
 }
@@ -127,9 +127,59 @@ button {
   margin-bottom: 12px;
 }
 
+.review-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 14px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #f8fbfa;
+}
+
+.segmented {
+  display: inline-flex;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #fff;
+}
+
+.store-filter {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.store-filter select {
+  min-width: 190px;
+  min-height: 36px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  padding: 0 10px;
+  color: var(--ink);
+  font-weight: 850;
+}
+
+.count-text {
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 900;
+}
+
 .admin-tabs button,
 .filter-row button,
-.row-actions button {
+.row-actions button,
+.segmented button,
+.pager button {
   min-height: 34px;
   border: 1px solid var(--line);
   border-radius: 999px;
@@ -141,10 +191,39 @@ button {
 }
 
 .admin-tabs button.is-active,
-.filter-row button.is-active {
+.filter-row button.is-active,
+.segmented button.is-active {
   border-color: rgba(15, 123, 99, 0.24);
   background: var(--mint-soft);
   color: var(--mint-dark);
+}
+
+.filter-row button[data-report-filter="pending"].is-active,
+.row-actions button[data-status="pending"] {
+  border-color: rgba(220, 150, 28, 0.25);
+  background: #fff4d8;
+  color: #765412;
+}
+
+.filter-row button[data-report-filter="checking"].is-active,
+.row-actions button[data-status="checking"] {
+  border-color: rgba(44, 119, 184, 0.22);
+  background: #e8f3ff;
+  color: #255f95;
+}
+
+.filter-row button[data-report-filter="done"].is-active,
+.row-actions button[data-status="done"] {
+  border-color: rgba(15, 123, 99, 0.24);
+  background: var(--mint-soft);
+  color: var(--mint-dark);
+}
+
+.filter-row button[data-report-filter="rejected"].is-active,
+.row-actions button[data-status="rejected"] {
+  border-color: rgba(196, 54, 54, 0.18);
+  background: var(--danger-soft);
+  color: var(--danger);
 }
 
 .panel-heading {
@@ -181,14 +260,17 @@ button {
 
 .badge {
   display: inline-flex;
-  min-height: 24px;
+  min-width: 76px;
+  min-height: 30px;
   align-items: center;
+  justify-content: center;
   border-radius: 999px;
-  padding: 0 8px;
+  padding: 0 12px;
   background: #edf2f5;
   color: #405064;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 950;
+  white-space: nowrap;
 }
 
 .badge.visible,
@@ -203,10 +285,14 @@ button {
   color: var(--danger);
 }
 
-.badge.pending,
-.badge.checking {
+.badge.pending {
   background: #fff4d8;
   color: #765412;
+}
+
+.badge.checking {
+  background: #e8f3ff;
+  color: #255f95;
 }
 
 .meta {
@@ -232,6 +318,29 @@ button {
   border-color: rgba(196, 54, 54, 0.18);
   background: var(--danger-soft);
   color: var(--danger);
+}
+
+.row-actions button.is-active {
+  box-shadow: inset 0 0 0 2px currentColor;
+}
+
+.pager {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.pager span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 950;
+}
+
+.pager button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
 }
 
 .empty {

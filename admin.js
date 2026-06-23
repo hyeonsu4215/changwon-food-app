@@ -6,6 +6,10 @@ const state = {
   reviews: [],
   reports: [],
   reviewFilter: "all",
+  reviewMode: "all",
+  reviewRestaurantId: "all",
+  reviewPage: 0,
+  reviewPageSize: 10,
   reportFilter: "all",
 };
 
@@ -20,6 +24,10 @@ const els = {
   reviewsPanel: document.querySelector("#reviewsPanel"),
   reportsPanel: document.querySelector("#reportsPanel"),
   reviewList: document.querySelector("#reviewList"),
+  reviewPager: document.querySelector("#reviewPager"),
+  reviewCount: document.querySelector("#reviewCount"),
+  reviewRestaurantFilter: document.querySelector("#reviewRestaurantFilter"),
+  reviewStoreField: document.querySelector("#reviewStoreField"),
   reportList: document.querySelector("#reportList"),
   refreshReviews: document.querySelector("#refreshReviews"),
   refreshReports: document.querySelector("#refreshReports"),
@@ -48,6 +56,25 @@ function menuLabel(menuId) {
   const restaurant = menu ? restaurantsById.get(menu.restaurantId) : null;
   if (!menu) return menuId || "메뉴 없음";
   return `${restaurant?.name || menu.restaurantName} · ${menu.name}`;
+}
+
+function reviewRestaurantId(review) {
+  if (review.restaurant_id) return review.restaurant_id;
+  const menu = menusById.get(review.menu_id);
+  return menu?.restaurantId || "";
+}
+
+function reviewRestaurantName(review) {
+  const id = reviewRestaurantId(review);
+  return restaurantsById.get(id)?.name || "가게 정보 없음";
+}
+
+function renderRestaurantFilterOptions() {
+  if (!els.reviewRestaurantFilter) return;
+  const options = DATA.restaurants
+    .map((restaurant) => `<option value="${restaurant.id}">${escapeHtml(restaurant.name)}</option>`)
+    .join("");
+  els.reviewRestaurantFilter.innerHTML = `<option value="all">전체 가게</option>${options}`;
 }
 
 async function loadScript(src) {
@@ -150,13 +177,29 @@ async function loadReviews() {
     return;
   }
   state.reviews = data || [];
+  state.reviewPage = 0;
   renderReviews();
 }
 
 function renderReviews() {
-  const rows = state.reviews.filter((review) => state.reviewFilter === "all" || review.status === state.reviewFilter);
-  els.reviewList.innerHTML = rows.length
-    ? rows
+  let rows = state.reviews.filter((review) => state.reviewFilter === "all" || review.status === state.reviewFilter);
+  if (state.reviewMode === "store" && state.reviewRestaurantId !== "all") {
+    rows = rows.filter((review) => reviewRestaurantId(review) === state.reviewRestaurantId);
+  }
+  const total = rows.length;
+  const totalPages = Math.max(1, Math.ceil(total / state.reviewPageSize));
+  state.reviewPage = Math.min(state.reviewPage, totalPages - 1);
+  const start = state.reviewPage * state.reviewPageSize;
+  const pageRows = rows.slice(start, start + state.reviewPageSize);
+
+  els.reviewStoreField.hidden = state.reviewMode !== "store";
+  els.reviewCount.textContent =
+    state.reviewMode === "store"
+      ? `가게별 보기 · ${total}개 중 ${total ? `${start + 1}-${Math.min(start + state.reviewPageSize, total)}` : "0"}개 표시`
+      : `전체 리뷰 · ${total}개 중 ${total ? `${start + 1}-${Math.min(start + state.reviewPageSize, total)}` : "0"}개 표시`;
+
+  els.reviewList.innerHTML = pageRows.length
+    ? pageRows
         .map(
           (review) => `
             <article class="admin-row">
@@ -165,7 +208,7 @@ function renderReviews() {
                 <span class="badge ${review.status}">${review.status === "visible" ? "공개" : "숨김"}</span>
               </div>
               <div class="meta">
-                ${escapeHtml(review.nickname)} · 별점 ${review.rating} · 위생 ${review.hygiene} · 친절 ${review.kindness} · ${formatDate(review.created_at)}
+                ${escapeHtml(reviewRestaurantName(review))} · ${escapeHtml(review.nickname || "익명")} · 별점 ${review.rating} · 위생 ${review.hygiene} · 친절 ${review.kindness} · ${formatDate(review.created_at)}
               </div>
               <p class="message">${escapeHtml(review.review_text || "내용 없음")}</p>
               <div class="row-actions">
@@ -180,6 +223,15 @@ function renderReviews() {
         )
         .join("")
     : `<div class="empty">표시할 후기가 없습니다.</div>`;
+
+  els.reviewPager.innerHTML =
+    totalPages > 1
+      ? `
+        <button ${state.reviewPage === 0 ? "disabled" : ""} data-review-page="prev">이전</button>
+        <span>${state.reviewPage + 1} / ${totalPages}</span>
+        <button ${state.reviewPage >= totalPages - 1 ? "disabled" : ""} data-review-page="next">다음</button>
+      `
+      : "";
 }
 
 async function updateReviewStatus(id, status) {
@@ -243,10 +295,10 @@ function renderReports() {
               </div>
               <p class="message">${escapeHtml(report.message)}</p>
               <div class="row-actions">
-                <button data-report-status="${report.id}" data-status="pending">대기</button>
-                <button data-report-status="${report.id}" data-status="checking">확인중</button>
-                <button data-report-status="${report.id}" data-status="done">반영완료</button>
-                <button class="danger" data-report-status="${report.id}" data-status="rejected">보류</button>
+                <button class="${report.status === "pending" ? "is-active" : ""}" data-report-status="${report.id}" data-status="pending">대기</button>
+                <button class="${report.status === "checking" ? "is-active" : ""}" data-report-status="${report.id}" data-status="checking">확인중</button>
+                <button class="${report.status === "done" ? "is-active" : ""}" data-report-status="${report.id}" data-status="done">반영완료</button>
+                <button class="danger ${report.status === "rejected" ? "is-active" : ""}" data-report-status="${report.id}" data-status="rejected">보류</button>
               </div>
             </article>
           `,
@@ -282,7 +334,20 @@ function bindEvents() {
     const reviewFilter = event.target.closest("[data-review-filter]");
     if (reviewFilter) {
       state.reviewFilter = reviewFilter.dataset.reviewFilter;
+      state.reviewPage = 0;
       document.querySelectorAll("[data-review-filter]").forEach((button) => button.classList.toggle("is-active", button === reviewFilter));
+      renderReviews();
+    }
+    const reviewMode = event.target.closest("[data-review-mode]");
+    if (reviewMode) {
+      state.reviewMode = reviewMode.dataset.reviewMode;
+      state.reviewPage = 0;
+      document.querySelectorAll("[data-review-mode]").forEach((button) => button.classList.toggle("is-active", button === reviewMode));
+      renderReviews();
+    }
+    const reviewPage = event.target.closest("[data-review-page]");
+    if (reviewPage) {
+      state.reviewPage += reviewPage.dataset.reviewPage === "next" ? 1 : -1;
       renderReviews();
     }
     const reportFilter = event.target.closest("[data-report-filter]");
@@ -296,7 +361,13 @@ function bindEvents() {
     const reportStatus = event.target.closest("[data-report-status]");
     if (reportStatus) updateReportStatus(reportStatus.dataset.reportStatus, reportStatus.dataset.status);
   });
+  els.reviewRestaurantFilter?.addEventListener("change", (event) => {
+    state.reviewRestaurantId = event.target.value;
+    state.reviewPage = 0;
+    renderReviews();
+  });
 }
 
+renderRestaurantFilterOptions();
 bindEvents();
 initSupabase();
