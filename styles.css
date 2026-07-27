@@ -332,6 +332,69 @@ dialog {
   padding: 12px;
 }
 
+.quick-start-card {
+  display: grid;
+  gap: 10px;
+  margin: 0 0 10px;
+  padding: 14px;
+  border: 1px solid rgba(15, 123, 99, 0.16);
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: var(--shadow);
+}
+
+.quick-start-card h3 {
+  margin: 0 0 5px;
+  color: var(--ink);
+  font-size: 18px;
+  line-height: 1.25;
+}
+
+.quick-start-card p:not(.eyebrow) {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 850;
+  line-height: 1.45;
+}
+
+.quick-start-button {
+  margin-top: 0;
+  min-height: 50px;
+  background: var(--mint-dark);
+  font-size: 15px;
+}
+
+.quick-start-button:disabled {
+  background: #6a8f84;
+}
+
+.condition-details {
+  margin-bottom: 12px;
+}
+
+.condition-details > summary {
+  display: flex;
+  min-height: 42px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  background: var(--mint-soft);
+  color: var(--mint-dark);
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 950;
+  list-style: none;
+}
+
+.condition-details > summary::-webkit-details-marker {
+  display: none;
+}
+
+.condition-details[open] > summary {
+  margin-bottom: 12px;
+}
+
 .privacy-note {
   flex: 1;
   margin: 0;
@@ -621,6 +684,147 @@ input[type="range"] {
   gap: 10px;
 }
 
+.quick-recommend-panel {
+  display: grid;
+  gap: 10px;
+}
+
+.quick-recommend-grid {
+  display: grid;
+  gap: 10px;
+}
+
+.quick-hero-card,
+.quick-alt-card {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.quick-hero-card {
+  display: grid;
+  gap: 10px;
+  padding: 15px;
+  border-color: rgba(15, 123, 99, 0.26);
+  background: linear-gradient(135deg, #ffffff 0%, #f3fff8 100%);
+}
+
+.quick-rank-badge {
+  justify-self: start;
+  border-radius: 999px;
+  padding: 6px 9px;
+  background: var(--mint);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 950;
+}
+
+.quick-hero-main {
+  display: flex;
+  min-width: 0;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.quick-hero-main > div {
+  min-width: 0;
+}
+
+.quick-hero-card h3 {
+  margin: 0 0 6px;
+  color: var(--ink);
+  font-size: 22px;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+.quick-hero-card .store-line,
+.quick-hero-card .recommend-copy {
+  overflow-wrap: anywhere;
+}
+
+.quick-actions {
+  margin-top: 0;
+}
+
+.quick-actions button,
+.quick-actions a {
+  flex: 1 1 92px;
+}
+
+.quick-alt-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.quick-alt-card {
+  display: grid;
+  min-width: 0;
+  gap: 7px;
+  padding: 11px;
+}
+
+.quick-alt-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.quick-alt-top span {
+  border-radius: 999px;
+  padding: 5px 7px;
+  background: #edf2f5;
+  color: #405064;
+  font-size: 10.5px;
+  font-weight: 950;
+}
+
+.quick-alt-card .heart-button {
+  width: 30px;
+  height: 30px;
+  font-size: 19px;
+}
+
+.quick-alt-card h3 {
+  margin: 0;
+  color: var(--ink);
+  font-size: 15px;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.quick-alt-card .store-line,
+.quick-alt-card .recommend-copy {
+  margin: 0;
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+
+.quick-alt-actions {
+  margin-top: 2px;
+}
+
+.quick-alt-actions button,
+.quick-alt-actions a {
+  flex: 1 1 0;
+  min-height: 32px;
+  padding: 0 7px;
+  font-size: 11px;
+}
+
+.secondary-action {
+  background: #edf2f5;
+  color: var(--ink);
+}
+
+.quick-reroll-button {
+  background: var(--mint);
+}
+
 .menu-card {
   padding: 13px;
 }
@@ -703,6 +907,7 @@ input[type="range"] {
 
 .card-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 6px;
   margin-top: 11px;
 }
@@ -1863,5 +2068,9 @@ dialog::backdrop {
   .toggle-strip {
     grid-template-columns: repeat(5, 72px);
     overflow-x: auto;
+  }
+
+  .quick-alt-grid {
+    grid-template-columns: 1fr;
   }
 }

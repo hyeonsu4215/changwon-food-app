@@ -53,7 +53,17 @@
             </div>
           </section>
 
-          <section class="control-surface" aria-label="추천 조건">
+          <section class="quick-start-card" aria-label="빠른 추천">
+            <div>
+              <p class="eyebrow">Quick Pick</p>
+              <h3>조건 없이 바로 고르기</h3>
+              <p>기본 조건과 현재 추천 기준으로 지금 먹기 좋은 메뉴 3개를 보여줘요.</p>
+            </div>
+            <button id="quickRecommendButton" class="wide-button quick-start-button">지금 먹을 메뉴 추천해 줘</button>
+          </section>
+
+          <details id="conditionDetails" class="control-surface condition-details" aria-label="추천 조건">
+            <summary aria-expanded="false">조건 자세히 설정</summary>
             <div class="condition-tools">
               <p class="privacy-note">찜, 먹은 기록, 내 입맛 수정은 이 기기 안에만 저장돼요.</p>
               <button id="resetFiltersButton" class="text-button reset-button">조건 초기화</button>
@@ -113,7 +123,7 @@
             </details>
 
             <button id="searchButton" class="wide-button search-submit">조건에 맞게 찾기</button>
-          </section>
+          </details>
 
           <section class="recommend-section">
             <div class="section-heading">
@@ -123,6 +133,9 @@
               </div>
               <button id="rouletteButton" class="icon-button">룰렛</button>
             </div>
+            <div id="quickRecommendPanel" class="quick-recommend-panel"></div>
+            <button id="rerollQuickButton" class="wide-button quick-reroll-button">다른 메뉴 추천</button>
+            <button id="toggleAlternativesButton" class="wide-button secondary-action" aria-expanded="false">대안 메뉴 보기</button>
             <div id="menuList" class="menu-list"></div>
             <button id="nextRecommendButton" class="wide-button">다시 추천하기</button>
           </section>

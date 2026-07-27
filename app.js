@@ -45,6 +45,9 @@ const state = {
   page: 0,
   hasSearched: false,
   isSearching: false,
+  recommendTimer: null,
+  quickItems: [],
+  alternativesExpanded: false,
   wishlist: JSON.parse(localStorage.getItem("changwonFoodWishlist") || "[]"),
   history: JSON.parse(localStorage.getItem("changwonFoodHistory") || "[]"),
   historyRangeDays: Number(localStorage.getItem("changwonFoodHistoryRangeDays") || "7"),
@@ -93,6 +96,8 @@ const els = {
   locationStatus: document.querySelector("#locationStatus"),
   conditionSummary: document.querySelector("#conditionSummary"),
   weatherCard: document.querySelector("#weatherCard"),
+  quickRecommendButton: document.querySelector("#quickRecommendButton"),
+  conditionDetails: document.querySelector("#conditionDetails"),
   searchButton: document.querySelector("#searchButton"),
   resetFiltersButton: document.querySelector("#resetFiltersButton"),
   searchOverlay: document.querySelector("#searchOverlay"),
@@ -112,6 +117,9 @@ const els = {
   saltyValue: document.querySelector("#saltyValue"),
   sweetValue: document.querySelector("#sweetValue"),
   recommendTitle: document.querySelector("#recommendTitle"),
+  quickRecommendPanel: document.querySelector("#quickRecommendPanel"),
+  rerollQuickButton: document.querySelector("#rerollQuickButton"),
+  toggleAlternativesButton: document.querySelector("#toggleAlternativesButton"),
   menuList: document.querySelector("#menuList"),
   nextRecommendButton: document.querySelector("#nextRecommendButton"),
   rouletteButton: document.querySelector("#rouletteButton"),
@@ -391,6 +399,8 @@ function toast(message) {
 function markConditionsChanged() {
   state.page = 0;
   state.hasSearched = false;
+  state.quickItems = [];
+  state.alternativesExpanded = false;
 }
 
 function weatherKind(weather = state.weather) {
@@ -543,6 +553,55 @@ function pageMenus() {
   return { all, items: all.slice(start, start + 10), start };
 }
 
+function restaurantKey(item) {
+  return item.restaurantId || item.restaurant?.id || item.restaurantName || item.restaurant?.name || item.id;
+}
+
+function selectQuickRecommendations(allItems, avoidIds = new Set()) {
+  if (!allItems.length) return [];
+  let pool = allItems.filter((item) => !avoidIds.has(item.id));
+  if (pool.length < Math.min(3, allItems.length)) pool = allItems;
+  if (!pool.length) return [];
+
+  const targetCount = Math.min(3, pool.length);
+  const selected = [pool[0]];
+  const selectedIds = new Set([pool[0].id]);
+  const heroScore = Number(pool[0].score);
+  const addFrom = (items, preferDifferentRestaurant) => {
+    for (const item of items) {
+      if (selected.length >= targetCount) return;
+      if (selectedIds.has(item.id)) continue;
+      if (preferDifferentRestaurant && selected.some((picked) => restaurantKey(picked) === restaurantKey(item))) continue;
+      selected.push(item);
+      selectedIds.add(item.id);
+    }
+  };
+  const scoreWindow = (maxGap) => pool.filter((item) => item.score - heroScore <= maxGap);
+  const reliableSteps = [8, 12, 18, 26];
+
+  for (const maxGap of reliableSteps) {
+    addFrom(scoreWindow(maxGap), true);
+    if (selected.length >= targetCount) return selected;
+  }
+
+  for (const maxGap of reliableSteps) {
+    addFrom(scoreWindow(maxGap), false);
+    if (selected.length >= targetCount) return selected;
+  }
+
+  addFrom(pool, true);
+  addFrom(pool, false);
+  return selected.slice(0, targetCount);
+}
+
+function updateQuickRecommendations({ avoidCurrent = false } = {}) {
+  const all = getRecommendedMenus();
+  const avoidIds = avoidCurrent ? new Set(state.quickItems.map((item) => item.id)) : new Set();
+  state.quickItems = selectQuickRecommendations(all, avoidIds);
+  state.alternativesExpanded = false;
+  state.page = 0;
+}
+
 function mapUrl(item) {
   const restaurantName = item.restaurant?.name || item.restaurantName;
   return `https://map.naver.com/p/search/${encodeURIComponent(`창원대 ${restaurantName}`)}`;
@@ -623,6 +682,69 @@ function cardHtml(item, rank) {
   `;
 }
 
+function quickReasonText(item) {
+  return recommendationReasons(item).slice(0, 2).join(" ") || "현재 기본 조건에서 가장 균형이 좋은 메뉴예요.";
+}
+
+function quickHeroHtml(item) {
+  const wished = isWished(item.id);
+  const tagList = compactTags(item, 5);
+  return `
+    <article class="quick-hero-card">
+      <div class="quick-rank-badge">오늘의 1순위</div>
+      <div class="quick-hero-main">
+        <div>
+          <h3>${escapeHtml(item.name)}</h3>
+          <p class="store-line">${escapeHtml(item.restaurant?.name || item.restaurantName)} · ${money(item.price)} · ${meters(item.distance)}</p>
+          <p class="recommend-copy">${quickReasonText(item)}</p>
+        </div>
+        <button class="heart-button ${wished ? "is-wished" : ""}" data-wish="${item.id}" aria-label="${wished ? "찜 해제" : "찜하기"}">${wished ? "♥" : "♡"}</button>
+      </div>
+      <div class="meta-tags">${tagList.map((tag) => `<span>${tag}</span>`).join("")}</div>
+      <div class="card-actions quick-actions">
+        <button data-ate="${item.id}">먹음 기록</button>
+        <button data-detail="${item.id}">상세 보기</button>
+        <a href="${mapUrl(item)}" target="_blank" rel="noreferrer">네이버 지도</a>
+      </div>
+    </article>
+  `;
+}
+
+function quickAlternativeHtml(item, rank) {
+  const wished = isWished(item.id);
+  return `
+    <article class="quick-alt-card">
+      <div class="quick-alt-top">
+        <span>${rank}순위</span>
+        <button class="heart-button ${wished ? "is-wished" : ""}" data-wish="${item.id}" aria-label="${wished ? "찜 해제" : "찜하기"}">${wished ? "♥" : "♡"}</button>
+      </div>
+      <h3>${escapeHtml(item.name)}</h3>
+      <p class="store-line">${escapeHtml(item.restaurant?.name || item.restaurantName)} · ${money(item.price)} · ${meters(item.distance)}</p>
+      <p class="recommend-copy">${quickReasonText(item)}</p>
+      <div class="card-actions quick-alt-actions">
+        <button data-detail="${item.id}">상세</button>
+        <a href="${mapUrl(item)}" target="_blank" rel="noreferrer">지도</a>
+      </div>
+    </article>
+  `;
+}
+
+function quickRecommendationsHtml(items) {
+  if (!items.length) {
+    return `<div class="empty-state quick-empty">지금 먹을 메뉴 추천해 줘 버튼을 누르면 바로 3개를 골라드려요.</div>`;
+  }
+  const [hero, ...alternatives] = items;
+  const alternativeGrid = alternatives.length
+    ? `<div class="quick-alt-grid">${alternatives.map((item, index) => quickAlternativeHtml(item, index + 2)).join("")}</div>`
+    : "";
+  return `
+    <div class="quick-recommend-grid">
+      ${quickHeroHtml(hero)}
+      ${alternativeGrid}
+    </div>
+  `;
+}
+
 function restaurantReviewSummary(restaurantId) {
   const menuIds = DATA.menus.filter((menu) => menu.restaurantId === restaurantId).map((menu) => menu.id);
   const summaries = menuIds.map((id) => state.publicReviewSummary[id]).filter((summary) => summary?.review_count > 0);
@@ -699,21 +821,28 @@ function renderStoreSearch() {
 
 function renderRecommendations() {
   if (!state.hasSearched) {
-    els.recommendTitle.textContent = "조건을 선택해 주세요";
-    els.menuList.innerHTML = `
-      <div class="empty-state search-ready">
-        음식 종류와 예산, 맛 취향을 고른 뒤 아래의 조건에 맞게 찾기를 눌러주세요.
-      </div>
-    `;
+    els.recommendTitle.textContent = "빠른 추천 준비";
+    els.quickRecommendPanel.innerHTML = quickRecommendationsHtml([]);
+    els.rerollQuickButton.style.display = "none";
+    els.toggleAlternativesButton.style.display = "none";
+    els.menuList.innerHTML = "";
     els.nextRecommendButton.style.display = "none";
     return;
   }
   const { all, items, start } = pageMenus();
-  els.recommendTitle.textContent = all.length ? `추천 ${start + 1}-${Math.min(start + 10, all.length)}위` : "추천 결과 없음";
-  els.menuList.innerHTML = items.length
-    ? items.map((item, index) => `<article class="menu-card">${cardHtml(item, start + index + 1)}</article>`).join("")
+  els.recommendTitle.textContent = all.length ? "오늘의 빠른 추천" : "추천 결과 없음";
+  els.quickRecommendPanel.innerHTML = state.quickItems.length
+    ? quickRecommendationsHtml(state.quickItems)
     : `<div class="empty-state">조건에 맞는 메뉴가 없어요. 예산이나 조건을 조금 풀어보세요.</div>`;
-  els.nextRecommendButton.style.display = all.length > 10 ? "block" : "none";
+  els.rerollQuickButton.style.display = all.length > 3 ? "block" : "none";
+  els.toggleAlternativesButton.style.display = all.length ? "block" : "none";
+  els.toggleAlternativesButton.textContent = state.alternativesExpanded ? "대안 메뉴 접기" : "대안 메뉴 보기";
+  els.toggleAlternativesButton.setAttribute("aria-expanded", String(state.alternativesExpanded));
+  els.menuList.innerHTML = state.alternativesExpanded && items.length
+    ? items.map((item, index) => `<article class="menu-card">${cardHtml(item, start + index + 1)}</article>`).join("")
+    : "";
+  els.nextRecommendButton.textContent = "다음 대안 보기";
+  els.nextRecommendButton.style.display = state.alternativesExpanded && all.length > 10 ? "block" : "none";
 }
 
 function openRoulette() {
@@ -836,7 +965,20 @@ function renderChips() {
   els.worldcupCategoryGrid.innerHTML = categories.map((category) => `<button class="choice-chip" data-worldcup-category="${category}" aria-pressed="false">${category}</button>`).join("");
 }
 
+function syncConditionDetailsAccessibility() {
+  const summary = els.conditionDetails?.querySelector("summary");
+  if (!summary) return;
+  summary.setAttribute("aria-expanded", String(els.conditionDetails.open));
+}
+
 function syncControls() {
+  if (els.quickRecommendButton) {
+    els.quickRecommendButton.disabled = state.isSearching;
+    els.quickRecommendButton.setAttribute("aria-busy", String(state.isSearching));
+    els.quickRecommendButton.textContent = state.isSearching ? "추천 고르는 중..." : "지금 먹을 메뉴 추천해 줘";
+  }
+  if (els.searchButton) els.searchButton.disabled = state.isSearching;
+  if (els.rerollQuickButton) els.rerollQuickButton.disabled = state.isSearching;
   els.budgetRange.value = String(state.budget);
   els.budgetValue.textContent = `${Number(state.budget).toLocaleString("ko-KR")}원 이하`;
   els.spicyPreference.value = String(state.spicy);
@@ -866,6 +1008,7 @@ function syncControls() {
     button.classList.toggle("is-selected", selected);
     button.setAttribute("aria-pressed", String(selected));
   });
+  syncConditionDetailsAccessibility();
 }
 
 function renderConditionSummary() {
@@ -1019,17 +1162,45 @@ function resetFilters() {
   render();
 }
 
-function searchMenus() {
+function finishRecommendation(delay) {
+  if (state.recommendTimer) return;
   state.isSearching = true;
   state.hasSearched = false;
   state.page = 0;
   render();
-  window.setTimeout(() => {
+  state.recommendTimer = window.setTimeout(() => {
+    state.recommendTimer = null;
     state.isSearching = false;
     state.hasSearched = true;
+    updateQuickRecommendations();
     render();
     document.querySelector(".recommend-section").scrollIntoView({ behavior: "smooth", block: "start" });
-  }, 900);
+  }, delay);
+}
+
+function searchMenus() {
+  finishRecommendation(900);
+}
+
+function quickRecommend() {
+  finishRecommendation(600);
+}
+
+function rerollQuickRecommendations() {
+  if (!state.hasSearched) {
+    quickRecommend();
+    return;
+  }
+  updateQuickRecommendations({ avoidCurrent: true });
+  renderRecommendations();
+  document.querySelector(".recommend-section").scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function toggleAlternativeMenus() {
+  if (!state.hasSearched) return;
+  state.alternativesExpanded = !state.alternativesExpanded;
+  state.page = 0;
+  renderRecommendations();
 }
 
 function requestLocation() {
@@ -2157,8 +2328,12 @@ function handleBackNavigation() {
 function bindEvents() {
   els.locationButton.addEventListener("click", showLocationDialog);
   els.shareButton.addEventListener("click", shareAppLink);
+  els.quickRecommendButton.addEventListener("click", quickRecommend);
   els.searchButton.addEventListener("click", searchMenus);
   els.resetFiltersButton.addEventListener("click", resetFilters);
+  els.rerollQuickButton.addEventListener("click", rerollQuickRecommendations);
+  els.toggleAlternativesButton.addEventListener("click", toggleAlternativeMenus);
+  els.conditionDetails?.addEventListener("toggle", syncConditionDetailsAccessibility);
   els.budgetRange.addEventListener("input", (event) => {
     state.budget = Number(event.target.value);
     markConditionsChanged();
