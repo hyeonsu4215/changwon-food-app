@@ -5,6 +5,9 @@ const DATA_UPDATED_AT = "2026.06.22";
 const FEEDBACK_FORM_URL = "https://forms.gle/BUYoZiSUXtFDE81J7";
 const VISIT_REVIEW_RADIUS_M = 50;
 const WEATHER_CACHE_MS = 60 * 60 * 1000;
+const WEATHER_SETTING_KEY = "changwonFoodWeatherEnabled";
+const WEATHER_BOOSTS = { rain: 5, hot: 4, cold: 5, humid: 3 };
+const HOT_SOUP_WORDS = ["순두부", "김치찌개", "육개장", "찌개", "국밥", "탕", "해장", "마라", "라멘", "우동", "칼국수", "찜"];
 const MOOD_OPTIONS = ["혼밥", "단체", "가성비", "든든함", "빠른식사", "비오는날", "해장", "시험기간", "데이트", "스트레스", "포장", "배달"];
 const HISTORY_RANGE_OPTIONS = [
   { label: "1주일", days: 7 },
@@ -57,6 +60,7 @@ const state = {
   catalogSource: "static",
   catalogStatus: "내장 데이터 사용 중",
   weather: JSON.parse(localStorage.getItem("changwonFoodWeather") || "null"),
+  weatherEnabled: localStorage.getItem(WEATHER_SETTING_KEY) !== "false",
   weatherStatus: "idle",
   supabase: null,
   supabaseUserId: null,
@@ -406,22 +410,27 @@ function weatherIcon(kind) {
   return { rain: "☔", hot: "☀", cold: "♨", humid: "☁" }[kind] || "🌤";
 }
 
+function weatherFreshForRecommendation() {
+  return state.weatherEnabled && cachedWeatherFresh() && ["cached", "synced"].includes(state.weatherStatus);
+}
+
 function weatherBoost(menu) {
+  if (!weatherFreshForRecommendation()) return null;
   const kind = weatherKind();
   if (!kind) return null;
   const name = `${menu.name} ${menu.category} ${(menu.tags || []).join(" ")}`;
   const includes = (words) => words.some((word) => name.includes(word));
   if (kind === "rain" && includes(["비오는날", "칼국수", "국밥", "탕", "찌개", "라멘", "우동", "마라", "찜", "해장", "든든함"])) {
-    return { score: 12, label: "비 오는 날", reason: "비 오는 날이라 따뜻한 국물이나 든든한 메뉴에 가산점이 들어갔어요." };
+    return { score: WEATHER_BOOSTS.rain, label: "비 오는 날", reason: "비 오는 날이라 따뜻한 국물이나 든든한 메뉴에 작은 가산점이 들어갔어요." };
   }
-  if (kind === "hot" && includes(["밀면", "냉", "토스트", "샐러드", "가볍게", "빠른식사", "카페"])) {
-    return { score: 10, label: "더운 날", reason: "더운 날이라 가볍거나 시원하게 먹기 좋은 메뉴에 가산점이 들어갔어요." };
+  if (kind === "hot" && !includes(HOT_SOUP_WORDS) && includes(["밀면", "냉면", "냉우동", "샐러드", "토스트", "가볍게", "빠른식사", "카페"])) {
+    return { score: WEATHER_BOOSTS.hot, label: "더운 날", reason: "더운 날이라 가볍게 먹기 좋은 메뉴에 작은 가산점이 들어갔어요." };
   }
   if (kind === "cold" && includes(["라멘", "마라", "탕", "찌개", "국밥", "찜", "칼국수", "우동", "든든함"])) {
-    return { score: 12, label: "추운 날", reason: "쌀쌀한 날씨라 따뜻하고 든든한 메뉴에 가산점이 들어갔어요." };
+    return { score: WEATHER_BOOSTS.cold, label: "추운 날", reason: "쌀쌀한 날씨라 따뜻하고 든든한 메뉴에 작은 가산점이 들어갔어요." };
   }
   if (kind === "humid" && includes(["든든함", "한식", "국밥", "탕", "찌개", "빠른식사"])) {
-    return { score: 6, label: "흐린 날", reason: "흐리고 습한 날이라 부담 적고 든든한 메뉴를 조금 더 추천해요." };
+    return { score: WEATHER_BOOSTS.humid, label: "흐린 날", reason: "흐리고 습한 날이라 부담 적고 든든한 메뉴에 작은 가산점이 들어갔어요." };
   }
   return null;
 }
@@ -481,7 +490,7 @@ function scoreMenu(menu) {
 }
 
 function getRecommendedMenus() {
-  return DATA.menus
+  const sorted = DATA.menus
     .filter((menu) => menu.available)
     .map(scoreMenu)
     .filter((item) => {
@@ -496,6 +505,36 @@ function getRecommendedMenus() {
       return true;
     })
     .sort((a, b) => a.score - b.score);
+  return diversifyRestaurants(sorted);
+}
+
+function diversifyRestaurants(sortedItems) {
+  if (sortedItems.length < 3) return sortedItems;
+  const [first, ...rest] = sortedItems;
+  const selected = [first];
+  const remaining = [...rest];
+
+  while (remaining.length) {
+    const restaurantCounts = selected.reduce((counts, item) => {
+      const key = item.restaurantId || item.restaurant?.id || item.restaurantName;
+      counts.set(key, (counts.get(key) || 0) + 1);
+      return counts;
+    }, new Map());
+    let bestIndex = 0;
+    let bestValue = Infinity;
+    remaining.forEach((item, index) => {
+      const key = item.restaurantId || item.restaurant?.id || item.restaurantName;
+      const repeatCount = restaurantCounts.get(key) || 0;
+      const value = item.score + repeatCount * 8 + Math.max(0, selected.length - 6) * repeatCount * 2;
+      if (value < bestValue) {
+        bestValue = value;
+        bestIndex = index;
+      }
+    });
+    selected.push(remaining.splice(bestIndex, 1)[0]);
+  }
+
+  return selected;
 }
 
 function pageMenus() {
@@ -520,13 +559,15 @@ function tags(item) {
   if (item.restaurant?.delivery) base.push("배달");
   if (item.meat) base.push("고기");
   base.push(distanceLabel(item.distance));
-  return [...base, ...item.tags.slice(0, 3)];
+  return uniqueTags([...base, ...item.tags.slice(0, 3)]);
 }
 
-function compactTags(item) {
-  return tags(item)
-    .filter((tag, index, arr) => arr.indexOf(tag) === index)
-    .slice(0, 4);
+function uniqueTags(values) {
+  return values.filter((tag, index, arr) => tag && arr.indexOf(tag) === index);
+}
+
+function compactTags(item, limit = 4) {
+  return tags(item).slice(0, limit);
 }
 
 function recommendationReasons(item) {
@@ -536,10 +577,12 @@ function recommendationReasons(item) {
   if (tasteDiff <= 2) reasons.push("입맛 설정과 잘 맞아요.");
   if (item.price <= state.budget) reasons.push(`예산 ${money(state.budget)} 안에 들어요.`);
   if (Number.isFinite(item.distance)) reasons.push(`${meters(item.distance)} 거리라 이동 부담이 적어요.`);
-  if (item.reviewSummary?.review_count > 0) reasons.push(`후기 평점 ${Number(item.reviewSummary.avg_rating).toFixed(1)}점이에요.`);
-  if (item.restaurant?.alone) reasons.push("혼밥하기 편한 곳이에요.");
+  if (state.needAlone && item.restaurant?.alone) reasons.push("혼밥 조건에 맞는 곳이에요.");
+  if (state.needTakeout && item.restaurant?.takeout) reasons.push("포장 가능한 곳이에요.");
+  if (state.needDelivery && item.restaurant?.delivery) reasons.push("배달 가능한 곳이에요.");
+  if (state.wantMeat && item.meat) reasons.push("고기 메뉴 조건에 맞아요.");
   if (item.value >= 4) reasons.push("가격 대비 만족도가 좋아요.");
-  return reasons.slice(0, 4);
+  return uniqueTags(reasons).slice(0, 4);
 }
 
 function cardHtml(item, rank) {
@@ -561,7 +604,7 @@ function cardHtml(item, rank) {
         <div class="price">${money(item.price)}</div>
       </div>
     </div>
-    <div class="reason-list">${item.reasons.slice(0, 3).map((reason) => `<span>${reason}</span>`).join("")}</div>
+    <div class="reason-list">${uniqueTags(item.reasons).slice(0, 3).map((reason) => `<span>${reason}</span>`).join("")}</div>
     <div class="meta-tags">${compactTags(item).map((tag) => `<span>${tag}</span>`).join("")}</div>
     <div class="card-actions">
       <button data-detail="${item.id}">상세</button>
@@ -845,26 +888,41 @@ function renderLocationStatus() {
 function renderWeatherCard() {
   if (!els.weatherCard) return;
   const weather = state.weather;
+  const toggleText = state.weatherEnabled ? "ON" : "OFF";
+  const toggleLabel = state.weatherEnabled ? "현재 날씨 참고 끄기" : "현재 날씨 참고 켜기";
+  const toggle = `
+    <button class="weather-toggle ${state.weatherEnabled ? "is-on" : ""}" data-weather-toggle aria-pressed="${state.weatherEnabled}" aria-label="${toggleLabel}">
+      현재 날씨 참고 ${toggleText}
+    </button>
+  `;
   if (!weather) {
     els.weatherCard.innerHTML = `
-      <div>
-        <p class="eyebrow">Weather</p>
-        <strong>${state.weatherStatus === "loading" ? "창원대 앞 날씨 확인 중" : "날씨 정보를 준비하지 못했어요"}</strong>
-        <span>날씨 정보가 준비되면 추천 이유에 함께 반영돼요.</span>
+      <div class="weather-main">
+        <span class="weather-symbol" aria-hidden="true">${weatherIcon(null)}</span>
+        <div>
+          <p class="eyebrow">Weather</p>
+          <strong>${state.weatherStatus === "loading" ? "창원대 앞 날씨 확인 중" : "날씨 정보를 준비하지 못했어요"}</strong>
+          <span>날씨 정보가 없어서 추천 점수에는 반영하지 않아요.</span>
+        </div>
       </div>
+      ${toggle}
     `;
     return;
   }
   const kind = weatherKind(weather);
   const fetchedAt = formatDateTime(weather.fetchedAt);
-  const helper =
-    kind === "rain"
-      ? "비 오는 날 어울리는 따뜻한 메뉴를 조금 더 추천해요."
-      : kind === "hot"
-        ? "더운 날 먹기 편한 메뉴를 조금 더 추천해요."
-        : kind === "cold"
-          ? "쌀쌀한 날 어울리는 든든한 메뉴를 조금 더 추천해요."
-          : "현재 날씨는 추천 점수에 약하게만 반영돼요.";
+  const isFresh = cachedWeatherFresh(weather) && ["cached", "synced"].includes(state.weatherStatus);
+  const helper = !state.weatherEnabled
+    ? "설정이 꺼져 있어 추천 점수에는 반영하지 않아요."
+    : !isFresh
+      ? "최근 날씨가 아니라 추천 점수에는 반영하지 않아요."
+      : kind === "rain"
+        ? "비 오는 날 어울리는 메뉴에만 작은 가산점을 줘요."
+        : kind === "hot"
+          ? "더운 날 가볍게 먹기 좋은 메뉴에만 작은 가산점을 줘요."
+          : kind === "cold"
+            ? "쌀쌀한 날 어울리는 든든한 메뉴에만 작은 가산점을 줘요."
+            : "현재 날씨는 추천 점수에 반영하지 않아요.";
   els.weatherCard.innerHTML = `
     <div class="weather-main">
       <span class="weather-symbol" aria-hidden="true">${weatherIcon(kind)}</span>
@@ -874,6 +932,7 @@ function renderWeatherCard() {
         <span>${helper} ${fetchedAt ? `최근 갱신 ${fetchedAt}` : ""}</span>
       </div>
     </div>
+    ${toggle}
   `;
 }
 
@@ -899,14 +958,26 @@ async function loadWeather() {
     const response = await fetch("/api/weather", { headers: { Accept: "application/json" } });
     const result = await response.json();
     if (!response.ok || !result?.ok || !result.weather) throw new Error(result?.error || "날씨 조회 실패");
-    saveWeather(result.weather);
-    state.weatherStatus = result.cached ? "cached" : "synced";
+    if (result.stale) {
+      state.weather = result.weather;
+      state.weatherStatus = "stale";
+    } else {
+      saveWeather(result.weather);
+      state.weatherStatus = result.cached ? "cached" : "synced";
+    }
     render();
   } catch (error) {
     state.weatherStatus = "failed";
     console.warn("weather load failed", error);
     renderWeatherCard();
   }
+}
+
+function toggleWeatherReference() {
+  state.weatherEnabled = !state.weatherEnabled;
+  localStorage.setItem(WEATHER_SETTING_KEY, String(state.weatherEnabled));
+  markConditionsChanged();
+  render();
 }
 
 function render() {
@@ -1091,7 +1162,7 @@ function showDetail(id) {
     <p class="eyebrow">Menu detail</p>
     <h2>${item.name}</h2>
     <p class="store-line">${item.restaurant?.name || item.restaurantName} · ${item.category} · ${meters(item.distance)}</p>
-    <div class="reason-list">${item.reasons.slice(0, 3).map((reason) => `<span>${reason}</span>`).join("")}</div>
+    <div class="reason-list">${uniqueTags(item.reasons).slice(0, 3).map((reason) => `<span>${reason}</span>`).join("")}</div>
     <div class="meta-tags">${compactTags(item).map((tag) => `<span>${tag}</span>`).join("")}</div>
     <section class="taste-summary">
       <h3>왜 추천했나요?</h3>
@@ -1114,7 +1185,7 @@ function showDetail(id) {
     <section class="personal-taste" data-taste-editor="${item.id}">
       <div class="control-title">
         <strong>내 입맛으로 수정</strong>
-        <span>기기 저장 + Supabase 연결 시 평균 반영</span>
+        <span>기기 저장 후 모두의 평균에 반영</span>
       </div>
       ${["spicy", "salty", "sweet"]
         .map((field) => {
@@ -1786,7 +1857,7 @@ function renderWorldcup() {
           </div>
           <button class="heart-button ${wished ? "is-wished" : ""}" data-wish="${item.id}" aria-label="${wished ? "찜 해제" : "찜하기"}">${wished ? "♥" : "♡"}</button>
         </div>
-        <div class="meta-tags">${tags(item).slice(0, 8).map((tag) => `<span>${tag}</span>`).join("")}</div>
+        <div class="meta-tags">${compactTags(item, 8).map((tag) => `<span>${tag}</span>`).join("")}</div>
         <div class="card-actions">
           <button data-detail="${item.id}">상세</button>
           <button data-ate="${item.id}">먹은 기록 추가</button>
@@ -1808,7 +1879,7 @@ function renderWorldcup() {
             <button class="worldcup-choice" data-worldcup-choice="${index}">
               <strong>${item.name}</strong>
               <span>${item.restaurant?.name || item.restaurantName} · ${money(item.price)} · ${meters(item.distance)}</span>
-              <div class="meta-tags">${tags(item).slice(0, 4).map((tag) => `<span>${tag}</span>`).join("")}</div>
+              <div class="meta-tags">${compactTags(item, 4).map((tag) => `<span>${tag}</span>`).join("")}</div>
             </button>
           `,
         )
@@ -1906,17 +1977,13 @@ function renderDashboard() {
   const historyItems = filteredHistoryItems.slice(0, state.historyVisibleCount);
   const reviewStats = myReviewStats();
   const myReviews = Object.values(state.reviews).slice(0, 6);
-  const reviewServerCount = Object.values(state.publicReviews).reduce((sum, reviews) => sum + reviews.length, 0);
   const syncStatusText = {
     idle: "대기 중",
     saving: "저장 중",
     refreshing: "평균 데이터 갱신 중",
-    synced: state.lastSyncAt ? `최근 갱신 ${formatDateTime(state.lastSyncAt)}` : "서버 연결됨",
-    failed: "서버 공유 실패",
+    synced: state.lastSyncAt ? `최근 갱신 ${formatDateTime(state.lastSyncAt)}` : "공유 준비됨",
+    failed: "공유를 잠시 완료하지 못했어요",
   }[state.syncStatus] || "대기 중";
-  const syncLabel = state.supabaseReady
-    ? `서버 연결됨 · 공개 후기 ${reviewServerCount}개 불러옴`
-    : `서버 연결 안 됨${state.supabaseError ? ` · ${escapeHtml(state.supabaseError)}` : ""}`;
   els.dataDashboard.innerHTML = `
     <div class="dashboard-card privacy-card">
       <h3>내 프로필</h3>
@@ -1926,7 +1993,6 @@ function renderDashboard() {
       </label>
       <p>찜, 먹은 기록, 내 입맛 수정은 서버가 아니라 이 기기 브라우저 안에만 저장돼요.</p>
       <p>후기와 평균 평점, 모두의 입맛 평균은 서버에 공유돼요.</p>
-      <p class="sync-status">${syncLabel}</p>
       <p class="sync-status">상태: ${syncStatusText}</p>
       <div class="dashboard-actions">
         <button data-refresh-remote>평균 데이터 새로고침</button>
@@ -2009,7 +2075,6 @@ function renderDashboard() {
     <div class="dashboard-card">
       <h3>데이터 현황</h3>
       <p>음식점 ${DATA.meta.restaurantCount}곳, 대표 메뉴 ${DATA.meta.menuCount}개를 기준으로 추천해요.</p>
-      <p>가게/메뉴 기준: ${escapeHtml(state.catalogStatus)}</p>
       <p>데이터 최종 수정일: ${DATA_UPDATED_AT}</p>
       <div class="dashboard-actions">
         <button data-report-open data-report-type="wrong_info" data-report-target-type="general" data-report-target-id="" data-report-target-label="전체 데이터">정보 제보 / 잘못된 정보 신고</button>
@@ -2146,6 +2211,11 @@ function bindEvents() {
     renderStoreSearch();
   });
   document.body.addEventListener("click", (event) => {
+    const weatherToggle = event.target.closest("[data-weather-toggle]");
+    if (weatherToggle) {
+      toggleWeatherReference();
+      return;
+    }
     const locationChoice = event.target.closest("[data-location-choice]");
     if (locationChoice) chooseLocationPreference(locationChoice.dataset.locationChoice);
     const detail = event.target.closest("[data-detail]");
