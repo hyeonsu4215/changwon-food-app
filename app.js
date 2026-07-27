@@ -570,6 +570,13 @@ function compactTags(item, limit = 4) {
   return tags(item).slice(0, limit);
 }
 
+function compactTagsExcluding(item, excludedTags, limit = 4) {
+  const excluded = new Set(excludedTags);
+  return tags(item)
+    .filter((tag) => !excluded.has(tag))
+    .slice(0, limit);
+}
+
 function recommendationReasons(item) {
   const reasons = [];
   const tasteDiff = Math.abs(item.taste.spicy - state.spicy) + Math.abs(item.taste.salty - state.salty) + Math.abs(item.taste.sweet - state.sweet);
@@ -591,6 +598,8 @@ function cardHtml(item, rank) {
     ? `<p class="review-line">별점 ${Number(item.reviewSummary.avg_rating).toFixed(1)} · 위생 ${Number(item.reviewSummary.avg_hygiene).toFixed(1)} · 친절 ${Number(item.reviewSummary.avg_kindness).toFixed(1)} · 후기 ${item.reviewSummary.review_count}</p>`
     : "";
   const reasonText = recommendationReasons(item).slice(0, 2).join(" ");
+  const reasonTags = uniqueTags(item.reasons).slice(0, 3);
+  const metaTags = compactTagsExcluding(item, reasonTags);
   return `
     <div class="menu-card__top">
       <div>
@@ -604,8 +613,8 @@ function cardHtml(item, rank) {
         <div class="price">${money(item.price)}</div>
       </div>
     </div>
-    <div class="reason-list">${uniqueTags(item.reasons).slice(0, 3).map((reason) => `<span>${reason}</span>`).join("")}</div>
-    <div class="meta-tags">${compactTags(item).map((tag) => `<span>${tag}</span>`).join("")}</div>
+    <div class="reason-list">${reasonTags.map((reason) => `<span>${reason}</span>`).join("")}</div>
+    <div class="meta-tags">${metaTags.map((tag) => `<span>${tag}</span>`).join("")}</div>
     <div class="card-actions">
       <button data-detail="${item.id}">상세</button>
       <button data-ate="${item.id}">먹음</button>
@@ -1158,12 +1167,14 @@ function showDetail(id) {
   const reviewList = menuReviews(item.id);
   const reviewTotal = menuReviewTotal(item.id);
   const reviewLimit = state.reviewVisibleCount[item.id] || 5;
+  const reasonTags = uniqueTags(item.reasons).slice(0, 3);
+  const metaTags = compactTagsExcluding(item, reasonTags);
   els.dialogContent.innerHTML = `
     <p class="eyebrow">Menu detail</p>
     <h2>${item.name}</h2>
     <p class="store-line">${item.restaurant?.name || item.restaurantName} · ${item.category} · ${meters(item.distance)}</p>
-    <div class="reason-list">${uniqueTags(item.reasons).slice(0, 3).map((reason) => `<span>${reason}</span>`).join("")}</div>
-    <div class="meta-tags">${compactTags(item).map((tag) => `<span>${tag}</span>`).join("")}</div>
+    <div class="reason-list">${reasonTags.map((reason) => `<span>${reason}</span>`).join("")}</div>
+    <div class="meta-tags">${metaTags.map((tag) => `<span>${tag}</span>`).join("")}</div>
     <section class="taste-summary">
       <h3>왜 추천했나요?</h3>
       <ul class="reason-copy-list">
