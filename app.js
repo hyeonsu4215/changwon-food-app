@@ -8,6 +8,7 @@ const WEATHER_CACHE_MS = 60 * 60 * 1000;
 const WEATHER_SETTING_KEY = "changwonFoodWeatherEnabled";
 const WEATHER_BOOSTS = { rain: 5, hot: 4, cold: 5, humid: 3 };
 const HOT_SOUP_WORDS = ["순두부", "김치찌개", "육개장", "찌개", "국밥", "탕", "해장", "마라", "라멘", "우동", "칼국수", "찜"];
+const HOT_CLEAR_MENU_WORDS = ["냉면", "밀면", "냉국수", "메밀국수", "열무국수", "샐러드", "냉우동", "모밀", "소바", "콩국수"];
 const MOOD_OPTIONS = ["혼밥", "단체", "가성비", "든든함", "빠른식사", "비오는날", "해장", "시험기간", "데이트", "스트레스", "포장", "배달"];
 const HISTORY_RANGE_OPTIONS = [
   { label: "1주일", days: 7 },
@@ -44,6 +45,7 @@ const state = {
   sweet: 2,
   page: 0,
   hasSearched: false,
+  appReady: false,
   isSearching: false,
   recommendTimer: null,
   quickItems: [],
@@ -429,11 +431,13 @@ function weatherBoost(menu) {
   const kind = weatherKind();
   if (!kind) return null;
   const name = `${menu.name} ${menu.category} ${(menu.tags || []).join(" ")}`;
+  const menuName = String(menu.name || "").replace(/\s+/g, "");
   const includes = (words) => words.some((word) => name.includes(word));
+  const menuNameIncludes = (words) => words.some((word) => menuName.includes(word.replace(/\s+/g, "")));
   if (kind === "rain" && includes(["비오는날", "칼국수", "국밥", "탕", "찌개", "라멘", "우동", "마라", "찜", "해장", "든든함"])) {
     return { score: WEATHER_BOOSTS.rain, label: "비 오는 날", reason: "비 오는 날이라 따뜻한 국물이나 든든한 메뉴에 작은 가산점이 들어갔어요." };
   }
-  if (kind === "hot" && !includes(HOT_SOUP_WORDS) && includes(["밀면", "냉면", "냉우동", "샐러드", "토스트", "가볍게", "빠른식사", "카페"])) {
+  if (kind === "hot" && !menuNameIncludes(HOT_SOUP_WORDS) && menuNameIncludes(HOT_CLEAR_MENU_WORDS)) {
     return { score: WEATHER_BOOSTS.hot, label: "더운 날", reason: "더운 날이라 가볍게 먹기 좋은 메뉴에 작은 가산점이 들어갔어요." };
   }
   if (kind === "cold" && includes(["라멘", "마라", "탕", "찌개", "국밥", "찜", "칼국수", "우동", "든든함"])) {
@@ -973,9 +977,14 @@ function syncConditionDetailsAccessibility() {
 
 function syncControls() {
   if (els.quickRecommendButton) {
-    els.quickRecommendButton.disabled = state.isSearching;
-    els.quickRecommendButton.setAttribute("aria-busy", String(state.isSearching));
-    els.quickRecommendButton.textContent = state.isSearching ? "추천 고르는 중..." : "지금 먹을 메뉴 추천해 줘";
+    const quickDisabled = !state.appReady || state.isSearching;
+    els.quickRecommendButton.disabled = quickDisabled;
+    els.quickRecommendButton.setAttribute("aria-busy", String(!state.appReady || state.isSearching));
+    els.quickRecommendButton.textContent = !state.appReady
+      ? "추천 준비 중..."
+      : state.isSearching
+        ? "추천 고르는 중..."
+        : "지금 먹을 메뉴 추천해 줘";
   }
   if (els.searchButton) els.searchButton.disabled = state.isSearching;
   if (els.rerollQuickButton) els.rerollQuickButton.disabled = state.isSearching;
@@ -1163,6 +1172,10 @@ function resetFilters() {
 }
 
 function finishRecommendation(delay) {
+  if (!state.appReady) {
+    toast("추천 준비가 끝나면 눌러주세요");
+    return;
+  }
   if (state.recommendTimer) return;
   state.isSearching = true;
   state.hasSearched = false;
@@ -2498,6 +2511,7 @@ function bindEvents() {
 
 function finishSplash() {
   const hideSplash = () => {
+    state.appReady = true;
     els.splashScreen?.classList.add("is-hidden");
     document.body.classList.remove("splash-active");
     handleLocationAfterSplash();
