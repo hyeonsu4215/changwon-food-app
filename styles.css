@@ -1191,6 +1191,60 @@ input[type="range"] {
   margin: 0;
 }
 
+.record-menu-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 9px;
+}
+
+.record-menu-row {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.record-menu-row strong,
+.record-menu-row span {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.record-menu-row strong {
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 950;
+}
+
+.record-menu-row span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.record-row-actions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.record-row-actions button {
+  min-height: 32px;
+  border: 0;
+  border-radius: 8px;
+  background: #edf2f5;
+  color: var(--ink);
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.record-alert-card {
+  border-color: rgba(229, 90, 74, 0.22);
+  background: #fff7f5;
+}
+
 .history-list {
   display: grid;
   gap: 8px;

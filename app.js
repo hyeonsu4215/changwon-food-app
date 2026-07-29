@@ -2683,10 +2683,10 @@ function reportStatusMeta(status) {
 
 function myReportRows() {
   if (!state.supabaseReady) {
-    return `<p>서버 연결 후 내가 보낸 제보 상태를 확인할 수 있어요.</p>`;
+    return `<p>제보 상태 목록은 지금 불러올 수 없어요. 음식점 정보 제보는 아래 버튼으로 보낼 수 있어요.</p>`;
   }
   if (!state.myReports.length) {
-    return `<p>아직 보낸 정보 제보가 없습니다.</p>`;
+    return `<p>아직 확인 가능한 제보 내역이 없어요. 음식점 정보 제보는 아래 버튼으로 보낼 수 있어요.</p>`;
   }
   return `
     <div class="report-status-list">
@@ -2711,6 +2711,34 @@ function myReportRows() {
   `;
 }
 
+function debugModeEnabled() {
+  return new URLSearchParams(window.location.search).get("debug") === "1";
+}
+
+function recordMenuRows(items, emptyText) {
+  return items.length
+    ? `<div class="record-menu-list">
+        ${items
+          .map(
+            (item) => `
+              <div class="record-menu-row">
+                <div>
+                  <strong>${escapeHtml(item.name)}</strong>
+                  <span>${escapeHtml(item.restaurant?.name || item.restaurantName)} · ${money(item.price)}</span>
+                </div>
+                <div class="record-row-actions">
+                  <button data-detail="${item.id}">상세</button>
+                  <button data-wish="${item.id}">${isWished(item.id) ? "찜 해제" : "찜"}</button>
+                  <button data-ate="${item.id}">먹음</button>
+                </div>
+              </div>
+            `,
+          )
+          .join("")}
+      </div>`
+    : `<p>${emptyText}</p>`;
+}
+
 function renderDashboard() {
   const categories = countBy(DATA.menus, (menu) => menu.category).slice(0, 8);
   const moods = countBy(
@@ -2721,6 +2749,7 @@ function renderDashboard() {
   const historyItems = filteredHistoryItems.slice(0, state.historyVisibleCount);
   const reviewStats = myReviewStats();
   const myReviews = Object.values(state.reviews).slice(0, 6);
+  const wishedItems = state.wishlist.map((id) => DATA.menus.find((menu) => menu.id === id)).filter(Boolean).map(scoreMenu);
   const syncStatusText = {
     idle: "대기 중",
     saving: "저장 중",
@@ -2728,23 +2757,31 @@ function renderDashboard() {
     synced: state.lastSyncAt ? `최근 갱신 ${formatDateTime(state.lastSyncAt)}` : "공유 준비됨",
     failed: "공유를 잠시 완료하지 못했어요",
   }[state.syncStatus] || "대기 중";
+  const syncNotice =
+    state.syncStatus === "failed" || state.pendingReviewRetry
+      ? `
+        <div class="dashboard-card record-alert-card">
+          <h3>동기화 확인이 필요해요</h3>
+          <p>후기 공유나 제보 상태 확인이 잠시 완료되지 않았어요.</p>
+          <div class="dashboard-actions">
+            ${state.pendingReviewRetry ? `<button data-retry-review>후기 공유 다시 시도</button>` : ""}
+            ${state.syncStatus === "failed" ? `<button data-refresh-remote>다시 확인</button>` : ""}
+          </div>
+        </div>
+      `
+      : "";
   els.dataDashboard.innerHTML = `
+    ${syncNotice}
     <div class="dashboard-card privacy-card">
-      <h3>내 프로필</h3>
+      <h3>내 기록 설정</h3>
       <label class="profile-field">
-        <span>닉네임</span>
+        <span>후기 닉네임</span>
         <input id="nicknameInput" type="text" maxlength="20" value="${escapeHtml(state.nickname)}" placeholder="닉네임을 입력해주세요" />
       </label>
-      <p>찜, 먹은 기록, 내 입맛 수정은 서버가 아니라 이 기기 브라우저 안에만 저장돼요.</p>
-      <p>후기와 평균 평점, 모두의 입맛 평균은 서버에 공유돼요.</p>
-      <p class="sync-status">상태: ${syncStatusText}</p>
-      <div class="dashboard-actions">
-        <button data-refresh-remote>평균 데이터 새로고침</button>
-        ${state.pendingReviewRetry ? `<button data-retry-review>후기 공유 다시 시도</button>` : ""}
-      </div>
+      <p>찜, 먹은 기록, 입맛 수정은 이 기기 브라우저에 저장돼요.</p>
     </div>
     <div class="dashboard-card">
-      <h3>내 식사 기록</h3>
+      <h3>최근 먹은 메뉴</h3>
       <p>전체 ${state.history.length}개 · 선택 기간 ${filteredHistoryItems.length}개</p>
       <div class="history-filter" aria-label="식사 기록 기간">
         ${HISTORY_RANGE_OPTIONS.map(
@@ -2776,7 +2813,7 @@ function renderDashboard() {
                 )
                 .join("")}
             </div>`
-          : "<p>선택한 기간에 기록이 없습니다.</p>"
+          : "<p>선택한 기간에 먹은 기록이 없어요.</p>"
       }
       ${
         filteredHistoryItems.length > historyItems.length
@@ -2785,15 +2822,12 @@ function renderDashboard() {
       }
     </div>
     <div class="dashboard-card">
-      <h3>자주 먹은 메뉴</h3>
-      ${mostEatenRows()}
+      <h3>찜한 메뉴</h3>
+      <p>찜한 메뉴 ${wishedItems.length}개</p>
+      ${recordMenuRows(wishedItems.slice(0, 6), "아직 찜한 메뉴가 없어요.")}
     </div>
     <div class="dashboard-card">
-      <h3>내 입맛 수정</h3>
-      <p>${Object.keys(state.tasteOverrides).length}개 메뉴의 맛 기준을 내 입맛으로 바꿨어요.</p>
-    </div>
-    <div class="dashboard-card">
-      <h3>내 후기와 별점</h3>
+      <h3>내가 작성한 후기</h3>
       <p>후기 ${reviewStats.count}개 · 평균 별점 ${reviewStats.avgRating} · 위생 ${reviewStats.avgHygiene} · 친절 ${reviewStats.avgKindness}</p>
       ${
         myReviews.length
@@ -2808,29 +2842,39 @@ function renderDashboard() {
                 `;
               })
               .join("")
-          : "<p>아직 남긴 후기가 없습니다.</p>"
+          : "<p>아직 작성한 후기가 없어요.</p>"
       }
     </div>
     <div class="dashboard-card">
-      <h3>내 정보 제보</h3>
-      <p>가게 추가, 폐업, 가격 변경처럼 내가 보낸 제보의 처리 상태를 확인해요.</p>
+      <h3>${state.myReports.length ? "내가 보낸 제보" : "음식점 정보 제보하기"}</h3>
+      <p>${state.myReports.length ? "가게 추가, 폐업, 가격 변경처럼 내가 보낸 제보의 처리 상태를 확인해요." : "가게 추가, 폐업, 가격 변경처럼 잘못된 정보를 알려주세요."}</p>
       ${myReportRows()}
-    </div>
-    <div class="dashboard-card">
-      <h3>데이터 현황</h3>
-      <p>음식점 ${DATA.meta.restaurantCount}곳, 대표 메뉴 ${DATA.meta.menuCount}개를 기준으로 추천해요.</p>
-      <p>데이터 최종 수정일: ${DATA_UPDATED_AT}</p>
       <div class="dashboard-actions">
-        <button data-report-open data-report-type="wrong_info" data-report-target-type="general" data-report-target-id="" data-report-target-label="전체 데이터">정보 제보 / 잘못된 정보 신고</button>
+        <button data-report-open data-report-type="wrong_info" data-report-target-type="general" data-report-target-id="" data-report-target-label="전체 데이터">음식점 정보 제보하기</button>
       </div>
     </div>
-    <details class="dashboard-card stats-detail">
-      <summary>데이터 기록 통계 보기</summary>
-      <h3>카테고리 분포</h3>
-      ${barRows(categories)}
-      <h3>상황 태그</h3>
-      ${barRows(moods)}
-    </details>
+    ${
+      debugModeEnabled()
+        ? `
+          <details class="dashboard-card stats-detail dashboard-debug-card">
+            <summary>디버그 정보 보기</summary>
+            <p class="sync-status">동기화 상태: ${syncStatusText}</p>
+            <p>카탈로그: ${escapeHtml(state.catalogStatus)} · source=${escapeHtml(state.catalogSource)}</p>
+            <p>Supabase ready=${String(state.supabaseReady)} · reports=${state.myReports.length}</p>
+            <p>음식점 ${DATA.meta.restaurantCount}곳 · 메뉴 ${DATA.meta.menuCount}개 · 수정일 ${DATA_UPDATED_AT}</p>
+            <div class="dashboard-actions">
+              <button data-refresh-remote>공유 데이터 새로고침</button>
+            </div>
+            <h3>자주 먹은 메뉴</h3>
+            ${mostEatenRows()}
+            <h3>카테고리 분포</h3>
+            ${barRows(categories)}
+            <h3>상황 태그</h3>
+            ${barRows(moods)}
+          </details>
+        `
+        : ""
+    }
   `;
 }
 
