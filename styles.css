@@ -825,6 +825,52 @@ input[type="range"] {
   background: var(--mint);
 }
 
+.discovery-nudge-card {
+  display: grid;
+  gap: 10px;
+  padding: 13px;
+  border: 1px solid rgba(15, 123, 99, 0.18);
+  border-radius: 8px;
+  background: #f7fbf9;
+}
+
+.discovery-nudge-card strong {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--ink);
+  font-size: 14px;
+}
+
+.discovery-nudge-card p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.discovery-nudge-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.discovery-nudge-actions button {
+  min-height: 38px;
+  border: 0;
+  border-radius: 8px;
+  padding: 0 9px;
+  background: var(--mint-dark);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.discovery-nudge-actions button:last-child {
+  background: #edf2f5;
+  color: var(--ink);
+}
+
 .menu-card {
   padding: 13px;
 }
@@ -2071,6 +2117,10 @@ dialog::backdrop {
   }
 
   .quick-alt-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .discovery-nudge-actions {
     grid-template-columns: 1fr;
   }
 }
