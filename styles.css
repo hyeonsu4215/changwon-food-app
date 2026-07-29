@@ -835,6 +835,18 @@ input[type="range"] {
   font-weight: 900;
 }
 
+.discovery-mode-note {
+  margin: 0;
+  color: #526273;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.return-discovery-link {
+  background: #edf2f5;
+  color: var(--ink);
+}
+
 .discovery-nudge-card {
   display: grid;
   gap: 10px;

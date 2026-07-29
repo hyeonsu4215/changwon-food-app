@@ -80,6 +80,7 @@ const state = {
   recommendTimer: null,
   quickItems: [],
   quickSeenIds: new Set(),
+  activeRecommendationMode: "discovery",
   quickMode: "discovery",
   discoveryPickCount: 0,
   discoveryNudgeThreshold: 2,
@@ -116,6 +117,8 @@ const state = {
   worldcupCategories: new Set(),
   activeTab: "recommendTab",
   lastBackAt: 0,
+  externalLinkClickAt: 0,
+  pagehideAfterExternalLink: false,
   storeSearchTerm: "",
   expandedStoreMenus: new Set(),
   roulette: {
@@ -459,7 +462,11 @@ function hasCustomRecommendationConditions() {
 }
 
 function quickRecommendationMode() {
-  return hasCustomRecommendationConditions() ? "custom" : "discovery";
+  return state.activeRecommendationMode === "personalized" ? "custom" : "discovery";
+}
+
+function setActiveRecommendationMode(mode) {
+  state.activeRecommendationMode = mode === "personalized" ? "personalized" : "discovery";
 }
 
 function refreshDiscoverySeed() {
@@ -476,12 +483,11 @@ function resetStoreMenuExpansions() {
 }
 
 function markConditionsChanged() {
-  const nextMode = quickRecommendationMode();
   state.page = 0;
   state.hasSearched = false;
   state.quickItems = [];
   state.quickSeenIds = new Set();
-  state.quickMode = nextMode;
+  state.quickMode = quickRecommendationMode();
   resetDiscoveryNudgeCycle();
   state.alternativesExpanded = false;
 }
@@ -538,6 +544,7 @@ function scoreMenu(menu, options = {}) {
   const applyBudget = options.applyBudget ?? budgetPreferenceEnabled();
   // Per-menu tasteOverrides calibrate that menu's taste values, but only the global taste sliders make recommendations personalized.
   const applyTaste = options.applyTaste ?? tastePreferenceEnabled();
+  const applyMoods = options.applyMoods ?? true;
   const restaurant = restaurantsById.get(menu.restaurantId);
   const distance = restaurant?.lat && restaurant?.lng ? haversine(currentBase(), restaurant) : Infinity;
   const taste = menuTaste(menu);
@@ -564,7 +571,7 @@ function scoreMenu(menu, options = {}) {
   if (menu.value >= 4) reasons.push("가성비");
   if (menu.portion >= 4) reasons.push("든든함");
 
-  if (state.moods.size) {
+  if (applyMoods && state.moods.size) {
     for (const mood of state.moods) {
       if (menu.tags.includes(mood)) {
         score -= 18;
@@ -593,25 +600,28 @@ function scoreMenu(menu, options = {}) {
 
 function getRecommendedMenus(options = {}) {
   const mode = options.mode || quickRecommendationMode();
+  const applyConditions = options.applyConditions ?? mode === "custom";
   const applyBudget = options.applyBudget ?? (mode === "custom" && budgetPreferenceEnabled());
   const applyTaste = options.applyTaste ?? (mode === "custom");
+  const applyMoods = options.applyMoods ?? applyConditions;
   const sorted = DATA.menus
     .filter((menu) => menu.available)
     .map((menu) =>
       scoreMenu(menu, {
         applyBudget,
         applyTaste: applyTaste && tastePreferenceEnabled(),
+        applyMoods,
       }),
     )
     .filter((item) => {
-      if (state.categories.size && !state.categories.has(item.category)) return false;
-      if (state.moods.size && ![...state.moods].some((mood) => item.tags.includes(mood))) return false;
+      if (applyConditions && state.categories.size && !state.categories.has(item.category)) return false;
+      if (applyConditions && state.moods.size && ![...state.moods].some((mood) => item.tags.includes(mood))) return false;
       if (applyBudget && item.price > state.budget) return false;
-      if (state.onlyOpen && !item.openNow) return false;
-      if (state.needTakeout && !item.restaurant?.takeout) return false;
-      if (state.needDelivery && !item.restaurant?.delivery) return false;
-      if (state.needAlone && !item.restaurant?.alone) return false;
-      if (state.wantMeat && !item.meat) return false;
+      if (applyConditions && state.onlyOpen && !item.openNow) return false;
+      if (applyConditions && state.needTakeout && !item.restaurant?.takeout) return false;
+      if (applyConditions && state.needDelivery && !item.restaurant?.delivery) return false;
+      if (applyConditions && state.needAlone && !item.restaurant?.alone) return false;
+      if (applyConditions && state.wantMeat && !item.meat) return false;
       return true;
     })
     .sort((a, b) => a.score - b.score);
@@ -698,7 +708,7 @@ function discoveryScore(item) {
 function getDiscoveryMenus() {
   return DATA.menus
     .filter((menu) => menu.available)
-    .map((menu) => scoreMenu(menu, { applyBudget: false, applyTaste: false }))
+    .map((menu) => scoreMenu(menu, { applyBudget: false, applyTaste: false, applyMoods: false }))
     .map((item) => ({
       ...item,
       discoveryCharacter: foodCharacter(item),
@@ -985,13 +995,17 @@ function quickRecommendationsHtml(items) {
     ? `<div class="quick-alt-grid">${alternatives.map((item, index) => quickAlternativeHtml(item, index + 2)).join("")}</div>`
     : "";
   const nudge = shouldShowDiscoveryNudge() ? discoveryNudgeHtml() : "";
+  const preferenceNote = discoveryStoredPreferenceNoteHtml();
   const preferenceShortcut = discoveryPreferenceShortcutHtml();
+  const returnDiscovery = returnDiscoveryButtonHtml();
   return `
     <div class="quick-recommend-grid">
       ${quickHeroHtml(hero)}
       ${alternativeGrid}
+      ${preferenceNote}
       ${nudge}
       ${preferenceShortcut}
+      ${returnDiscovery}
     </div>
   `;
 }
@@ -999,8 +1013,7 @@ function quickRecommendationsHtml(items) {
 function shouldShowDiscoveryNudge() {
   return (
     state.quickMode === "discovery" &&
-    state.discoveryPickCount >= state.discoveryNudgeThreshold &&
-    !hasCustomRecommendationConditions()
+    state.discoveryPickCount >= state.discoveryNudgeThreshold
   );
 }
 
@@ -1020,8 +1033,18 @@ function discoveryNudgeHtml() {
 }
 
 function discoveryPreferenceShortcutHtml() {
-  if (state.quickMode !== "discovery" || hasCustomRecommendationConditions()) return "";
+  if (state.quickMode !== "discovery") return "";
   return `<button type="button" class="discovery-preference-link" data-open-preferences>취향 설정하기</button>`;
+}
+
+function discoveryStoredPreferenceNoteHtml() {
+  if (state.quickMode !== "discovery" || !hasCustomRecommendationConditions()) return "";
+  return `<p class="discovery-mode-note">저장된 취향은 맞춤 추천을 선택하면 반영돼요.</p>`;
+}
+
+function returnDiscoveryButtonHtml() {
+  if (state.quickMode !== "custom") return "";
+  return `<button type="button" class="discovery-preference-link return-discovery-link" data-return-discovery>랜덤 추천으로 돌아가기</button>`;
 }
 
 function restaurantReviewSummary(restaurantId) {
@@ -1328,6 +1351,10 @@ function syncControls() {
 }
 
 function renderConditionSummary() {
+  if (quickRecommendationMode() === "discovery") {
+    els.conditionSummary.textContent = "전체 음식 · 예산 자유 · 상황 자유";
+    return;
+  }
   const categoryText = state.categories.size ? [...state.categories].join(", ") : "전체 음식";
   const moodText = state.moods.size ? [...state.moods].slice(0, 2).join(", ") : "상황 자유";
   const moreMood = state.moods.size > 2 ? ` 외 ${state.moods.size - 2}` : "";
@@ -1467,6 +1494,7 @@ function resetFilters() {
   state.budget = 8000;
   setBudgetCustomized(false);
   refreshDiscoverySeed();
+  setActiveRecommendationMode("discovery");
   state.categories.clear();
   state.moods.clear();
   state.onlyOpen = false;
@@ -1503,6 +1531,7 @@ function finishRecommendation(delay) {
 }
 
 function searchMenus() {
+  setActiveRecommendationMode("personalized");
   finishRecommendation(900);
 }
 
@@ -1533,6 +1562,58 @@ function openPreferenceSettings() {
 function dismissDiscoveryNudge() {
   resetDiscoveryNudgeCycle(3);
   renderRecommendations();
+}
+
+function returnToDiscoveryRecommendations() {
+  setActiveRecommendationMode("discovery");
+  state.quickItems = [];
+  state.quickSeenIds = new Set();
+  resetDiscoveryNudgeCycle();
+  state.alternativesExpanded = false;
+  state.page = 0;
+  state.hasSearched = true;
+  updateQuickRecommendations();
+  render();
+  document.querySelector(".recommend-section").scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function restoreDiscoveryModeAfterPageShow() {
+  setActiveRecommendationMode("discovery");
+  state.quickItems = [];
+  state.quickSeenIds = new Set();
+  resetDiscoveryNudgeCycle();
+  state.alternativesExpanded = false;
+  state.page = 0;
+  state.hasSearched = false;
+  render();
+}
+
+function rememberExternalLinkClick(event) {
+  const link = event.target.closest("a[href]");
+  if (!link) return;
+  try {
+    const url = new URL(link.href, window.location.href);
+    if (["http:", "https:"].includes(url.protocol) && url.origin !== window.location.origin) {
+      state.externalLinkClickAt = Date.now();
+      state.pagehideAfterExternalLink = false;
+    }
+  } catch {
+    state.externalLinkClickAt = 0;
+    state.pagehideAfterExternalLink = false;
+  }
+}
+
+function handlePageHideForRestore() {
+  state.pagehideAfterExternalLink = Boolean(state.externalLinkClickAt && Date.now() - state.externalLinkClickAt <= 2000);
+}
+
+function handlePageShowRestore(event) {
+  if (!event.persisted) return;
+  const shouldKeepCurrentState = state.pagehideAfterExternalLink;
+  state.externalLinkClickAt = 0;
+  state.pagehideAfterExternalLink = false;
+  if (shouldKeepCurrentState) return;
+  restoreDiscoveryModeAfterPageShow();
 }
 
 function toggleAlternativeMenus() {
@@ -1669,7 +1750,7 @@ function handleLocationAfterSplash() {
 function showDetail(id, context = "custom") {
   const detailContext = context === "discovery" ? "discovery" : "custom";
   state.detailContext = detailContext;
-  const scoreOptions = detailContext === "discovery" ? { applyBudget: false, applyTaste: false } : {};
+  const scoreOptions = detailContext === "discovery" ? { applyBudget: false, applyTaste: false, applyMoods: false } : {};
   const item = DATA.menus.map((menu) => scoreMenu(menu, scoreOptions)).find((menu) => menu.id === id);
   if (!item) return;
   const wished = isWished(item.id);
@@ -2741,7 +2822,7 @@ function bindEvents() {
     render();
   });
   els.nextRecommendButton.addEventListener("click", () => {
-    const totalPages = Math.max(1, Math.ceil(getRecommendedMenus().length / 10));
+    const totalPages = Math.max(1, Math.ceil(pageMenus().all.length / 10));
     state.page = (state.page + 1) % totalPages;
     renderRecommendations();
     document.querySelector(".recommend-section").scrollIntoView({ behavior: "smooth" });
@@ -2755,6 +2836,7 @@ function bindEvents() {
     renderStoreSearch();
   });
   document.body.addEventListener("click", (event) => {
+    rememberExternalLinkClick(event);
     const weatherToggle = event.target.closest("[data-weather-toggle]");
     if (weatherToggle) {
       toggleWeatherReference();
@@ -2773,6 +2855,11 @@ function bindEvents() {
     const dismissDiscoveryNudgeButton = event.target.closest("[data-dismiss-discovery-nudge]");
     if (dismissDiscoveryNudgeButton) {
       dismissDiscoveryNudge();
+      return;
+    }
+    const returnDiscoveryButton = event.target.closest("[data-return-discovery]");
+    if (returnDiscoveryButton) {
+      returnToDiscoveryRecommendations();
       return;
     }
     const locationChoice = event.target.closest("[data-location-choice]");
@@ -2889,6 +2976,9 @@ render();
 finishSplash();
 initSupabase();
 loadWeather();
+
+window.addEventListener("pagehide", handlePageHideForRestore);
+window.addEventListener("pageshow", handlePageShowRestore);
 
 function checkServiceWorkerUpdate(registration) {
   if (!registration) return;
