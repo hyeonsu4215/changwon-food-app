@@ -8,6 +8,7 @@ const WEATHER_CACHE_MS = 60 * 60 * 1000;
 const WEATHER_SETTING_KEY = "changwonFoodWeatherEnabled";
 const TASTE_CUSTOMIZED_KEY = "changwonFoodTastePreferenceCustomized";
 const BUDGET_CUSTOMIZED_KEY = "changwonFoodBudgetCustomized";
+const RECOMMENDATION_PREFERENCES_KEY = "changwonFoodRecommendationPreferencesV1";
 const DISCOVERY_SEED_KEY = "changwonFoodDiscoverySeed";
 const WEATHER_BOOSTS = { rain: 5, hot: 4, cold: 5, humid: 3 };
 const HOT_SOUP_WORDS = ["순두부", "김치찌개", "육개장", "찌개", "국밥", "탕", "해장", "마라", "라멘", "우동", "칼국수", "찜"];
@@ -58,21 +59,66 @@ try {
   console.warn("legacy discovery nudge flag unavailable", error);
 }
 
+const VALID_RECOMMENDATION_CATEGORIES = new Set(DATA.menus.map((menu) => menu.category));
+const VALID_RECOMMENDATION_MOODS = new Set(MOOD_OPTIONS);
+
+function clampNumber(value, min, max, fallback, step = 1) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return fallback;
+  const stepped = Math.round(number / step) * step;
+  return Math.min(max, Math.max(min, stepped));
+}
+
+function safePreferenceList(value, validSet) {
+  if (!Array.isArray(value)) return [];
+  return uniqueTags(value.map((item) => String(item)).filter((item) => validSet.has(item)));
+}
+
+function readRecommendationPreferences() {
+  let saved = {};
+  try {
+    const parsed = JSON.parse(localStorage.getItem(RECOMMENDATION_PREFERENCES_KEY) || "null");
+    if (parsed && typeof parsed === "object" && parsed.version === 1) saved = parsed;
+  } catch (error) {
+    console.warn("recommendation preferences unavailable", error);
+  }
+
+  return {
+    budget: clampNumber(saved.budget, 3000, 30000, 8000, 500),
+    spicy: clampNumber(saved.spicy, 0, 5, 2),
+    salty: clampNumber(saved.salty, 0, 5, 3),
+    sweet: clampNumber(saved.sweet, 0, 5, 2),
+    categories: safePreferenceList(saved.categories, VALID_RECOMMENDATION_CATEGORIES),
+    moods: safePreferenceList(saved.moods, VALID_RECOMMENDATION_MOODS),
+    onlyOpen: Boolean(saved.onlyOpen),
+    needTakeout: Boolean(saved.needTakeout),
+    needDelivery: Boolean(saved.needDelivery),
+    needAlone: Boolean(saved.needAlone),
+    wantMeat: Boolean(saved.wantMeat),
+    budgetCustomized:
+      typeof saved.budgetCustomized === "boolean" ? saved.budgetCustomized : localStorage.getItem(BUDGET_CUSTOMIZED_KEY) === "true",
+    tastePreferenceCustomized:
+      typeof saved.tastePreferenceCustomized === "boolean" ? saved.tastePreferenceCustomized : localStorage.getItem(TASTE_CUSTOMIZED_KEY) === "true",
+  };
+}
+
+const savedRecommendationPreferences = readRecommendationPreferences();
+
 const state = {
   location: null,
   locationStatus: "requesting",
-  budget: 8000,
-  budgetCustomized: localStorage.getItem(BUDGET_CUSTOMIZED_KEY) === "true",
-  categories: new Set(),
-  moods: new Set(),
-  onlyOpen: false,
-  needTakeout: false,
-  needDelivery: false,
-  needAlone: false,
-  wantMeat: false,
-  spicy: 2,
-  salty: 3,
-  sweet: 2,
+  budget: savedRecommendationPreferences.budget,
+  budgetCustomized: savedRecommendationPreferences.budgetCustomized,
+  categories: new Set(savedRecommendationPreferences.categories),
+  moods: new Set(savedRecommendationPreferences.moods),
+  onlyOpen: savedRecommendationPreferences.onlyOpen,
+  needTakeout: savedRecommendationPreferences.needTakeout,
+  needDelivery: savedRecommendationPreferences.needDelivery,
+  needAlone: savedRecommendationPreferences.needAlone,
+  wantMeat: savedRecommendationPreferences.wantMeat,
+  spicy: savedRecommendationPreferences.spicy,
+  salty: savedRecommendationPreferences.salty,
+  sweet: savedRecommendationPreferences.sweet,
   page: 0,
   hasSearched: false,
   appReady: false,
@@ -92,7 +138,7 @@ const state = {
   historyRangeDays: Number(localStorage.getItem("changwonFoodHistoryRangeDays") || "7"),
   historyVisibleCount: 5,
   tasteOverrides: JSON.parse(localStorage.getItem("changwonFoodTasteOverrides") || "{}"),
-  tastePreferenceCustomized: localStorage.getItem(TASTE_CUSTOMIZED_KEY) === "true",
+  tastePreferenceCustomized: savedRecommendationPreferences.tastePreferenceCustomized,
   reviews: JSON.parse(localStorage.getItem("changwonFoodReviews") || "{}"),
   nickname: localStorage.getItem("changwonFoodNickname") || "",
   publicTasteSummary: {},
@@ -1506,6 +1552,7 @@ function resetFilters() {
   state.salty = 3;
   state.sweet = 2;
   setTastePreferenceCustomized(false);
+  clearRecommendationPreferences();
   markConditionsChanged();
   render();
 }
@@ -1531,6 +1578,7 @@ function finishRecommendation(delay) {
 }
 
 function searchMenus() {
+  saveRecommendationPreferences();
   setActiveRecommendationMode("personalized");
   finishRecommendation(900);
 }
@@ -1890,6 +1938,33 @@ function saveHistory() {
 
 function saveTasteOverrides() {
   localStorage.setItem("changwonFoodTasteOverrides", JSON.stringify(state.tasteOverrides));
+}
+
+function recommendationPreferencesSnapshot() {
+  return {
+    version: 1,
+    budget: clampNumber(state.budget, 3000, 30000, 8000, 500),
+    spicy: clampNumber(state.spicy, 0, 5, 2),
+    salty: clampNumber(state.salty, 0, 5, 3),
+    sweet: clampNumber(state.sweet, 0, 5, 2),
+    categories: safePreferenceList([...state.categories], VALID_RECOMMENDATION_CATEGORIES),
+    moods: safePreferenceList([...state.moods], VALID_RECOMMENDATION_MOODS),
+    onlyOpen: Boolean(state.onlyOpen),
+    needTakeout: Boolean(state.needTakeout),
+    needDelivery: Boolean(state.needDelivery),
+    needAlone: Boolean(state.needAlone),
+    wantMeat: Boolean(state.wantMeat),
+    budgetCustomized: Boolean(state.budgetCustomized),
+    tastePreferenceCustomized: Boolean(state.tastePreferenceCustomized),
+  };
+}
+
+function saveRecommendationPreferences() {
+  localStorage.setItem(RECOMMENDATION_PREFERENCES_KEY, JSON.stringify(recommendationPreferencesSnapshot()));
+}
+
+function clearRecommendationPreferences() {
+  localStorage.removeItem(RECOMMENDATION_PREFERENCES_KEY);
 }
 
 function setTastePreferenceCustomized(value) {
@@ -2773,6 +2848,14 @@ function bindEvents() {
   els.budgetRange.addEventListener("input", (event) => {
     state.budget = Number(event.target.value);
     setBudgetCustomized(true);
+    saveRecommendationPreferences();
+    markConditionsChanged();
+    render();
+  });
+  els.budgetRange.addEventListener("change", (event) => {
+    state.budget = Number(event.target.value);
+    setBudgetCustomized(true);
+    saveRecommendationPreferences();
     markConditionsChanged();
     render();
   });
@@ -2781,17 +2864,21 @@ function bindEvents() {
     ["salty", els.saltyPreference, els.saltyValue],
     ["sweet", els.sweetPreference, els.sweetValue],
   ]) {
-    input.addEventListener("input", (event) => {
+    const updateTastePreference = (event) => {
       state[key] = Number(event.target.value);
       setTastePreferenceCustomized(true);
+      saveRecommendationPreferences();
       markConditionsChanged();
       label.textContent = event.target.value;
       render();
-    });
+    };
+    input.addEventListener("input", updateTastePreference);
+    input.addEventListener("change", updateTastePreference);
   }
   for (const key of ["onlyOpen", "needTakeout", "needDelivery", "needAlone", "wantMeat"]) {
     els[key].addEventListener("change", (event) => {
       state[key] = event.target.checked;
+      saveRecommendationPreferences();
       markConditionsChanged();
       render();
     });
@@ -2801,6 +2888,7 @@ function bindEvents() {
     if (!button) return;
     const value = button.dataset.category;
     state.categories.has(value) ? state.categories.delete(value) : state.categories.add(value);
+    saveRecommendationPreferences();
     resetStoreMenuExpansions();
     markConditionsChanged();
     render();
@@ -2810,6 +2898,7 @@ function bindEvents() {
     if (!button) return;
     const value = button.dataset.mood;
     state.moods.has(value) ? state.moods.delete(value) : state.moods.add(value);
+    saveRecommendationPreferences();
     markConditionsChanged();
     render();
   });
