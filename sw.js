@@ -1,4 +1,4 @@
-const CACHE_NAME = "changwon-food-app-v33";
+const CACHE_NAME = "changwon-food-app-v34";
 const CORE_ASSETS = [
   "./",
   "./index.html",

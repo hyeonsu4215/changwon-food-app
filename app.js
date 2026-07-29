@@ -165,6 +165,7 @@ const state = {
   lastBackAt: 0,
   externalLinkClickAt: 0,
   pagehideAfterExternalLink: false,
+  rangeInputPendingChange: {},
   storeSearchTerm: "",
   expandedStoreMenus: new Set(),
   roulette: {
@@ -1551,6 +1552,7 @@ function resetFilters() {
   state.spicy = 2;
   state.salty = 3;
   state.sweet = 2;
+  state.rangeInputPendingChange = {};
   setTastePreferenceCustomized(false);
   clearRecommendationPreferences();
   markConditionsChanged();
@@ -1965,6 +1967,55 @@ function saveRecommendationPreferences() {
 
 function clearRecommendationPreferences() {
   localStorage.removeItem(RECOMMENDATION_PREFERENCES_KEY);
+}
+
+function rangeInputForKey(key) {
+  return {
+    budget: els.budgetRange,
+    spicy: els.spicyPreference,
+    salty: els.saltyPreference,
+    sweet: els.sweetPreference,
+  }[key];
+}
+
+function commitRangePreference(key, eventOrValue, source = "input") {
+  const isBudget = key === "budget";
+  const target = eventOrValue?.target || null;
+  const rawValue = target ? target.value : eventOrValue;
+  const value = isBudget ? clampNumber(rawValue, 3000, 30000, 8000, 500) : clampNumber(rawValue, 0, 5, key === "salty" ? 3 : 2);
+  const currentInput = rangeInputForKey(key);
+  const isCurrentInput = !target || target === currentInput;
+  const confirmsState = state[key] === value;
+
+  if (source === "change" && !isCurrentInput) {
+    state.rangeInputPendingChange[key] = false;
+    saveRecommendationPreferences();
+    syncControls();
+    return false;
+  }
+
+  if (source === "change" && state.rangeInputPendingChange[key] && confirmsState) {
+    state.rangeInputPendingChange[key] = false;
+    saveRecommendationPreferences();
+    syncControls();
+    return false;
+  }
+  if (source === "change") state.rangeInputPendingChange[key] = false;
+  if (source === "input") state.rangeInputPendingChange[key] = true;
+
+  if (state[key] === value && (isBudget ? state.budgetCustomized : state.tastePreferenceCustomized)) {
+    saveRecommendationPreferences();
+    syncControls();
+    return false;
+  }
+
+  state[key] = value;
+  if (isBudget) setBudgetCustomized(true);
+  else setTastePreferenceCustomized(true);
+  saveRecommendationPreferences();
+  markConditionsChanged();
+  render();
+  return true;
 }
 
 function setTastePreferenceCustomized(value) {
@@ -2846,32 +2897,17 @@ function bindEvents() {
   els.toggleAlternativesButton.addEventListener("click", toggleAlternativeMenus);
   els.conditionDetails?.addEventListener("toggle", syncConditionDetailsAccessibility);
   els.budgetRange.addEventListener("input", (event) => {
-    state.budget = Number(event.target.value);
-    setBudgetCustomized(true);
-    saveRecommendationPreferences();
-    markConditionsChanged();
-    render();
+    commitRangePreference("budget", event, "input");
   });
   els.budgetRange.addEventListener("change", (event) => {
-    state.budget = Number(event.target.value);
-    setBudgetCustomized(true);
-    saveRecommendationPreferences();
-    markConditionsChanged();
-    render();
+    commitRangePreference("budget", event, "change");
   });
-  for (const [key, input, label] of [
-    ["spicy", els.spicyPreference, els.spicyValue],
-    ["salty", els.saltyPreference, els.saltyValue],
-    ["sweet", els.sweetPreference, els.sweetValue],
+  for (const [key, input] of [
+    ["spicy", els.spicyPreference],
+    ["salty", els.saltyPreference],
+    ["sweet", els.sweetPreference],
   ]) {
-    const updateTastePreference = (event) => {
-      state[key] = Number(event.target.value);
-      setTastePreferenceCustomized(true);
-      saveRecommendationPreferences();
-      markConditionsChanged();
-      label.textContent = event.target.value;
-      render();
-    };
+    const updateTastePreference = (event) => commitRangePreference(key, event, event.type);
     input.addEventListener("input", updateTastePreference);
     input.addEventListener("change", updateTastePreference);
   }
