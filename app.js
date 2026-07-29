@@ -82,7 +82,7 @@ const state = {
   quickSeenIds: new Set(),
   quickMode: "discovery",
   discoveryPickCount: 0,
-  discoveryNudgeDismissed: false,
+  discoveryNudgeThreshold: 2,
   discoverySeed: discoverySeedValue,
   detailContext: "custom",
   alternativesExpanded: false,
@@ -117,6 +117,7 @@ const state = {
   activeTab: "recommendTab",
   lastBackAt: 0,
   storeSearchTerm: "",
+  expandedStoreMenus: new Set(),
   roulette: {
     active: false,
     items: [],
@@ -465,8 +466,13 @@ function refreshDiscoverySeed() {
   state.discoverySeed = createDiscoverySeed();
 }
 
-function setDiscoveryNudgeDismissed(value) {
-  state.discoveryNudgeDismissed = Boolean(value);
+function resetDiscoveryNudgeCycle(threshold = 2) {
+  state.discoveryPickCount = 0;
+  state.discoveryNudgeThreshold = threshold;
+}
+
+function resetStoreMenuExpansions() {
+  state.expandedStoreMenus = new Set();
 }
 
 function markConditionsChanged() {
@@ -476,7 +482,7 @@ function markConditionsChanged() {
   state.quickItems = [];
   state.quickSeenIds = new Set();
   state.quickMode = nextMode;
-  state.discoveryPickCount = 0;
+  resetDiscoveryNudgeCycle();
   state.alternativesExpanded = false;
 }
 
@@ -802,7 +808,7 @@ function updateQuickRecommendations({ reroll = false } = {}) {
   if (state.quickMode !== mode) {
     state.quickItems = [];
     state.quickSeenIds = new Set();
-    state.discoveryPickCount = 0;
+    resetDiscoveryNudgeCycle();
   }
   state.quickMode = mode;
   const all = mode === "discovery" ? getDiscoveryMenus() : getRecommendedMenus({ mode: "custom" });
@@ -991,7 +997,11 @@ function quickRecommendationsHtml(items) {
 }
 
 function shouldShowDiscoveryNudge() {
-  return state.quickMode === "discovery" && state.discoveryPickCount >= 2 && !state.discoveryNudgeDismissed && !hasCustomRecommendationConditions();
+  return (
+    state.quickMode === "discovery" &&
+    state.discoveryPickCount >= state.discoveryNudgeThreshold &&
+    !hasCustomRecommendationConditions()
+  );
 }
 
 function discoveryNudgeHtml() {
@@ -1042,6 +1052,21 @@ function restaurantReviewSummary(restaurantId) {
   };
 }
 
+function storeMenuMatches(menu, term) {
+  if (!term) return false;
+  return `${menu.name} ${menu.category} ${(menu.tags || []).join(" ")}`.toLowerCase().includes(term);
+}
+
+function setStoreSearchTerm(value) {
+  if (state.storeSearchTerm !== value) resetStoreMenuExpansions();
+  state.storeSearchTerm = value;
+}
+
+function toggleStoreMenuExpansion(restaurantId) {
+  state.expandedStoreMenus.has(restaurantId) ? state.expandedStoreMenus.delete(restaurantId) : state.expandedStoreMenus.add(restaurantId);
+  renderStoreSearch();
+}
+
 function renderStoreSearch() {
   if (!els.storeSearchResults) return;
   const term = state.storeSearchTerm.trim().toLowerCase();
@@ -1054,10 +1079,23 @@ function renderStoreSearch() {
     .filter((row) => row.matches)
     .slice(0, 20);
 
+  const guide = `<p class="store-search-note">현재는 각 가게의 대표 메뉴 일부를 기준으로 보여줘요.</p>`;
   els.storeSearchResults.innerHTML = restaurants.length
-    ? restaurants
+    ? guide +
+      restaurants
         .map(({ restaurant, menus, summary }) => {
-          const scoredMenus = menus.filter((menu) => menu.available).map(scoreMenu).sort((a, b) => a.price - b.price);
+          const availableMenus = menus.filter((menu) => menu.available);
+          const restaurantMatched = term && `${restaurant.name} ${restaurant.category || ""}`.toLowerCase().includes(term);
+          const matchedMenus = term ? availableMenus.filter((menu) => storeMenuMatches(menu, term)) : [];
+          const sourceMenus = term ? (restaurantMatched ? availableMenus : matchedMenus) : availableMenus;
+          const scoredMenus = sourceMenus.map(scoreMenu).sort((a, b) => a.price - b.price);
+          const expanded = state.expandedStoreMenus.has(restaurant.id);
+          const visibleMenus = term || expanded ? scoredMenus : scoredMenus.slice(0, 3);
+          const toggleButton =
+            !term && scoredMenus.length > 3
+              ? `<button class="store-menu-toggle" data-store-menu-toggle="${restaurant.id}" aria-expanded="${expanded}" aria-label="${escapeHtml(restaurant.name)} 대표 메뉴 ${expanded ? "접기" : "더보기"}">${expanded ? "대표 메뉴 접기" : "대표 메뉴 더보기"}</button>`
+              : "";
+          const searchHint = term && restaurantMatched ? `<p class="store-search-match-note">가게 이름과 일치해 등록 메뉴를 보여줘요.</p>` : "";
           const statLine = summary
             ? `별점 ${summary.rating.toFixed(1)} · 위생 ${summary.hygiene.toFixed(1)} · 친절 ${summary.kindness.toFixed(1)} · 후기 ${summary.count}개`
             : "아직 등록된 평점이 없어요.";
@@ -1071,12 +1109,13 @@ function renderStoreSearch() {
                 </div>
                 <a class="store-map-button" href="${mapUrl({ restaurant, restaurantName: restaurant.name })}" target="_blank" rel="noreferrer">지도</a>
               </div>
+              ${searchHint}
               <div class="store-menu-list">
-                ${scoredMenus
-                  .slice(0, 8)
+                ${visibleMenus
                   .map((menu) => `<button data-detail="${menu.id}"><span>${escapeHtml(menu.name)}</span><strong>${money(menu.price)}</strong></button>`)
                   .join("")}
               </div>
+              ${toggleButton}
               <div class="info-footer">
                 <span>정보 기준일 ${DATA_UPDATED_AT}</span>
                 <button data-report-open data-report-type="wrong_info" data-report-target-type="restaurant" data-report-target-id="${restaurant.id}" data-report-target-label="${escapeHtml(restaurant.name)}">이 가게 정보 제보</button>
@@ -1085,7 +1124,7 @@ function renderStoreSearch() {
           `;
         })
         .join("")
-    : `<div class="empty-state">검색 결과가 없어요. 가게 이름이나 메뉴명을 조금 다르게 입력해보세요.</div>`;
+    : `${guide}<div class="empty-state">검색 결과가 없어요. 가게 이름이나 메뉴명을 조금 다르게 입력해보세요.</div>`;
 }
 
 function renderRecommendations() {
@@ -1228,7 +1267,7 @@ function renderChips() {
         <button class="category-chip" data-category="${category}" aria-pressed="false">
           <img src="./assets/categories/${meta.icon}" alt="" loading="lazy" />
           <span>${category}</span>
-          <small>${countMap.get(category) || 0}개</small>
+          <small>메뉴 ${countMap.get(category) || 0}개</small>
         </button>
       `;
     })
@@ -1482,7 +1521,7 @@ function rerollQuickRecommendations() {
 }
 
 function openPreferenceSettings() {
-  setDiscoveryNudgeDismissed(true);
+  resetDiscoveryNudgeCycle(3);
   if (els.conditionDetails) {
     els.conditionDetails.open = true;
     syncConditionDetailsAccessibility();
@@ -1492,7 +1531,7 @@ function openPreferenceSettings() {
 }
 
 function dismissDiscoveryNudge() {
-  setDiscoveryNudgeDismissed(true);
+  resetDiscoveryNudgeCycle(3);
   renderRecommendations();
 }
 
@@ -2681,6 +2720,7 @@ function bindEvents() {
     if (!button) return;
     const value = button.dataset.category;
     state.categories.has(value) ? state.categories.delete(value) : state.categories.add(value);
+    resetStoreMenuExpansions();
     markConditionsChanged();
     render();
   });
@@ -2711,13 +2751,18 @@ function bindEvents() {
   els.rerollRouletteButton?.addEventListener("click", rerollRoulette);
   els.closeRouletteButton?.addEventListener("click", closeRoulette);
   els.storeSearchInput?.addEventListener("input", (event) => {
-    state.storeSearchTerm = event.target.value;
+    setStoreSearchTerm(event.target.value);
     renderStoreSearch();
   });
   document.body.addEventListener("click", (event) => {
     const weatherToggle = event.target.closest("[data-weather-toggle]");
     if (weatherToggle) {
       toggleWeatherReference();
+      return;
+    }
+    const storeMenuToggle = event.target.closest("[data-store-menu-toggle]");
+    if (storeMenuToggle) {
+      toggleStoreMenuExpansion(storeMenuToggle.dataset.storeMenuToggle);
       return;
     }
     const openPreferencesButton = event.target.closest("[data-open-preferences]");

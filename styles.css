@@ -1736,6 +1736,17 @@ dialog .toast {
   color: var(--ink);
 }
 
+.store-search-note,
+.store-search-match-note {
+  margin: 0;
+  padding: 10px 11px;
+  border-radius: 8px;
+  background: #f7fbf9;
+  color: #405064;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
 .store-report-actions {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1798,6 +1809,18 @@ dialog .toast {
 .store-menu-list strong {
   color: var(--mint-dark);
   white-space: nowrap;
+}
+
+.store-menu-toggle {
+  width: 100%;
+  min-height: 36px;
+  margin-top: 8px;
+  border: 1px solid rgba(15, 123, 99, 0.24);
+  border-radius: 8px;
+  background: #f7fbf9;
+  color: var(--mint-dark);
+  font-size: 12px;
+  font-weight: 900;
 }
 
 .info-footer {
