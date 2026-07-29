@@ -6,6 +6,7 @@ const FEEDBACK_FORM_URL = "https://forms.gle/BUYoZiSUXtFDE81J7";
 const VISIT_REVIEW_RADIUS_M = 50;
 const WEATHER_CACHE_MS = 60 * 60 * 1000;
 const WEATHER_SETTING_KEY = "changwonFoodWeatherEnabled";
+const TASTE_CUSTOMIZED_KEY = "changwonFoodTastePreferenceCustomized";
 const WEATHER_BOOSTS = { rain: 5, hot: 4, cold: 5, humid: 3 };
 const HOT_SOUP_WORDS = ["순두부", "김치찌개", "육개장", "찌개", "국밥", "탕", "해장", "마라", "라멘", "우동", "칼국수", "찜"];
 const HOT_CLEAR_MENU_WORDS = ["냉면", "밀면", "냉국수", "메밀국수", "열무국수", "샐러드", "냉우동", "모밀", "소바", "콩국수"];
@@ -49,12 +50,14 @@ const state = {
   isSearching: false,
   recommendTimer: null,
   quickItems: [],
+  quickSeenIds: new Set(),
   alternativesExpanded: false,
   wishlist: JSON.parse(localStorage.getItem("changwonFoodWishlist") || "[]"),
   history: JSON.parse(localStorage.getItem("changwonFoodHistory") || "[]"),
   historyRangeDays: Number(localStorage.getItem("changwonFoodHistoryRangeDays") || "7"),
   historyVisibleCount: 5,
   tasteOverrides: JSON.parse(localStorage.getItem("changwonFoodTasteOverrides") || "{}"),
+  tastePreferenceCustomized: localStorage.getItem(TASTE_CUSTOMIZED_KEY) === "true",
   reviews: JSON.parse(localStorage.getItem("changwonFoodReviews") || "{}"),
   nickname: localStorage.getItem("changwonFoodNickname") || "",
   publicTasteSummary: {},
@@ -402,6 +405,7 @@ function markConditionsChanged() {
   state.page = 0;
   state.hasSearched = false;
   state.quickItems = [];
+  state.quickSeenIds = new Set();
   state.alternativesExpanded = false;
 }
 
@@ -449,6 +453,10 @@ function weatherBoost(menu) {
   return null;
 }
 
+function tastePreferenceReasonEnabled(menuOrItem) {
+  return state.tastePreferenceCustomized || Boolean(state.tasteOverrides[menuOrItem.id]);
+}
+
 function scoreMenu(menu) {
   const restaurant = restaurantsById.get(menu.restaurantId);
   const distance = restaurant?.lat && restaurant?.lng ? haversine(currentBase(), restaurant) : Infinity;
@@ -470,7 +478,7 @@ function scoreMenu(menu) {
     reasons.push(weather.label);
   }
 
-  if (tasteDiff <= 2) reasons.push("입맛 근접");
+  if (tastePreferenceReasonEnabled(menu) && tasteDiff <= 2) reasons.push("선택한 맛 취향");
   if (menu.price <= state.budget) reasons.push("예산 안");
   if (distance <= 300) reasons.push("가까움");
   if (menu.value >= 4) reasons.push("가성비");
@@ -561,47 +569,78 @@ function restaurantKey(item) {
   return item.restaurantId || item.restaurant?.id || item.restaurantName || item.restaurant?.name || item.id;
 }
 
-function selectQuickRecommendations(allItems, avoidIds = new Set()) {
+function addQuickCandidates(selected, selectedIds, items, targetCount, preferDifferentRestaurant) {
+  for (const item of items) {
+    if (selected.length >= targetCount) return;
+    if (selectedIds.has(item.id)) continue;
+    if (preferDifferentRestaurant && selected.some((picked) => restaurantKey(picked) === restaurantKey(item))) continue;
+    selected.push(item);
+    selectedIds.add(item.id);
+  }
+}
+
+function addQuickCandidatesByScore(selected, selectedIds, items, targetCount, heroScore, scoreSteps) {
+  for (const maxGap of scoreSteps) {
+    addQuickCandidates(
+      selected,
+      selectedIds,
+      items.filter((item) => item.score - heroScore <= maxGap),
+      targetCount,
+      true,
+    );
+  }
+  for (const maxGap of scoreSteps) {
+    addQuickCandidates(
+      selected,
+      selectedIds,
+      items.filter((item) => item.score - heroScore <= maxGap),
+      targetCount,
+      false,
+    );
+  }
+}
+
+function selectQuickRecommendations(allItems, { keepTop = false, seenIds = new Set(), previousIds = new Set() } = {}) {
   if (!allItems.length) return [];
-  let pool = allItems.filter((item) => !avoidIds.has(item.id));
-  if (pool.length < Math.min(3, allItems.length)) pool = allItems;
-  if (!pool.length) return [];
-
-  const targetCount = Math.min(3, pool.length);
-  const selected = [pool[0]];
-  const selectedIds = new Set([pool[0].id]);
-  const heroScore = Number(pool[0].score);
-  const addFrom = (items, preferDifferentRestaurant) => {
-    for (const item of items) {
-      if (selected.length >= targetCount) return;
-      if (selectedIds.has(item.id)) continue;
-      if (preferDifferentRestaurant && selected.some((picked) => restaurantKey(picked) === restaurantKey(item))) continue;
-      selected.push(item);
-      selectedIds.add(item.id);
-    }
-  };
-  const scoreWindow = (maxGap) => pool.filter((item) => item.score - heroScore <= maxGap);
+  const targetCount = Math.min(3, allItems.length);
+  const selected = [];
+  const selectedIds = new Set();
+  const heroScore = Number(allItems[0].score);
   const reliableSteps = [8, 12, 18, 26];
+  const fallbackSteps = [34, 42];
 
-  for (const maxGap of reliableSteps) {
-    addFrom(scoreWindow(maxGap), true);
-    if (selected.length >= targetCount) return selected;
+  if (keepTop) {
+    selected.push(allItems[0]);
+    selectedIds.add(allItems[0].id);
   }
 
-  for (const maxGap of reliableSteps) {
-    addFrom(scoreWindow(maxGap), false);
-    if (selected.length >= targetCount) return selected;
-  }
+  const unseen = allItems.filter((item) => !seenIds.has(item.id));
+  const reusable = allItems.filter((item) => seenIds.has(item.id) && !previousIds.has(item.id));
+  const previous = allItems.filter((item) => previousIds.has(item.id));
 
-  addFrom(pool, true);
-  addFrom(pool, false);
+  addQuickCandidatesByScore(selected, selectedIds, keepTop ? allItems : unseen, targetCount, heroScore, reliableSteps);
+  addQuickCandidatesByScore(selected, selectedIds, unseen, targetCount, heroScore, fallbackSteps);
+  addQuickCandidatesByScore(selected, selectedIds, reusable, targetCount, heroScore, reliableSteps);
+  addQuickCandidatesByScore(selected, selectedIds, reusable, targetCount, heroScore, fallbackSteps);
+  addQuickCandidatesByScore(selected, selectedIds, previous, targetCount, heroScore, reliableSteps);
+  addQuickCandidatesByScore(selected, selectedIds, previous, targetCount, heroScore, fallbackSteps);
+  addQuickCandidates(selected, selectedIds, allItems.filter((item) => !previousIds.has(item.id)), targetCount, true);
+  addQuickCandidates(selected, selectedIds, allItems.filter((item) => !previousIds.has(item.id)), targetCount, false);
+  addQuickCandidates(selected, selectedIds, allItems, targetCount, true);
+  addQuickCandidates(selected, selectedIds, allItems, targetCount, false);
   return selected.slice(0, targetCount);
 }
 
-function updateQuickRecommendations({ avoidCurrent = false } = {}) {
+function updateQuickRecommendations({ reroll = false } = {}) {
   const all = getRecommendedMenus();
-  const avoidIds = avoidCurrent ? new Set(state.quickItems.map((item) => item.id)) : new Set();
-  state.quickItems = selectQuickRecommendations(all, avoidIds);
+  const previousIds = new Set(state.quickItems.map((item) => item.id));
+  const keepTop = !reroll && !state.quickSeenIds.size;
+  state.quickItems = selectQuickRecommendations(all, {
+    keepTop,
+    seenIds: reroll || state.quickSeenIds.size ? state.quickSeenIds : new Set(),
+    previousIds,
+  });
+  state.quickItems.forEach((item) => state.quickSeenIds.add(item.id));
   state.alternativesExpanded = false;
   state.page = 0;
 }
@@ -644,7 +683,7 @@ function recommendationReasons(item) {
   const reasons = [];
   const tasteDiff = Math.abs(item.taste.spicy - state.spicy) + Math.abs(item.taste.salty - state.salty) + Math.abs(item.taste.sweet - state.sweet);
   if (item.weatherBoost?.reason) reasons.push(item.weatherBoost.reason);
-  if (tasteDiff <= 2) reasons.push("입맛 설정과 잘 맞아요.");
+  if (tastePreferenceReasonEnabled(item) && tasteDiff <= 2) reasons.push("선택한 맛 취향과 잘 맞아요.");
   if (item.price <= state.budget) reasons.push(`예산 ${money(state.budget)} 안에 들어요.`);
   if (Number.isFinite(item.distance)) reasons.push(`${meters(item.distance)} 거리라 이동 부담이 적어요.`);
   if (state.needAlone && item.restaurant?.alone) reasons.push("혼밥 조건에 맞는 곳이에요.");
@@ -652,7 +691,8 @@ function recommendationReasons(item) {
   if (state.needDelivery && item.restaurant?.delivery) reasons.push("배달 가능한 곳이에요.");
   if (state.wantMeat && item.meat) reasons.push("고기 메뉴 조건에 맞아요.");
   if (item.value >= 4) reasons.push("가격 대비 만족도가 좋아요.");
-  return uniqueTags(reasons).slice(0, 4);
+  const uniqueReasons = uniqueTags(reasons);
+  return uniqueReasons.length ? uniqueReasons.slice(0, 4) : ["현재 조건에서 추천 점수가 높은 메뉴예요."];
 }
 
 function cardHtml(item, rank) {
@@ -1167,6 +1207,7 @@ function resetFilters() {
   state.spicy = 2;
   state.salty = 3;
   state.sweet = 2;
+  setTastePreferenceCustomized(false);
   markConditionsChanged();
   render();
 }
@@ -1204,7 +1245,7 @@ function rerollQuickRecommendations() {
     quickRecommend();
     return;
   }
-  updateQuickRecommendations({ avoidCurrent: true });
+  updateQuickRecommendations({ reroll: true });
   renderRecommendations();
   document.querySelector(".recommend-section").scrollIntoView({ behavior: "smooth", block: "start" });
 }
@@ -1479,6 +1520,11 @@ function saveHistory() {
 
 function saveTasteOverrides() {
   localStorage.setItem("changwonFoodTasteOverrides", JSON.stringify(state.tasteOverrides));
+}
+
+function setTastePreferenceCustomized(value) {
+  state.tastePreferenceCustomized = Boolean(value);
+  localStorage.setItem(TASTE_CUSTOMIZED_KEY, String(state.tastePreferenceCustomized));
 }
 
 function saveReviews() {
@@ -2359,6 +2405,7 @@ function bindEvents() {
   ]) {
     input.addEventListener("input", (event) => {
       state[key] = Number(event.target.value);
+      setTastePreferenceCustomized(true);
       markConditionsChanged();
       label.textContent = event.target.value;
       render();
