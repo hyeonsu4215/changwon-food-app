@@ -474,10 +474,24 @@ function isWished(id) {
   return state.wishlist.includes(id);
 }
 
-function toast(message) {
+function toast(message, variant = "") {
   const toastHost = els.detailDialog?.open ? els.detailDialog : document.body;
   if (els.toast.parentElement !== toastHost) toastHost.appendChild(els.toast);
-  els.toast.textContent = message;
+  els.toast.classList.toggle("has-mukjji", variant === "happy");
+  els.toast.replaceChildren();
+  if (variant === "happy") {
+    const image = document.createElement("img");
+    image.src = "./assets/mukjji/06_mukjji_eating_happy_512.webp";
+    image.alt = "";
+    image.width = 44;
+    image.height = 44;
+    image.loading = "lazy";
+    image.setAttribute("aria-hidden", "true");
+    els.toast.appendChild(image);
+  }
+  const text = document.createElement("span");
+  text.textContent = message;
+  els.toast.appendChild(text);
   els.toast.classList.remove("is-visible");
   window.requestAnimationFrame(() => {
     els.toast.classList.add("is-visible");
@@ -988,10 +1002,22 @@ function quickReasonText(item) {
   return reasons.slice(0, 2).join(" ") || "오늘은 이런 메뉴 어때요?";
 }
 
+function mukjjiEmptyHtml(message, className = "") {
+  return `
+    <div class="empty-state mukjji-empty ${className}">
+      <img src="./assets/mukjji/04_mukjji_thinking_512.webp" alt="묵찌가 고민 중이에요" width="72" height="72" loading="lazy" />
+      <span>${message}</span>
+    </div>
+  `;
+}
+
 function quickHeroHtml(item) {
   const wished = isWished(item.id);
   const tagList = compactTags(item, 5);
   const badge = state.quickMode === "discovery" ? "오늘의 픽" : "맞춤 추천 1순위";
+  const mukjjiSrc = state.quickMode === "discovery"
+    ? "./assets/mukjji/05_mukjji_recommend_bowl_512.webp"
+    : "./assets/mukjji/07_mukjji_best_pick_512.webp";
   return `
     <article class="quick-hero-card">
       <div class="quick-rank-badge">${badge}</div>
@@ -1003,6 +1029,7 @@ function quickHeroHtml(item) {
         </div>
         <button class="heart-button ${wished ? "is-wished" : ""}" data-wish="${item.id}" aria-label="${wished ? "찜 해제" : "찜하기"}">${wished ? "♥" : "♡"}</button>
       </div>
+      <img class="quick-hero-mukjji" src="${mukjjiSrc}" alt="" width="108" height="108" loading="lazy" aria-hidden="true" />
       <div class="meta-tags">${tagList.map((tag) => `<span>${tag}</span>`).join("")}</div>
       <div class="card-actions quick-actions">
         <button data-ate="${item.id}">먹음 기록</button>
@@ -1035,7 +1062,7 @@ function quickAlternativeHtml(item, rank) {
 
 function quickRecommendationsHtml(items) {
   if (!items.length) {
-    return `<div class="empty-state quick-empty">지금 먹을 메뉴 추천해 줘 버튼을 누르면 바로 3개를 골라드려요.</div>`;
+    return mukjjiEmptyHtml("지금 먹을 메뉴 추천해 줘 버튼을 누르면 바로 3개를 골라드려요.", "quick-empty");
   }
   const [hero, ...alternatives] = items;
   const alternativeGrid = alternatives.length
@@ -2054,7 +2081,7 @@ function addHistory(id) {
   state.history = state.history.slice(0, 200);
   state.historyVisibleCount = Math.max(5, state.historyVisibleCount);
   saveHistory();
-  toast("먹은기록저장!");
+  toast("먹은기록저장!", "happy");
   render();
 }
 
@@ -2544,7 +2571,7 @@ function renderWishlist() {
   const items = state.wishlist.map((id) => DATA.menus.find((menu) => menu.id === id)).filter(Boolean).map(scoreMenu);
   els.wishlistList.innerHTML = items.length
     ? items.map((item, index) => `<article class="menu-card">${cardHtml(item, index + 1)}</article>`).join("")
-    : `<div class="empty-state">아직 찜한 메뉴가 없어요.</div>`;
+    : mukjjiEmptyHtml("아직 찜한 메뉴가 없어요.");
 }
 
 function startWorldcup() {

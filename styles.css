@@ -76,7 +76,7 @@ textarea:focus-visible {
   min-height: 100vh;
   margin: 0 auto;
   background: var(--bg);
-  padding-bottom: 92px;
+  padding-bottom: 0;
 }
 
 .splash-screen {
@@ -113,7 +113,9 @@ textarea:focus-visible {
 
 .splash-logo {
   width: min(68vw, 248px);
+  aspect-ratio: 1;
   height: auto;
+  object-fit: contain;
   mix-blend-mode: multiply;
   filter: drop-shadow(0 14px 22px rgba(20, 72, 112, 0.08));
 }
@@ -163,7 +165,7 @@ textarea:focus-visible {
   position: sticky;
   top: 0;
   z-index: 10;
-  padding: 12px 16px 10px;
+  padding: 8px 14px 9px;
   background: rgba(245, 247, 250, 0.94);
   backdrop-filter: blur(14px);
   border-bottom: 1px solid rgba(13, 71, 161, 0.12);
@@ -218,6 +220,25 @@ h1 {
   line-height: 1.35;
 }
 
+.app-footer-note {
+  display: flex;
+  width: min(100% - 24px, 496px);
+  align-items: center;
+  gap: 7px;
+  margin: -92px auto 86px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: rgba(255, 255, 255, 0.78);
+}
+
+.app-footer-note img {
+  flex: 0 0 auto;
+  width: 34px;
+  height: 34px;
+  object-fit: contain;
+}
+
 h2 {
   margin: 0;
   font-size: 20px;
@@ -237,29 +258,42 @@ h3 {
 }
 
 main {
-  padding: 12px;
+  padding: 10px 12px calc(118px + env(safe-area-inset-bottom));
 }
 
 .home-hero {
-  display: block;
-  gap: 12px;
-  margin-bottom: 10px;
-  padding: 17px 18px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 112px;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+  padding: 13px 14px;
   border-radius: var(--radius-card);
-  background:
-    linear-gradient(90deg, rgba(255, 255, 255, 0.96), rgba(234, 242, 255, 0.84)),
-    url("./assets/campus-food-banner.png") center / cover;
+  background: linear-gradient(135deg, #ffffff 0%, var(--blue-soft) 100%);
   border: 1px solid rgba(13, 71, 161, 0.14);
-  min-height: 116px;
+  min-height: 112px;
   overflow: hidden;
+}
+
+.home-hero > div {
+  min-width: 0;
 }
 
 .home-hero h2 {
   max-width: 100%;
-  font-size: 20px;
+  font-size: 19px;
   line-height: 1.22;
   white-space: normal;
   overflow-wrap: anywhere;
+}
+
+.home-hero-mukjji {
+  width: min(112px, 30vw);
+  height: auto;
+  aspect-ratio: 1;
+  justify-self: end;
+  object-fit: contain;
+  filter: drop-shadow(0 10px 16px rgba(13, 71, 161, 0.14));
 }
 
 .home-hero p:last-child {
@@ -271,8 +305,8 @@ main {
 }
 
 .weather-card {
-  margin: 0 0 10px;
-  padding: 12px 13px;
+  margin: 0 0 8px;
+  padding: 9px 10px;
   border: 1px solid rgba(13, 71, 161, 0.14);
   border-radius: var(--radius-card);
   background: linear-gradient(135deg, #ffffff, #eaf2ff);
@@ -281,7 +315,9 @@ main {
 
 .weather-card {
   display: grid;
-  gap: 10px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
 }
 
 .weather-main {
@@ -293,13 +329,13 @@ main {
 .weather-symbol {
   display: grid;
   flex: 0 0 auto;
-  width: 42px;
-  height: 42px;
+  width: 34px;
+  height: 34px;
   place-items: center;
   border-radius: 50%;
   background: #fff;
   color: var(--mint-dark);
-  font-size: 23px;
+  font-size: 20px;
   box-shadow: 0 8px 18px rgba(13, 71, 161, 0.12);
 }
 
@@ -321,7 +357,7 @@ main {
 
 .weather-toggle {
   justify-self: start;
-  min-height: 32px;
+  min-height: 36px;
   border: 1px solid rgba(13, 71, 161, 0.2);
   border-radius: 999px;
   padding: 7px 11px;
@@ -363,9 +399,9 @@ dialog {
 
 .quick-start-card {
   display: grid;
-  gap: 10px;
-  margin: 0 0 10px;
-  padding: 14px;
+  gap: 8px;
+  margin: 0 0 8px;
+  padding: 12px;
   border: 1px solid rgba(13, 71, 161, 0.16);
   border-radius: 8px;
   background: #ffffff;
@@ -384,12 +420,12 @@ dialog {
   color: var(--muted);
   font-size: 12px;
   font-weight: 850;
-  line-height: 1.45;
+  line-height: 1.35;
 }
 
 .quick-start-button {
   margin-top: 0;
-  min-height: 50px;
+  min-height: 46px;
   background: var(--mint-dark);
   font-size: 15px;
 }
@@ -732,11 +768,13 @@ input[type="range"] {
 }
 
 .quick-hero-card {
+  position: relative;
   display: grid;
   gap: 10px;
-  padding: 15px;
+  padding: 14px;
   border-color: rgba(13, 71, 161, 0.26);
-  background: linear-gradient(135deg, #ffffff 0%, #f3fff8 100%);
+  background: linear-gradient(135deg, #ffffff 0%, var(--blue-soft) 100%);
+  overflow: hidden;
 }
 
 .quick-rank-badge {
@@ -754,7 +792,8 @@ input[type="range"] {
   min-width: 0;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 10px;
+  gap: 8px;
+  padding-right: 72px;
 }
 
 .quick-hero-main > div {
@@ -772,6 +811,24 @@ input[type="range"] {
 .quick-hero-card .store-line,
 .quick-hero-card .recommend-copy {
   overflow-wrap: anywhere;
+}
+
+.quick-hero-mukjji {
+  position: absolute;
+  top: 26px;
+  right: 8px;
+  z-index: 0;
+  width: 96px;
+  height: 96px;
+  object-fit: contain;
+  opacity: 0.96;
+  pointer-events: none;
+  filter: drop-shadow(0 8px 14px rgba(13, 71, 161, 0.12));
+}
+
+.quick-hero-card > :not(.quick-hero-mukjji) {
+  position: relative;
+  z-index: 1;
 }
 
 .quick-actions {
@@ -1421,6 +1478,19 @@ input[type="range"] {
   font-size: 13px;
 }
 
+.mukjji-empty {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  padding: 16px 14px;
+}
+
+.mukjji-empty img {
+  width: 72px;
+  height: 72px;
+  object-fit: contain;
+}
+
 .search-ready {
   background: #fff;
   border-style: solid;
@@ -1618,6 +1688,22 @@ input[type="range"] {
   transform: translate(-50%, -50%) scale(1);
 }
 
+.toast.has-mukjji {
+  display: inline-flex;
+  min-width: 178px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border-radius: 22px;
+  padding: 10px 14px;
+}
+
+.toast.has-mukjji img {
+  width: 44px;
+  height: 44px;
+  object-fit: contain;
+}
+
 dialog .toast {
   z-index: 2147483647;
 }
@@ -1644,13 +1730,20 @@ dialog .toast {
 .search-modal {
   display: grid;
   justify-items: center;
-  gap: 10px;
+  gap: 8px;
   width: min(78vw, 280px);
-  padding: 26px 20px 24px;
+  padding: 18px 18px 20px;
   border-radius: 18px;
   background: #fff;
   box-shadow: 0 18px 42px rgba(17, 31, 42, 0.18);
   text-align: center;
+}
+
+.search-mukjji {
+  width: 112px;
+  height: 112px;
+  object-fit: contain;
+  filter: drop-shadow(0 10px 18px rgba(13, 71, 161, 0.16));
 }
 
 .search-glass {
@@ -2109,15 +2202,15 @@ dialog .toast {
 .bottom-nav {
   position: fixed;
   left: 50%;
-  bottom: max(10px, env(safe-area-inset-bottom));
+  bottom: max(8px, env(safe-area-inset-bottom));
   z-index: 20;
   width: min(88vw, 430px);
-  min-height: 62px;
+  min-height: 58px;
   transform: translateX(-50%);
   display: grid;
   grid-template-columns: repeat(5, 1fr);
   gap: 2px;
-  padding: 7px;
+  padding: 6px;
   border: 1px solid rgba(20, 45, 54, 0.1);
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.88);
@@ -2128,7 +2221,7 @@ dialog .toast {
 .bottom-nav button {
   display: grid;
   min-width: 0;
-  min-height: 48px;
+  min-height: 46px;
   place-items: center;
   align-content: center;
   gap: 2px;
@@ -2174,12 +2267,12 @@ dialog .toast {
 }
 
 .bottom-nav .nav-search-cta {
-  transform: translateY(-13px);
+  transform: translateY(-7px);
 }
 
 .bottom-nav .nav-search-cta .nav-icon {
-  width: 48px;
-  height: 48px;
+  width: 42px;
+  height: 42px;
   border-radius: 50%;
   background: var(--ink);
   color: #fff;
@@ -2187,8 +2280,8 @@ dialog .toast {
 }
 
 .bottom-nav .nav-search-cta .nav-icon svg {
-  width: 23px;
-  height: 23px;
+  width: 21px;
+  height: 21px;
 }
 
 .bottom-nav .nav-search-cta.is-active {
@@ -2203,6 +2296,14 @@ dialog .toast {
 dialog {
   width: min(92vw, 460px);
   padding: 16px;
+}
+
+.dialog-mukjji {
+  display: block;
+  width: 124px;
+  height: 124px;
+  margin: -4px auto 6px;
+  object-fit: contain;
 }
 
 dialog::backdrop {
@@ -2441,7 +2542,28 @@ textarea {
 
 @media (max-width: 380px) {
   .home-hero {
-    display: block;
+    grid-template-columns: minmax(0, 1fr) 92px;
+    gap: 8px;
+    padding: 12px;
+  }
+
+  .home-hero h2 {
+    font-size: 17px;
+  }
+
+  .home-hero-mukjji {
+    width: 92px;
+  }
+
+  .quick-hero-main {
+    padding-right: 58px;
+  }
+
+  .quick-hero-mukjji {
+    top: 30px;
+    right: 4px;
+    width: 78px;
+    height: 78px;
   }
 
   .category-grid {

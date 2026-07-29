@@ -1,4 +1,4 @@
-const CACHE_NAME = "changwon-food-app-v36";
+const CACHE_NAME = "changwon-food-app-v37";
 const CORE_ASSETS = [
   "./",
   "./index.html",
@@ -7,13 +7,19 @@ const CORE_ASSETS = [
   "./data.js",
   "./manifest.webmanifest",
 ];
+const MUKJJI_CORE_ASSETS = [
+  "./assets/mukjji/01_mukjji_hero_bowl_1024.webp",
+  "./assets/mukjji/02_mukjji_greeting_512.webp",
+  "./assets/mukjji/03_mukjji_searching_512.webp",
+  "./assets/mukjji/04_mukjji_thinking_512.webp",
+  "./assets/mukjji/05_mukjji_recommend_bowl_512.webp",
+  "./assets/mukjji/07_mukjji_best_pick_512.webp",
+];
 const STATIC_ASSETS = [
   "./admin.html",
   "./admin.css",
   "./admin.js",
   "./supabase-config.js",
-  "./assets/campus-food-banner.png",
-  "./assets/splash-logo.png",
   "./assets/app-icon-180.png",
   "./assets/app-icon-192.png",
   "./assets/app-icon-512.png",
@@ -27,7 +33,7 @@ const STATIC_ASSETS = [
   "./assets/categories/korean.png",
   "./assets/categories/western.png",
 ];
-const PRECACHE_ASSETS = [...CORE_ASSETS, ...STATIC_ASSETS];
+const PRECACHE_ASSETS = [...CORE_ASSETS, ...MUKJJI_CORE_ASSETS, ...STATIC_ASSETS];
 const NETWORK_FIRST_PATHS = new Set(["/", "/index.html", "/app.js", "/styles.css", "/data.js", "/manifest.webmanifest"]);
 
 self.addEventListener("install", (event) => {
