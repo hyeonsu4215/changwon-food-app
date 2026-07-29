@@ -2454,8 +2454,8 @@ async function submitInfoReport(event) {
 async function shareAppLink() {
   const url = "https://changwon-food-app.vercel.app/";
   const shareData = {
-    title: "창대앞 뭐먹지",
-    text: "창원대 앞에서 뭐 먹을지 고민될 때 쓰는 메뉴 추천 앱",
+    title: "묵찌 PICK!",
+    text: "창원대 앞에서 뭐 먹을지 고민될 때 묵찌가 골라주는 메뉴 추천 앱",
     url,
   };
   if (navigator.share) {
