@@ -825,6 +825,16 @@ input[type="range"] {
   background: var(--mint);
 }
 
+.discovery-preference-link {
+  min-height: 38px;
+  border: 1px solid rgba(15, 123, 99, 0.24);
+  border-radius: 8px;
+  background: #f7fbf9;
+  color: var(--mint-dark);
+  font-size: 12px;
+  font-weight: 900;
+}
+
 .discovery-nudge-card {
   display: grid;
   gap: 10px;
