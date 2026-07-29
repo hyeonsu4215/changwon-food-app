@@ -1438,19 +1438,19 @@ function renderConditionSummary() {
 
 function renderLocationStatus() {
   if (state.locationStatus === "ready") {
-    els.locationStatus.textContent = "현재 위치 기준으로 거리 계산 중";
+    els.locationStatus.textContent = "현재 위치 기준 거리";
     els.locationButton.textContent = "위치 갱신";
   } else if (state.locationStatus === "denied") {
-    els.locationStatus.textContent = "위치 권한이 없어 창원대 정문을 임시 기준으로 계산 중";
+    els.locationStatus.textContent = "창원대 정문 기준 거리";
     els.locationButton.textContent = "위치 허용";
   } else if (state.locationStatus === "unsupported") {
-    els.locationStatus.textContent = "이 브라우저에서는 위치 서비스를 사용할 수 없어 정문 기준으로 계산 중";
+    els.locationStatus.textContent = "창원대 정문 기준 거리";
     els.locationButton.textContent = "위치 불가";
   } else if (state.locationStatus === "idle") {
     els.locationStatus.textContent = "위치를 허용하면 현재 위치 기준 거리로 추천해요.";
     els.locationButton.textContent = "위치 선택";
   } else {
-    els.locationStatus.textContent = "위치 서비스를 사용해 거리 계산을 준비하고 있어요.";
+    els.locationStatus.textContent = "거리 계산 중";
     els.locationButton.textContent = "위치 확인 중";
   }
 }
