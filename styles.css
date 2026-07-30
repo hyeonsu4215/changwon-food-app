@@ -458,6 +458,62 @@ dialog {
   margin-bottom: 12px;
 }
 
+.saved-preference-card {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr);
+  gap: 9px;
+  align-items: center;
+  margin-bottom: 12px;
+  padding: 10px;
+  border: 1px solid rgba(13, 71, 161, 0.14);
+  border-radius: var(--radius-control);
+  background: #fff;
+}
+
+.saved-preference-card img {
+  width: 44px;
+  height: 44px;
+  object-fit: contain;
+}
+
+.saved-preference-card strong {
+  display: block;
+  color: var(--ink);
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.saved-preference-card p {
+  margin: 2px 0 0;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.saved-preference-actions {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 7px;
+}
+
+.saved-preference-actions button {
+  min-width: 0;
+  min-height: 44px;
+  border: 1px solid rgba(13, 71, 161, 0.18);
+  border-radius: var(--radius-control);
+  background: var(--primary);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 900;
+  overflow-wrap: anywhere;
+}
+
+.saved-preference-actions button:last-child {
+  background: #fff;
+  color: var(--primary);
+}
+
 .privacy-note {
   flex: 1;
   margin: 0;

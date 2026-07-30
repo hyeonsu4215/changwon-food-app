@@ -74,16 +74,38 @@ function safePreferenceList(value, validSet) {
   return uniqueTags(value.map((item) => String(item)).filter((item) => validSet.has(item)));
 }
 
+function hasRequiredRecommendationPreferenceFields(value) {
+  if (!value || typeof value !== "object" || value.version !== 1) return false;
+  const numberFields = ["budget", "spicy", "salty", "sweet"];
+  const booleanFields = [
+    "onlyOpen",
+    "needTakeout",
+    "needDelivery",
+    "needAlone",
+    "wantMeat",
+    "budgetCustomized",
+    "tastePreferenceCustomized",
+  ];
+  return (
+    numberFields.every((key) => typeof value[key] === "number" && Number.isFinite(value[key])) &&
+    Array.isArray(value.categories) &&
+    Array.isArray(value.moods) &&
+    booleanFields.every((key) => typeof value[key] === "boolean")
+  );
+}
+
 function readRecommendationPreferences() {
-  let saved = {};
+  let saved = null;
   try {
     const parsed = JSON.parse(localStorage.getItem(RECOMMENDATION_PREFERENCES_KEY) || "null");
-    if (parsed && typeof parsed === "object" && parsed.version === 1) saved = parsed;
+    if (hasRequiredRecommendationPreferenceFields(parsed)) saved = parsed;
   } catch (error) {
     console.warn("recommendation preferences unavailable", error);
   }
+  if (!saved) return null;
 
   return {
+    version: 1,
     budget: clampNumber(saved.budget, 3000, 30000, 8000, 500),
     spicy: clampNumber(saved.spicy, 0, 5, 2),
     salty: clampNumber(saved.salty, 0, 5, 3),
@@ -95,30 +117,28 @@ function readRecommendationPreferences() {
     needDelivery: Boolean(saved.needDelivery),
     needAlone: Boolean(saved.needAlone),
     wantMeat: Boolean(saved.wantMeat),
-    budgetCustomized:
-      typeof saved.budgetCustomized === "boolean" ? saved.budgetCustomized : localStorage.getItem(BUDGET_CUSTOMIZED_KEY) === "true",
-    tastePreferenceCustomized:
-      typeof saved.tastePreferenceCustomized === "boolean" ? saved.tastePreferenceCustomized : localStorage.getItem(TASTE_CUSTOMIZED_KEY) === "true",
+    budgetCustomized: typeof saved.budgetCustomized === "boolean" ? saved.budgetCustomized : false,
+    tastePreferenceCustomized: typeof saved.tastePreferenceCustomized === "boolean" ? saved.tastePreferenceCustomized : false,
   };
 }
 
-const savedRecommendationPreferences = readRecommendationPreferences();
+let savedRecommendationPreferences = readRecommendationPreferences();
 
 const state = {
   location: null,
   locationStatus: "requesting",
-  budget: savedRecommendationPreferences.budget,
-  budgetCustomized: savedRecommendationPreferences.budgetCustomized,
-  categories: new Set(savedRecommendationPreferences.categories),
-  moods: new Set(savedRecommendationPreferences.moods),
-  onlyOpen: savedRecommendationPreferences.onlyOpen,
-  needTakeout: savedRecommendationPreferences.needTakeout,
-  needDelivery: savedRecommendationPreferences.needDelivery,
-  needAlone: savedRecommendationPreferences.needAlone,
-  wantMeat: savedRecommendationPreferences.wantMeat,
-  spicy: savedRecommendationPreferences.spicy,
-  salty: savedRecommendationPreferences.salty,
-  sweet: savedRecommendationPreferences.sweet,
+  budget: 8000,
+  budgetCustomized: false,
+  categories: new Set(),
+  moods: new Set(),
+  onlyOpen: false,
+  needTakeout: false,
+  needDelivery: false,
+  needAlone: false,
+  wantMeat: false,
+  spicy: 2,
+  salty: 3,
+  sweet: 2,
   page: 0,
   hasSearched: false,
   appReady: false,
@@ -138,7 +158,7 @@ const state = {
   historyRangeDays: Number(localStorage.getItem("changwonFoodHistoryRangeDays") || "7"),
   historyVisibleCount: 5,
   tasteOverrides: JSON.parse(localStorage.getItem("changwonFoodTasteOverrides") || "{}"),
-  tastePreferenceCustomized: savedRecommendationPreferences.tastePreferenceCustomized,
+  tastePreferenceCustomized: false,
   reviews: JSON.parse(localStorage.getItem("changwonFoodReviews") || "{}"),
   nickname: localStorage.getItem("changwonFoodNickname") || "",
   publicTasteSummary: {},
@@ -188,6 +208,7 @@ const els = {
   weatherCard: document.querySelector("#weatherCard"),
   quickRecommendButton: document.querySelector("#quickRecommendButton"),
   conditionDetails: document.querySelector("#conditionDetails"),
+  savedPreferenceCard: document.querySelector("#savedPreferenceCard"),
   searchButton: document.querySelector("#searchButton"),
   resetFiltersButton: document.querySelector("#resetFiltersButton"),
   searchOverlay: document.querySelector("#searchOverlay"),
@@ -551,6 +572,30 @@ function markConditionsChanged() {
   state.quickMode = quickRecommendationMode();
   resetDiscoveryNudgeCycle();
   state.alternativesExpanded = false;
+}
+
+function hasSavedRecommendationPreferences() {
+  return Boolean(savedRecommendationPreferences);
+}
+
+function applyRecommendationPreferences(preferences) {
+  if (!preferences) return false;
+  state.budget = clampNumber(preferences.budget, 3000, 30000, 8000, 500);
+  state.budgetCustomized = Boolean(preferences.budgetCustomized);
+  state.spicy = clampNumber(preferences.spicy, 0, 5, 2);
+  state.salty = clampNumber(preferences.salty, 0, 5, 3);
+  state.sweet = clampNumber(preferences.sweet, 0, 5, 2);
+  state.tastePreferenceCustomized = Boolean(preferences.tastePreferenceCustomized);
+  state.categories = new Set(safePreferenceList(preferences.categories, VALID_RECOMMENDATION_CATEGORIES));
+  state.moods = new Set(safePreferenceList(preferences.moods, VALID_RECOMMENDATION_MOODS));
+  state.onlyOpen = Boolean(preferences.onlyOpen);
+  state.needTakeout = Boolean(preferences.needTakeout);
+  state.needDelivery = Boolean(preferences.needDelivery);
+  state.needAlone = Boolean(preferences.needAlone);
+  state.wantMeat = Boolean(preferences.wantMeat);
+  state.rangeInputPendingChange = {};
+  markConditionsChanged();
+  return true;
 }
 
 function weatherKind(weather = state.weather) {
@@ -1552,6 +1597,7 @@ function toggleWeatherReference() {
 
 function render() {
   syncControls();
+  renderSavedPreferenceCard();
   renderConditionSummary();
   renderLocationStatus();
   renderWeatherCard();
@@ -1562,6 +1608,27 @@ function render() {
   renderRoulette();
   renderStoreSearch();
   els.searchOverlay?.classList.toggle("is-visible", state.isSearching);
+}
+
+function renderSavedPreferenceCard() {
+  if (!els.savedPreferenceCard) return;
+  if (!hasSavedRecommendationPreferences()) {
+    els.savedPreferenceCard.innerHTML = "";
+    return;
+  }
+  els.savedPreferenceCard.innerHTML = `
+    <section class="saved-preference-card" aria-label="저장된 추천 조건">
+      <img src="./assets/mukjji/04_mukjji_thinking_512.webp" alt="" width="44" height="44" loading="lazy" aria-hidden="true" />
+      <div>
+        <strong>지난번 취향 설정이 있어요</strong>
+        <p>불러온 뒤 원하는 부분을 바꿔서 다시 추천받을 수 있어요.</p>
+      </div>
+      <div class="saved-preference-actions">
+        <button type="button" data-load-saved-preferences>지난 취향 불러오기</button>
+        <button type="button" data-reset-saved-preferences>조건 초기화</button>
+      </div>
+    </section>
+  `;
 }
 
 function resetFilters() {
@@ -1582,7 +1649,23 @@ function resetFilters() {
   state.rangeInputPendingChange = {};
   setTastePreferenceCustomized(false);
   clearRecommendationPreferences();
+  savedRecommendationPreferences = null;
   markConditionsChanged();
+  render();
+}
+
+function loadSavedRecommendationPreferences() {
+  setActiveRecommendationMode("discovery");
+  if (!applyRecommendationPreferences(savedRecommendationPreferences)) {
+    toast("불러올 지난 취향이 없어요");
+    render();
+    return;
+  }
+  if (els.conditionDetails) {
+    els.conditionDetails.open = true;
+    syncConditionDetailsAccessibility();
+  }
+  toast("지난번 취향을 불러왔어요. 확인 후 조건에 맞게 찾기를 눌러 주세요.");
   render();
 }
 
@@ -1989,11 +2072,14 @@ function recommendationPreferencesSnapshot() {
 }
 
 function saveRecommendationPreferences() {
-  localStorage.setItem(RECOMMENDATION_PREFERENCES_KEY, JSON.stringify(recommendationPreferencesSnapshot()));
+  savedRecommendationPreferences = recommendationPreferencesSnapshot();
+  localStorage.setItem(RECOMMENDATION_PREFERENCES_KEY, JSON.stringify(savedRecommendationPreferences));
 }
 
 function clearRecommendationPreferences() {
   localStorage.removeItem(RECOMMENDATION_PREFERENCES_KEY);
+  localStorage.removeItem(BUDGET_CUSTOMIZED_KEY);
+  localStorage.removeItem(TASTE_CUSTOMIZED_KEY);
 }
 
 function rangeInputForKey(key) {
@@ -2016,14 +2102,12 @@ function commitRangePreference(key, eventOrValue, source = "input") {
 
   if (source === "change" && !isCurrentInput) {
     state.rangeInputPendingChange[key] = false;
-    saveRecommendationPreferences();
     syncControls();
     return false;
   }
 
   if (source === "change" && state.rangeInputPendingChange[key] && confirmsState) {
     state.rangeInputPendingChange[key] = false;
-    saveRecommendationPreferences();
     syncControls();
     return false;
   }
@@ -2031,7 +2115,6 @@ function commitRangePreference(key, eventOrValue, source = "input") {
   if (source === "input") state.rangeInputPendingChange[key] = true;
 
   if (state[key] === value && (isBudget ? state.budgetCustomized : state.tastePreferenceCustomized)) {
-    saveRecommendationPreferences();
     syncControls();
     return false;
   }
@@ -2039,7 +2122,6 @@ function commitRangePreference(key, eventOrValue, source = "input") {
   state[key] = value;
   if (isBudget) setBudgetCustomized(true);
   else setTastePreferenceCustomized(true);
-  saveRecommendationPreferences();
   markConditionsChanged();
   render();
   return true;
@@ -2047,12 +2129,10 @@ function commitRangePreference(key, eventOrValue, source = "input") {
 
 function setTastePreferenceCustomized(value) {
   state.tastePreferenceCustomized = Boolean(value);
-  localStorage.setItem(TASTE_CUSTOMIZED_KEY, String(state.tastePreferenceCustomized));
 }
 
 function setBudgetCustomized(value) {
   state.budgetCustomized = Boolean(value);
-  localStorage.setItem(BUDGET_CUSTOMIZED_KEY, String(state.budgetCustomized));
 }
 
 function saveReviews() {
@@ -2967,6 +3047,15 @@ function bindEvents() {
   els.rerollQuickButton.addEventListener("click", rerollQuickRecommendations);
   els.toggleAlternativesButton.addEventListener("click", toggleAlternativeMenus);
   els.conditionDetails?.addEventListener("toggle", syncConditionDetailsAccessibility);
+  els.conditionDetails?.addEventListener("click", (event) => {
+    if (event.target.closest("[data-load-saved-preferences]")) {
+      loadSavedRecommendationPreferences();
+      return;
+    }
+    if (event.target.closest("[data-reset-saved-preferences]")) {
+      resetFilters();
+    }
+  });
   els.budgetRange.addEventListener("input", (event) => {
     commitRangePreference("budget", event, "input");
   });
@@ -2985,7 +3074,6 @@ function bindEvents() {
   for (const key of ["onlyOpen", "needTakeout", "needDelivery", "needAlone", "wantMeat"]) {
     els[key].addEventListener("change", (event) => {
       state[key] = event.target.checked;
-      saveRecommendationPreferences();
       markConditionsChanged();
       render();
     });
@@ -2995,7 +3083,6 @@ function bindEvents() {
     if (!button) return;
     const value = button.dataset.category;
     state.categories.has(value) ? state.categories.delete(value) : state.categories.add(value);
-    saveRecommendationPreferences();
     resetStoreMenuExpansions();
     markConditionsChanged();
     render();
@@ -3005,7 +3092,6 @@ function bindEvents() {
     if (!button) return;
     const value = button.dataset.mood;
     state.moods.has(value) ? state.moods.delete(value) : state.moods.add(value);
-    saveRecommendationPreferences();
     markConditionsChanged();
     render();
   });
