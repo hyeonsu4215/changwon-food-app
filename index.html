@@ -17,40 +17,48 @@
     <div id="splashScreen" class="splash-screen" aria-label="앱 여는 중">
       <div class="splash-card">
         <img src="./assets/mukjji/01_mukjji_hero_bowl_1024.webp" alt="묵찌 PICK!" class="splash-logo" width="248" height="248" />
+        <p class="splash-kicker">창원대 앞 맛집 추천 앱</p>
+        <h2>묵찌 PICK!</h2>
+        <p class="splash-copy">오늘 뭐 먹지? 묵찌가 골라줄게!</p>
         <div class="splash-loader" aria-hidden="true"></div>
-        <p>오늘의 식당을 찾고 있어요...</p>
       </div>
-      <strong>국립창원대학교 앞 학생 편의 메뉴 추천</strong>
+      <strong>국립창원대학교 공식 앱이 아닌 학생 편의 서비스입니다.</strong>
     </div>
 
     <div class="app-shell">
       <header class="app-top">
-        <div class="top-actions">
-          <button id="locationButton" class="location-pill">내 위치 확인</button>
-          <button id="shareButton" class="top-tool">링크 공유</button>
-        </div>
-        <div>
-          <h1>묵찌 PICK!</h1>
-          <p id="locationStatus">위치 서비스를 사용해 거리 계산을 준비하고 있어요.</p>
+        <div class="app-top-row">
+          <div class="app-title-block">
+            <h1>묵찌 PICK!</h1>
+            <p id="locationStatus">위치 서비스를 사용해 거리 계산을 준비하고 있어요.</p>
+          </div>
+          <div class="top-actions" aria-label="앱 도구">
+            <button id="locationButton" class="location-pill" aria-label="위치 갱신">위치</button>
+            <button id="shareButton" class="top-tool" aria-label="링크 공유">공유</button>
+          </div>
         </div>
       </header>
 
       <main>
         <section id="recommendTab" class="tab-panel is-active">
-          <section class="home-hero" aria-label="오늘의 추천 시작">
-            <div>
-              <p class="eyebrow">Mukjji Pick</p>
-              <h2>오늘 뭐 먹지? 묵찌가 골라줄게!</h2>
-              <p id="conditionSummary">전체 음식 · 8,000원 이하 · 가까운 곳 우선</p>
+          <section class="recommend-info-card" aria-label="오늘의 추천 정보">
+            <div class="recommend-info-main">
+              <div>
+                <p class="eyebrow">Mukjji Pick</p>
+                <h2>오늘 뭐 먹지? 묵찌가 골라줄게!</h2>
+                <p id="conditionSummary">전체 음식 · 예산 자유 · 상황 자유</p>
+              </div>
+              <img class="home-hero-mukjji" src="./assets/mukjji/02_mukjji_greeting_512.webp" alt="" width="96" height="96" aria-hidden="true" />
             </div>
-            <img class="home-hero-mukjji" src="./assets/mukjji/02_mukjji_greeting_512.webp" alt="" width="148" height="148" aria-hidden="true" />
-          </section>
-
-          <section id="weatherCard" class="weather-card" aria-label="창원대 앞 날씨">
-            <div>
-              <p class="eyebrow">Weather</p>
-              <strong>창원대 앞 날씨 확인 중</strong>
-              <span>설정하면 어울리는 메뉴에만 작은 가산점을 줘요.</span>
+            <div id="weatherCard" class="weather-card" aria-label="창원대 앞 날씨">
+              <div class="weather-main">
+                <span class="weather-symbol" aria-hidden="true">☁️</span>
+                <div>
+                  <p class="eyebrow">Weather</p>
+                  <strong>창원대 앞 날씨 확인 중</strong>
+                  <span>날씨 참고는 원할 때만 켤 수 있어요.</span>
+                </div>
+              </div>
             </div>
           </section>
 

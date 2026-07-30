@@ -1065,16 +1065,18 @@ function quickHeroHtml(item) {
     : "./assets/mukjji/07_mukjji_best_pick_512.webp";
   return `
     <article class="quick-hero-card">
-      <div class="quick-rank-badge">${badge}</div>
+      <div class="quick-hero-head">
+        <div class="quick-rank-badge">${badge}</div>
+        <button class="heart-button ${wished ? "is-wished" : ""}" data-wish="${item.id}" aria-label="${wished ? "찜 해제" : "찜하기"}">${wished ? "♥" : "♡"}</button>
+      </div>
       <div class="quick-hero-main">
         <div>
           <h3>${escapeHtml(item.name)}</h3>
           <p class="store-line">${escapeHtml(item.restaurant?.name || item.restaurantName)} · ${money(item.price)} · ${meters(item.distance)}</p>
           <p class="recommend-copy">${quickReasonText(item)}</p>
         </div>
-        <button class="heart-button ${wished ? "is-wished" : ""}" data-wish="${item.id}" aria-label="${wished ? "찜 해제" : "찜하기"}">${wished ? "♥" : "♡"}</button>
+        <img class="quick-hero-mukjji" src="${mukjjiSrc}" alt="" width="108" height="108" loading="lazy" aria-hidden="true" />
       </div>
-      <img class="quick-hero-mukjji" src="${mukjjiSrc}" alt="" width="108" height="108" loading="lazy" aria-hidden="true" />
       <div class="meta-tags">${tagList.map((tag) => `<span>${tag}</span>`).join("")}</div>
       <div class="card-actions quick-actions">
         <button data-ate="${item.id}">먹음 기록</button>
@@ -1091,7 +1093,7 @@ function quickAlternativeHtml(item, rank) {
   return `
     <article class="quick-alt-card">
       <div class="quick-alt-top">
-        <span>${label}</span>
+        <span><img src="./assets/mukjji/09_mukjji_greeting_plain_512.webp" alt="" width="30" height="30" loading="lazy" aria-hidden="true" />${label}</span>
         <button class="heart-button ${wished ? "is-wished" : ""}" data-wish="${item.id}" aria-label="${wished ? "찜 해제" : "찜하기"}">${wished ? "♥" : "♡"}</button>
       </div>
       <h3>${escapeHtml(item.name)}</h3>
@@ -1113,9 +1115,10 @@ function quickRecommendationsHtml(items) {
   const alternativeGrid = alternatives.length
     ? `<div class="quick-alt-grid">${alternatives.map((item, index) => quickAlternativeHtml(item, index + 2)).join("")}</div>`
     : "";
-  const nudge = shouldShowDiscoveryNudge() ? discoveryNudgeHtml() : "";
+  const nudgeVisible = shouldShowDiscoveryNudge();
+  const nudge = nudgeVisible ? discoveryNudgeHtml() : "";
   const preferenceNote = discoveryStoredPreferenceNoteHtml();
-  const preferenceShortcut = discoveryPreferenceShortcutHtml();
+  const preferenceShortcut = nudgeVisible ? "" : discoveryPreferenceShortcutHtml();
   const returnDiscovery = returnDiscoveryButtonHtml();
   return `
     <div class="quick-recommend-grid">
@@ -1144,7 +1147,7 @@ function discoveryNudgeHtml() {
         <p>예산과 맛 취향을 알려주면 더 잘 골라드릴게요.</p>
       </div>
       <div class="discovery-nudge-actions">
-        <button type="button" data-open-preferences>내 취향으로 추천받기</button>
+        <button type="button" data-open-preferences>취향 설정하기</button>
         <button type="button" data-dismiss-discovery-nudge>계속 랜덤 추천</button>
       </div>
     </div>
@@ -1286,7 +1289,8 @@ function renderRecommendations() {
   els.quickRecommendPanel.innerHTML = state.quickItems.length
     ? quickRecommendationsHtml(state.quickItems)
     : `<div class="empty-state">조건에 맞는 메뉴가 없어요. 예산이나 조건을 조금 풀어보세요.</div>`;
-  els.rerollQuickButton.style.display = all.length > 3 ? "block" : "none";
+  const nudgeVisible = Boolean(state.quickItems.length && shouldShowDiscoveryNudge());
+  els.rerollQuickButton.style.display = all.length > 3 && !nudgeVisible ? "block" : "none";
   els.rerollQuickButton.textContent = mode === "discovery" ? "다른 조합 보여줘" : "다른 맞춤 메뉴 보기";
   els.toggleAlternativesButton.style.display = all.length ? "block" : "none";
   els.toggleAlternativesButton.textContent = state.alternativesExpanded ? "대안 메뉴 접기" : "대안 메뉴 보기";
@@ -1484,19 +1488,24 @@ function renderConditionSummary() {
 function renderLocationStatus() {
   if (state.locationStatus === "ready") {
     els.locationStatus.textContent = "현재 위치 기준 거리";
-    els.locationButton.textContent = "위치 갱신";
+    els.locationButton.textContent = "위치";
+    els.locationButton.setAttribute("aria-label", "위치 갱신");
   } else if (state.locationStatus === "denied") {
     els.locationStatus.textContent = "창원대 정문 기준 거리";
-    els.locationButton.textContent = "위치 허용";
+    els.locationButton.textContent = "허용";
+    els.locationButton.setAttribute("aria-label", "위치 허용");
   } else if (state.locationStatus === "unsupported") {
     els.locationStatus.textContent = "창원대 정문 기준 거리";
-    els.locationButton.textContent = "위치 불가";
+    els.locationButton.textContent = "불가";
+    els.locationButton.setAttribute("aria-label", "위치 사용 불가");
   } else if (state.locationStatus === "idle") {
     els.locationStatus.textContent = "위치를 허용하면 현재 위치 기준 거리로 추천해요.";
-    els.locationButton.textContent = "위치 선택";
+    els.locationButton.textContent = "위치";
+    els.locationButton.setAttribute("aria-label", "위치 선택");
   } else {
     els.locationStatus.textContent = "거리 계산 중";
-    els.locationButton.textContent = "위치 확인 중";
+    els.locationButton.textContent = "확인";
+    els.locationButton.setAttribute("aria-label", "위치 확인 중");
   }
 }
 
@@ -1721,6 +1730,9 @@ function openPreferenceSettings() {
 
 function dismissDiscoveryNudge() {
   resetDiscoveryNudgeCycle(3);
+  if (state.hasSearched) {
+    updateQuickRecommendations({ reroll: true });
+  }
   renderRecommendations();
 }
 
@@ -3245,7 +3257,7 @@ function finishSplash() {
     document.body.classList.remove("splash-active");
     handleLocationAfterSplash();
   };
-  window.setTimeout(hideSplash, 2400);
+  window.requestAnimationFrame(() => window.requestAnimationFrame(hideSplash));
 }
 
 renderChips();
