@@ -21,6 +21,11 @@
   --radius-control: 14px;
   --shadow: 0 10px 26px rgba(13, 71, 161, 0.09);
   --focus-ring: 0 0 0 3px rgba(21, 101, 192, 0.24);
+  --font-family-base: "Pretendard", "Noto Sans KR", -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Segoe UI", "Malgun Gothic", sans-serif;
+  --font-weight-body: 500;
+  --font-weight-medium: 600;
+  --font-weight-strong: 700;
+  --font-weight-heading: 800;
 }
 
 * {
@@ -29,7 +34,10 @@
 
 body {
   margin: 0;
-  font-family: "Pretendard", -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans KR", "Apple SD Gothic Neo", sans-serif;
+  font-family: var(--font-family-base);
+  font-size: 15px;
+  font-weight: var(--font-weight-body);
+  line-height: 1.55;
   background: var(--bg);
   color: var(--ink);
 }
@@ -148,14 +156,14 @@ textarea:focus-visible {
 }
 
 .splash-kicker {
-  color: var(--secondary) !important;
-  font-size: 12px !important;
-  font-weight: 950 !important;
+  color: var(--secondary);
+  font-size: 12px;
+  font-weight: var(--font-weight-strong);
 }
 
 .splash-copy {
-  color: var(--ink) !important;
-  font-size: 14px !important;
+  color: var(--ink);
+  font-size: 14px;
 }
 
 .splash-screen > strong {
@@ -2726,6 +2734,251 @@ textarea {
   overflow-wrap: anywhere;
 }
 
+/* Phase 4 typography pass: keep the existing layout while making mobile text hierarchy calmer. */
+h1,
+h2,
+h3,
+.quick-hero-card h3,
+.quick-alt-card h3,
+.menu-card h3,
+.store-card h3,
+.worldcup-choice strong,
+.record-menu-row strong,
+.history-row-info strong {
+  font-weight: var(--font-weight-heading);
+  letter-spacing: 0;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+}
+
+h1 {
+  font-size: 28px;
+  line-height: 1.08;
+}
+
+h2,
+.section-heading h2 {
+  font-size: 22px;
+  line-height: 1.22;
+}
+
+h3,
+.quick-start-card h3,
+.store-card h3 {
+  font-size: 19px;
+  line-height: 1.28;
+}
+
+.splash-card h2 {
+  font-size: 30px;
+  font-weight: var(--font-weight-heading);
+}
+
+.splash-card p,
+.splash-screen > strong,
+.official-note,
+.quick-start-card p:not(.eyebrow),
+.weather-card span:not(.weather-symbol),
+.discovery-mode-note,
+.empty-state,
+.store-search-note,
+.store-search-match-note,
+.dashboard-card p,
+.history-row-info span,
+.history-row label span,
+.record-menu-row span,
+.review-list p,
+.taste-summary p {
+  font-weight: var(--font-weight-body);
+  line-height: 1.55;
+}
+
+.splash-card p,
+.quick-start-card p:not(.eyebrow),
+.empty-state,
+.dashboard-card p,
+.official-note,
+.privacy-note,
+.saved-preference-card p,
+.discovery-mode-note,
+.discovery-nudge-card p,
+.weather-card strong,
+.weather-card span:not(.weather-symbol),
+.recommend-info-card #conditionSummary,
+.store-search-note,
+.store-search-match-note,
+.visit-review-note,
+.review-line,
+.review-list p,
+.taste-summary p,
+.record-menu-row span {
+  font-size: 14px;
+}
+
+.splash-kicker,
+.eyebrow,
+.quick-rank-badge,
+.quick-alt-top span,
+.meta-tags span,
+.reason-list span,
+.report-status-badge,
+.category-chip small {
+  font-size: 12px;
+  font-weight: var(--font-weight-strong);
+  line-height: 1.35;
+}
+
+.app-title-block h1 {
+  font-size: 28px;
+  font-weight: var(--font-weight-heading);
+}
+
+#locationStatus {
+  font-size: 12px;
+}
+
+.top-tool,
+.location-pill {
+  font-size: 12px;
+  font-weight: var(--font-weight-strong);
+}
+
+.recommend-info-card h2 {
+  font-size: 20px;
+  font-weight: var(--font-weight-heading);
+  line-height: 1.3;
+}
+
+.recommend-info-card #conditionSummary,
+.weather-card strong {
+  font-weight: var(--font-weight-medium);
+  line-height: 1.45;
+}
+
+.weather-toggle {
+  font-size: 12px;
+  font-weight: var(--font-weight-strong);
+}
+
+.quick-start-button,
+.wide-button,
+.search-submit,
+.quick-reroll-button {
+  font-size: 16px;
+  font-weight: var(--font-weight-heading);
+  white-space: nowrap;
+}
+
+.condition-details > summary,
+.control-title strong,
+.detail-fold summary,
+.saved-preference-card strong {
+  font-size: 15px;
+  font-weight: var(--font-weight-heading);
+}
+
+.control-title span,
+.visit-review-note,
+.review-line {
+  font-weight: var(--font-weight-body);
+  line-height: 1.5;
+}
+
+.category-chip span,
+.choice-chip,
+.toggle-strip label {
+  font-size: 14px;
+  font-weight: var(--font-weight-strong);
+}
+
+.quick-hero-card h3 {
+  font-size: 25px;
+  line-height: 1.22;
+}
+
+.quick-alt-card h3,
+.menu-card h3 {
+  font-size: 18px;
+  line-height: 1.28;
+}
+
+.store-line,
+.quick-hero-card .store-line,
+.quick-alt-card .store-line,
+.quick-hero-card .recommend-copy,
+.quick-alt-card .recommend-copy,
+.recommend-copy,
+.reason-copy-list {
+  font-size: 14px;
+  font-weight: var(--font-weight-body);
+  line-height: 1.55;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+}
+
+.quick-alt-card .store-line,
+.quick-alt-card .recommend-copy {
+  font-size: 14px;
+}
+
+.price {
+  font-size: 14px;
+  font-weight: var(--font-weight-strong);
+  white-space: nowrap;
+}
+
+.card-actions button,
+.card-actions a,
+.quick-alt-actions button,
+.quick-alt-actions a,
+.record-row-actions button,
+.history-filter button,
+.store-report-actions button,
+.store-menu-toggle,
+.store-map-button,
+.report-actions button,
+.location-actions button,
+.review-form button,
+.discovery-preference-link,
+.discovery-nudge-actions button,
+.text-button {
+  font-size: 13px;
+  font-weight: var(--font-weight-strong);
+  white-space: nowrap;
+}
+
+.card-actions button,
+.card-actions a,
+.quick-actions button,
+.quick-actions a,
+.record-row-actions button {
+  font-size: 14px;
+}
+
+.discovery-nudge-card strong,
+.dashboard-card h3,
+.taste-summary h3,
+.review-list h3 {
+  font-size: 18px;
+  font-weight: var(--font-weight-heading);
+  line-height: 1.3;
+}
+
+.history-row-info strong,
+.record-menu-row strong {
+  font-size: 15px;
+}
+
+.bottom-nav button {
+  font-size: 11px;
+  font-weight: var(--font-weight-strong);
+}
+
+.roulette-segment span {
+  font-size: 11px;
+  font-weight: var(--font-weight-strong);
+}
+
 @media (max-width: 380px) {
   .recommend-info-main {
     grid-template-columns: minmax(0, 1fr) 64px;
@@ -2737,7 +2990,7 @@ textarea {
   }
 
   .recommend-info-card h2 {
-    font-size: 16px;
+    font-size: 18px;
   }
 
   .home-hero-mukjji {

@@ -1038,9 +1038,9 @@ function cardHtml(item, rank, context = "custom") {
     <div class="reason-list">${reasonTags.map((reason) => `<span>${reason}</span>`).join("")}</div>
     <div class="meta-tags">${metaTags.map((tag) => `<span>${tag}</span>`).join("")}</div>
     <div class="card-actions">
-      <button data-detail="${item.id}" data-detail-context="${context}">상세</button>
-      <button data-ate="${item.id}">먹음</button>
-      <a href="${mapUrl(item)}" target="_blank" rel="noreferrer">지도</a>
+      <button data-detail="${item.id}" data-detail-context="${context}">상세 보기</button>
+      <button data-ate="${item.id}">먹음 기록</button>
+      <a href="${mapUrl(item)}" target="_blank" rel="noreferrer">네이버 지도</a>
     </div>
   `;
 }
@@ -2043,8 +2043,8 @@ function showDetail(id, context = "custom") {
     </section>
     <div class="card-actions">
       <button data-wish="${item.id}">${wished ? "찜 해제" : "찜하기"}</button>
-      <button data-ate="${item.id}">먹은 기록 추가</button>
-      <a href="${mapUrl(item)}" target="_blank" rel="noreferrer">지도에서 보기</a>
+      <button data-ate="${item.id}">먹음 기록</button>
+      <a href="${mapUrl(item)}" target="_blank" rel="noreferrer">네이버 지도에서 보기</a>
     </div>
     <div class="info-footer">
       <span>정보 기준일 ${DATA_UPDATED_AT}</span>
@@ -2576,8 +2576,8 @@ async function submitInfoReport(event) {
 async function shareAppLink() {
   const url = "https://changwon-food-app.vercel.app/";
   const shareData = {
-    title: "묵찌 PICK!",
-    text: "창원대 앞에서 뭐 먹을지 고민될 때 묵찌가 골라주는 메뉴 추천 앱",
+    title: "묵찌 PICK! | 창원대 앞 오늘 뭐 먹지?",
+    text: "오늘 뭐 먹을지 고민된다면? 묵찌 PICK!에서 창원대 앞 메뉴 3개를 추천받아봐!",
     url,
   };
   if (navigator.share) {
@@ -2585,7 +2585,7 @@ async function shareAppLink() {
     return;
   }
   await navigator.clipboard?.writeText(url).catch(() => {});
-  toast("링크 복사!");
+  toast("묵찌 PICK! 링크를 복사했어요.");
 }
 
 function formatDateTime(value) {
@@ -2725,9 +2725,9 @@ function renderWorldcup() {
         </div>
         <div class="meta-tags">${compactTags(item, 8).map((tag) => `<span>${tag}</span>`).join("")}</div>
         <div class="card-actions">
-          <button data-detail="${item.id}">상세</button>
-          <button data-ate="${item.id}">먹은 기록 추가</button>
-          <a href="${mapUrl(item)}" target="_blank" rel="noreferrer">지도</a>
+          <button data-detail="${item.id}">상세 보기</button>
+          <button data-ate="${item.id}">먹음 기록</button>
+          <a href="${mapUrl(item)}" target="_blank" rel="noreferrer">네이버 지도</a>
         </div>
       </div>
       <button id="restartWorldcup" class="wide-button">다시하기</button>
@@ -2849,9 +2849,9 @@ function recordMenuRows(items, emptyText) {
                   <span>${escapeHtml(item.restaurant?.name || item.restaurantName)} · ${money(item.price)}</span>
                 </div>
                 <div class="record-row-actions">
-                  <button data-detail="${item.id}">상세</button>
+                  <button data-detail="${item.id}">상세 보기</button>
                   <button data-wish="${item.id}">${isWished(item.id) ? "찜 해제" : "찜"}</button>
-                  <button data-ate="${item.id}">먹음</button>
+                  <button data-ate="${item.id}">먹음 기록</button>
                 </div>
               </div>
             `,
@@ -2900,7 +2900,7 @@ function renderDashboard() {
         <span>후기 닉네임</span>
         <input id="nicknameInput" type="text" maxlength="20" value="${escapeHtml(state.nickname)}" placeholder="닉네임을 입력해주세요" />
       </label>
-      <p>찜, 먹은 기록, 입맛 수정은 이 기기 브라우저에 저장돼요.</p>
+      <p>찜, 먹음 기록, 입맛 수정은 이 기기 브라우저에 저장돼요.</p>
     </div>
     <div class="dashboard-card">
       <h3>최근 먹은 메뉴</h3>
@@ -2935,7 +2935,7 @@ function renderDashboard() {
                 )
                 .join("")}
             </div>`
-          : "<p>선택한 기간에 먹은 기록이 없어요.</p>"
+          : "<p>선택한 기간에 먹음 기록이 없어요.</p>"
       }
       ${
         filteredHistoryItems.length > historyItems.length

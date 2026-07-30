@@ -1,4 +1,4 @@
-const CACHE_NAME = "changwon-food-app-v41";
+const CACHE_NAME = "changwon-food-app-v44";
 const CORE_ASSETS = [
   "./",
   "./index.html",
@@ -20,9 +20,11 @@ const STATIC_ASSETS = [
   "./admin.css",
   "./admin.js",
   "./supabase-config.js",
-  "./assets/app-icon-180.png",
-  "./assets/app-icon-192.png",
-  "./assets/app-icon-512.png",
+  "./assets/icons/apple-touch-icon-180.png",
+  "./assets/icons/favicon-32.png",
+  "./assets/icons/icon-192.png",
+  "./assets/icons/icon-512.png",
+  "./assets/icons/icon-maskable-512.png",
   "./assets/categories/asian.png",
   "./assets/categories/bunsik.png",
   "./assets/categories/burger.png",
