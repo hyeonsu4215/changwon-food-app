@@ -3,57 +3,77 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <title>오늘 뭐 먹지? 창원대편</title>
+    <title>묵찌 PICK! - 창원대 앞 메뉴 추천</title>
     <link rel="icon" href="data:," />
     <link rel="manifest" href="./manifest.webmanifest" />
     <link rel="apple-touch-icon" href="./assets/app-icon-180.png" />
-    <meta name="theme-color" content="#0f7b63" />
+    <meta name="theme-color" content="#0D47A1" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-title" content="창대앞 뭐먹지" />
+    <meta name="apple-mobile-web-app-title" content="묵찌 PICK!" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body class="splash-active">
     <div id="splashScreen" class="splash-screen" aria-label="앱 여는 중">
       <div class="splash-card">
-        <img src="./assets/splash-logo.png" alt="오늘 뭐먹지? 창원대편" class="splash-logo" />
+        <img src="./assets/mukjji/01_mukjji_hero_bowl_1024.webp" alt="묵찌 PICK!" class="splash-logo" width="248" height="248" />
+        <p class="splash-kicker">창원대 앞 맛집 추천 앱</p>
+        <h2>묵찌 PICK!</h2>
+        <p class="splash-copy">오늘 뭐 먹지? 묵찌가 골라줄게!</p>
         <div class="splash-loader" aria-hidden="true"></div>
-        <p>오늘의 식당을 찾고 있어요...</p>
       </div>
-      <strong>창원대학교 학생들을 위한 맛집 가이드</strong>
+      <strong>국립창원대학교 공식 앱이 아닌 학생 편의 서비스입니다.</strong>
     </div>
 
     <div class="app-shell">
       <header class="app-top">
-        <div class="top-actions">
-          <button id="locationButton" class="location-pill">내 위치 확인</button>
-          <button id="shareButton" class="top-tool">링크 공유</button>
-        </div>
-        <div>
-          <h1>오늘 뭐 먹지?</h1>
-          <p id="locationStatus">위치 서비스를 사용해 거리 계산을 준비하고 있어요.</p>
+        <div class="app-top-row">
+          <div class="app-title-block">
+            <h1>묵찌 PICK!</h1>
+            <p id="locationStatus">위치 서비스를 사용해 거리 계산을 준비하고 있어요.</p>
+          </div>
+          <div class="top-actions" aria-label="앱 도구">
+            <button id="locationButton" class="location-pill" aria-label="위치 갱신">위치</button>
+            <button id="shareButton" class="top-tool" aria-label="링크 공유">공유</button>
+          </div>
         </div>
       </header>
 
       <main>
         <section id="recommendTab" class="tab-panel is-active">
-          <section class="home-hero" aria-label="오늘의 추천 시작">
-            <div>
-              <p class="eyebrow">Changwon Univ.</p>
-              <h2>지금 먹기 좋은 메뉴를 골라줄게요</h2>
-              <p id="conditionSummary">전체 음식 · 8,000원 이하 · 가까운 곳 우선</p>
+          <section class="recommend-info-card" aria-label="오늘의 추천 정보">
+            <div class="recommend-info-main">
+              <div>
+                <p class="eyebrow">Mukjji Pick</p>
+                <h2>오늘 뭐 먹지? 묵찌가 골라줄게!</h2>
+                <p id="conditionSummary">전체 음식 · 예산 자유 · 상황 자유</p>
+              </div>
+              <img class="home-hero-mukjji" src="./assets/mukjji/02_mukjji_greeting_512.webp" alt="" width="96" height="96" aria-hidden="true" />
+            </div>
+            <div id="weatherCard" class="weather-card" aria-label="창원대 앞 날씨">
+              <div class="weather-main">
+                <span class="weather-symbol" aria-hidden="true">☁️</span>
+                <div>
+                  <p class="eyebrow">Weather</p>
+                  <strong>창원대 앞 날씨 확인 중</strong>
+                  <span>날씨 참고는 원할 때만 켤 수 있어요.</span>
+                </div>
+              </div>
             </div>
           </section>
 
-          <section id="weatherCard" class="weather-card" aria-label="창원대 앞 날씨">
+          <section class="quick-start-card" aria-label="빠른 추천">
             <div>
-              <p class="eyebrow">Weather</p>
-              <strong>창원대 앞 날씨 확인 중</strong>
-              <span>날씨에 맞는 메뉴를 살짝 더 추천해요.</span>
+              <p class="eyebrow">Quick Pick</p>
+              <h3>조건 없이 바로 고르기</h3>
+              <p>기본 조건과 현재 추천 기준으로 지금 먹기 좋은 메뉴 3개를 보여줘요.</p>
             </div>
+            <button id="quickRecommendButton" class="wide-button quick-start-button" disabled aria-busy="true">추천 준비 중...</button>
           </section>
 
-          <section class="control-surface" aria-label="추천 조건">
+          <details id="conditionDetails" class="control-surface condition-details" aria-label="추천 조건">
+            <summary aria-expanded="false">조건 자세히 설정</summary>
+            <div id="savedPreferenceCard"></div>
             <div class="condition-tools">
               <p class="privacy-note">찜, 먹은 기록, 내 입맛 수정은 이 기기 안에만 저장돼요.</p>
               <button id="resetFiltersButton" class="text-button reset-button">조건 초기화</button>
@@ -113,7 +133,7 @@
             </details>
 
             <button id="searchButton" class="wide-button search-submit">조건에 맞게 찾기</button>
-          </section>
+          </details>
 
           <section class="recommend-section">
             <div class="section-heading">
@@ -123,6 +143,9 @@
               </div>
               <button id="rouletteButton" class="icon-button">룰렛</button>
             </div>
+            <div id="quickRecommendPanel" class="quick-recommend-panel"></div>
+            <button id="rerollQuickButton" class="wide-button quick-reroll-button">다른 메뉴 추천</button>
+            <button id="toggleAlternativesButton" class="wide-button secondary-action" aria-expanded="false">대안 메뉴 보기</button>
             <div id="menuList" class="menu-list"></div>
             <button id="nextRecommendButton" class="wide-button">다시 추천하기</button>
           </section>
@@ -201,13 +224,18 @@
         <section id="dataTab" class="tab-panel">
           <div class="section-heading">
             <div>
-              <p class="eyebrow">Data</p>
-              <h2>수집 데이터와 식사 기록</h2>
+              <p class="eyebrow">My Log</p>
+              <h2>내 기록</h2>
             </div>
           </div>
           <div id="dataDashboard" class="dashboard-grid"></div>
         </section>
       </main>
+
+      <p class="official-note app-footer-note">
+        <img src="./assets/mukjji/09_mukjji_greeting_plain_512.webp" alt="" width="34" height="34" loading="lazy" aria-hidden="true" />
+        국립창원대학교 공식 앱이 아닌 학생 편의 서비스입니다.
+      </p>
 
       <nav class="bottom-nav" aria-label="하단 메뉴">
         <button class="is-active" data-tab="recommendTab" aria-label="추천">
@@ -234,11 +262,11 @@
           </span>
           <span>찜</span>
         </button>
-        <button data-tab="dataTab" aria-label="기록">
+        <button data-tab="dataTab" aria-label="내 기록">
           <span class="nav-icon" aria-hidden="true">
             <svg viewBox="0 0 24 24"><path d="M5 20V9h3v11H5Zm5.5 0V4h3v16h-3ZM16 20v-7h3v7h-3Z" /></svg>
           </span>
-          <span>기록</span>
+          <span>내 기록</span>
         </button>
       </nav>
     </div>
@@ -250,6 +278,7 @@
 
     <dialog id="locationDialog">
       <div>
+        <img class="dialog-mukjji" src="./assets/mukjji/08_mukjji_location_bowl_1024.webp" alt="" width="124" height="124" loading="lazy" aria-hidden="true" />
         <p class="eyebrow">Location</p>
         <h2>현재 위치를 사용할까요?</h2>
         <p class="dialog-help">거리 추천을 위해 위치를 사용할 수 있어요. 원하지 않으면 창원대 정문 기준으로 계산합니다.</p>
@@ -302,11 +331,9 @@
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
     <div id="searchOverlay" class="search-overlay" aria-hidden="true">
       <div class="search-modal">
-        <div class="search-glass" aria-hidden="true">
-          <svg viewBox="0 0 24 24"><path d="M10.8 18.1a7.3 7.3 0 1 1 0-14.6 7.3 7.3 0 0 1 0 14.6Zm0-2.2a5.1 5.1 0 1 0 0-10.2 5.1 5.1 0 0 0 0 10.2Zm5.5.1 4.2 4.2-1.6 1.6-4.2-4.2 1.6-1.6Z" /></svg>
-        </div>
+        <img class="search-mukjji" src="./assets/mukjji/03_mukjji_searching_512.webp" alt="" width="112" height="112" loading="lazy" aria-hidden="true" />
         <strong>최적의 조건으로 검색중...</strong>
-        <p>창대앞 메뉴를 고르고 있어요.</p>
+        <p>묵찌가 메뉴를 고르고 있어요.</p>
       </div>
     </div>
 

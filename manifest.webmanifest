@@ -1,12 +1,12 @@
 {
-  "name": "창대앞 뭐먹지",
-  "short_name": "뭐먹지",
-  "description": "창원대학교 앞 메뉴를 위치, 예산, 상황, 입맛에 맞춰 추천하는 모바일 웹앱",
+  "name": "묵찌 PICK!",
+  "short_name": "묵찌 PICK",
+  "description": "창원대학교 앞 메뉴를 위치, 예산, 상황, 입맛에 맞춰 추천하는 학생 편의 모바일 웹앱",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
-  "background_color": "#eef5f1",
-  "theme_color": "#0f7b63",
+  "background_color": "#F5F7FA",
+  "theme_color": "#0D47A1",
   "orientation": "portrait",
   "icons": [
     {
