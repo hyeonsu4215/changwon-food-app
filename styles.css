@@ -93,7 +93,7 @@ textarea:focus-visible {
     linear-gradient(180deg, #ffffff 0%, #eaf2ff 100%);
   color: var(--primary);
   opacity: 1;
-  transition: opacity 420ms ease, visibility 420ms ease;
+  transition: opacity 200ms ease, visibility 200ms ease;
 }
 
 .splash-screen.is-hidden {

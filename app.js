@@ -10,6 +10,8 @@ const TASTE_CUSTOMIZED_KEY = "changwonFoodTastePreferenceCustomized";
 const BUDGET_CUSTOMIZED_KEY = "changwonFoodBudgetCustomized";
 const RECOMMENDATION_PREFERENCES_KEY = "changwonFoodRecommendationPreferencesV1";
 const DISCOVERY_SEED_KEY = "changwonFoodDiscoverySeed";
+const SPLASH_MIN_DURATION = 1200;
+const splashStartedAt = Date.now();
 const WEATHER_BOOSTS = { rain: 5, hot: 4, cold: 5, humid: 3 };
 const HOT_SOUP_WORDS = ["순두부", "김치찌개", "육개장", "찌개", "국밥", "탕", "해장", "마라", "라멘", "우동", "칼국수", "찜"];
 const HOT_CLEAR_MENU_WORDS = ["냉면", "밀면", "냉국수", "메밀국수", "열무국수", "샐러드", "냉우동", "모밀", "소바", "콩국수"];
@@ -142,6 +144,7 @@ const state = {
   page: 0,
   hasSearched: false,
   appReady: false,
+  splashHideScheduled: false,
   isSearching: false,
   recommendTimer: null,
   quickItems: [],
@@ -3251,13 +3254,18 @@ function bindEvents() {
 }
 
 function finishSplash() {
+  if (state.splashHideScheduled) return;
+  state.splashHideScheduled = true;
   const hideSplash = () => {
+    if (state.appReady) return;
     state.appReady = true;
     els.splashScreen?.classList.add("is-hidden");
     document.body.classList.remove("splash-active");
     handleLocationAfterSplash();
   };
-  window.requestAnimationFrame(() => window.requestAnimationFrame(hideSplash));
+  const elapsed = Date.now() - splashStartedAt;
+  const remaining = Math.max(0, SPLASH_MIN_DURATION - elapsed);
+  window.setTimeout(() => window.requestAnimationFrame(hideSplash), remaining);
 }
 
 renderChips();
