@@ -2576,8 +2576,8 @@ async function submitInfoReport(event) {
 async function shareAppLink() {
   const url = "https://changwon-food-app.vercel.app/";
   const shareData = {
-    title: "묵찌 PICK!",
-    text: "창원대 앞에서 뭐 먹을지 고민될 때 묵찌가 골라주는 메뉴 추천 앱",
+    title: "묵찌 PICK! | 창원대 앞 오늘 뭐 먹지?",
+    text: "오늘 뭐 먹을지 고민된다면? 묵찌 PICK!에서 창원대 앞 메뉴 3개를 추천받아봐!",
     url,
   };
   if (navigator.share) {
@@ -2585,7 +2585,7 @@ async function shareAppLink() {
     return;
   }
   await navigator.clipboard?.writeText(url).catch(() => {});
-  toast("링크 복사!");
+  toast("묵찌 PICK! 링크를 복사했어요.");
 }
 
 function formatDateTime(value) {
