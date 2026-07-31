@@ -10,6 +10,7 @@ const TASTE_CUSTOMIZED_KEY = "changwonFoodTastePreferenceCustomized";
 const BUDGET_CUSTOMIZED_KEY = "changwonFoodBudgetCustomized";
 const RECOMMENDATION_PREFERENCES_KEY = "changwonFoodRecommendationPreferencesV1";
 const DISCOVERY_SEED_KEY = "changwonFoodDiscoverySeed";
+const ONBOARDING_SEEN_KEY = "changwonFoodOnboardingSeenV1";
 const SPLASH_MIN_DURATION = 1200;
 const splashStartedAt = Date.now();
 const WEATHER_BOOSTS = { rain: 5, hot: 4, cold: 5, humid: 3 };
@@ -145,6 +146,20 @@ const state = {
   hasSearched: false,
   appReady: false,
   splashHideScheduled: false,
+  onboarding: {
+    active: false,
+    pending: false,
+    preparing: false,
+    step: 0,
+    force: false,
+    previousFocus: null,
+    positionFrame: null,
+    scrollTimer: null,
+    recommendationSnapshot: null,
+    createdTemporaryRecommendation: false,
+    hadRecommendationAtStart: false,
+  },
+  suppressDiscoveryPickCount: false,
   isSearching: false,
   recommendTimer: null,
   quickItems: [],
@@ -205,6 +220,7 @@ const state = {
 const els = {
   locationButton: document.querySelector("#locationButton"),
   shareButton: document.querySelector("#shareButton"),
+  onboardingHelpButton: document.querySelector("#onboardingHelpButton"),
   splashScreen: document.querySelector("#splashScreen"),
   locationStatus: document.querySelector("#locationStatus"),
   conditionSummary: document.querySelector("#conditionSummary"),
@@ -265,6 +281,16 @@ const els = {
   reportType: document.querySelector("#reportType"),
   reportMessage: document.querySelector("#reportMessage"),
   reportReporter: document.querySelector("#reportReporter"),
+  onboardingOverlay: document.querySelector("#onboardingOverlay"),
+  onboardingSpotlight: document.querySelector("#onboardingSpotlight"),
+  onboardingCard: document.querySelector("#onboardingCard"),
+  onboardingStepLabel: document.querySelector("#onboardingStepLabel"),
+  onboardingTitle: document.querySelector("#onboardingTitle"),
+  onboardingDescription: document.querySelector("#onboardingDescription"),
+  onboardingHelper: document.querySelector("#onboardingHelper"),
+  onboardingSkipButton: document.querySelector("#onboardingSkipButton"),
+  onboardingPrevButton: document.querySelector("#onboardingPrevButton"),
+  onboardingNextButton: document.querySelector("#onboardingNextButton"),
   toast: document.querySelector("#toast"),
 };
 
@@ -945,7 +971,9 @@ function updateQuickRecommendations({ reroll = false } = {}) {
           previousIds,
         });
   state.quickItems.forEach((item) => state.quickSeenIds.add(item.id));
-  state.discoveryPickCount = mode === "discovery" ? state.discoveryPickCount + 1 : 0;
+  if (!state.suppressDiscoveryPickCount) {
+    state.discoveryPickCount = mode === "discovery" ? state.discoveryPickCount + 1 : 0;
+  }
   state.alternativesExpanded = false;
   state.page = 0;
 }
@@ -1681,12 +1709,13 @@ function loadSavedRecommendationPreferences() {
   render();
 }
 
-function finishRecommendation(delay) {
+function finishRecommendation(delay, options = {}) {
   if (!state.appReady) {
     toast("추천 준비가 끝나면 눌러주세요");
     return;
   }
   if (state.recommendTimer) return;
+  const suppressDiscoveryPickCount = Boolean(options.suppressDiscoveryPickCount);
   state.isSearching = true;
   state.hasSearched = false;
   state.page = 0;
@@ -1695,7 +1724,12 @@ function finishRecommendation(delay) {
     state.recommendTimer = null;
     state.isSearching = false;
     state.hasSearched = true;
-    updateQuickRecommendations();
+    state.suppressDiscoveryPickCount = suppressDiscoveryPickCount;
+    try {
+      updateQuickRecommendations();
+    } finally {
+      state.suppressDiscoveryPickCount = false;
+    }
     render();
     document.querySelector(".recommend-section").scrollIntoView({ behavior: "smooth", block: "start" });
   }, delay);
@@ -3009,6 +3043,369 @@ function switchTab(tabId) {
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
+const ONBOARDING_STEPS = [
+  {
+    selector: "#quickRecommendButton",
+    title: "고민하지 말고 바로 눌러보세요!",
+    description: "묵찌가 창원대 앞 메뉴 중 지금 먹기 좋은 메뉴 3개를 골라드려요.",
+    helper: "",
+    action: "다음",
+    radius: 18,
+  },
+  {
+    selector: "#conditionDetails > summary",
+    title: "원하는 조건이 있다면 알려주세요!",
+    description: "음식 종류, 예산, 맵기·짠맛·단맛과 혼밥·포장 같은 상황을 선택할 수 있어요. 조건 설정은 선택 사항이에요.",
+    helper: "",
+    action: "다음",
+    radius: 18,
+  },
+  {
+    selector: ".quick-hero-card",
+    fallbackSelector: "#quickRecommendPanel",
+    title: "추천 결과를 이렇게 활용해 보세요!",
+    description: "마음에 들면 찜하거나 먹음 기록을 남길 수 있어요. 상세 정보와 네이버 지도에서 가게 위치도 확인할 수 있어요.",
+    helper: "",
+    action: "다음",
+    radius: 22,
+  },
+  {
+    selector: ".bottom-nav",
+    title: "다른 방법으로도 메뉴를 골라보세요!",
+    description: "월드컵과 검색으로 메뉴를 고르고, 찜한 메뉴와 내 기록도 언제든 확인할 수 있어요.",
+    helper: "",
+    action: "앱 사용하기",
+    radius: 24,
+  },
+];
+
+function prefersReducedMotion() {
+  return window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+}
+
+function hasSeenOnboarding() {
+  try {
+    return localStorage.getItem(ONBOARDING_SEEN_KEY) === "true";
+  } catch (error) {
+    console.warn("onboarding storage unavailable", error);
+    return true;
+  }
+}
+
+function markOnboardingSeen() {
+  try {
+    localStorage.setItem(ONBOARDING_SEEN_KEY, "true");
+  } catch (error) {
+    console.warn("onboarding storage unavailable", error);
+  }
+}
+
+function hasOpenDialog() {
+  return Boolean(document.querySelector("dialog[open]"));
+}
+
+function hasReusableOnboardingRecommendation() {
+  return Boolean(state.hasSearched && state.quickItems.length);
+}
+
+function snapshotRecommendationState() {
+  return {
+    hasSearched: state.hasSearched,
+    isSearching: state.isSearching,
+    quickItems: [...state.quickItems],
+    quickSeenIds: new Set(state.quickSeenIds),
+    quickMode: state.quickMode,
+    discoveryPickCount: state.discoveryPickCount,
+    discoveryNudgeThreshold: state.discoveryNudgeThreshold,
+    alternativesExpanded: state.alternativesExpanded,
+    page: state.page,
+  };
+}
+
+function restoreRecommendationSnapshot(snapshot) {
+  if (!snapshot) return;
+  if (state.recommendTimer) {
+    clearTimeout(state.recommendTimer);
+    state.recommendTimer = null;
+  }
+  state.hasSearched = snapshot.hasSearched;
+  state.isSearching = snapshot.isSearching;
+  state.quickItems = [...snapshot.quickItems];
+  state.quickSeenIds = new Set(snapshot.quickSeenIds);
+  state.quickMode = snapshot.quickMode;
+  state.discoveryPickCount = snapshot.discoveryPickCount;
+  state.discoveryNudgeThreshold = snapshot.discoveryNudgeThreshold;
+  state.alternativesExpanded = snapshot.alternativesExpanded;
+  state.page = snapshot.page;
+  state.suppressDiscoveryPickCount = false;
+  render();
+}
+
+function cleanupOnboardingTemporaryRecommendation() {
+  if (!state.onboarding.createdTemporaryRecommendation) return;
+  restoreRecommendationSnapshot(state.onboarding.recommendationSnapshot);
+  state.onboarding.createdTemporaryRecommendation = false;
+}
+
+function scheduleOnboardingStart(options = {}) {
+  const force = Boolean(options.force);
+  if (!els.onboardingOverlay) return;
+  if (!force && hasSeenOnboarding()) return;
+  if (state.onboarding.active || state.onboarding.pending) return;
+  state.onboarding.pending = true;
+
+  const attemptStart = () => {
+    if (state.onboarding.active) {
+      state.onboarding.pending = false;
+      return;
+    }
+    if (!force && hasSeenOnboarding()) {
+      state.onboarding.pending = false;
+      return;
+    }
+    if (!state.appReady || document.body.classList.contains("splash-active") || hasOpenDialog()) {
+      window.setTimeout(attemptStart, 300);
+      return;
+    }
+    state.onboarding.pending = false;
+    startOnboarding({ force });
+  };
+
+  window.setTimeout(attemptStart, 250);
+}
+
+function startOnboarding(options = {}) {
+  const force = Boolean(options.force);
+  if (!els.onboardingOverlay || state.onboarding.active) return;
+  if (!force && hasSeenOnboarding()) return;
+  if (!state.appReady || hasOpenDialog()) {
+    scheduleOnboardingStart({ force });
+    return;
+  }
+
+  switchTab("recommendTab");
+  window.scrollTo({ top: 0, behavior: "auto" });
+  closeRoulette();
+  state.onboarding.active = true;
+  state.onboarding.force = force;
+  state.onboarding.step = 0;
+  state.onboarding.previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+  state.onboarding.recommendationSnapshot = snapshotRecommendationState();
+  state.onboarding.createdTemporaryRecommendation = false;
+  state.onboarding.hadRecommendationAtStart = hasReusableOnboardingRecommendation();
+  document.body.classList.add("onboarding-active");
+  els.onboardingOverlay.hidden = false;
+  renderOnboardingStep();
+}
+
+function currentOnboardingTarget() {
+  const step = ONBOARDING_STEPS[state.onboarding.step];
+  if (!step) return null;
+  return document.querySelector(step.selector) || (step.fallbackSelector ? document.querySelector(step.fallbackSelector) : null);
+}
+
+function onboardingHeroCardExists() {
+  return Boolean(document.querySelector(".quick-hero-card"));
+}
+
+function waitForOnboardingResult(timeout = 3600) {
+  return new Promise((resolve) => {
+    const startedAt = Date.now();
+    const check = () => {
+      if (onboardingHeroCardExists()) {
+        resolve(true);
+        return;
+      }
+      if (Date.now() - startedAt >= timeout) {
+        resolve(false);
+        return;
+      }
+      window.setTimeout(check, 90);
+    };
+    check();
+  });
+}
+
+async function prepareOnboardingRecommendationStep() {
+  if (state.onboarding.hadRecommendationAtStart || (onboardingHeroCardExists() && state.quickItems.length)) {
+    if (!onboardingHeroCardExists()) renderRecommendations();
+    return true;
+  }
+  if (!state.appReady) return false;
+  state.onboarding.preparing = true;
+  els.onboardingNextButton.disabled = true;
+  els.onboardingNextButton.textContent = "추천 준비 중...";
+
+  if (!state.recommendTimer) {
+    state.onboarding.createdTemporaryRecommendation = true;
+    finishRecommendation(600, { suppressDiscoveryPickCount: true });
+  }
+  const resultReady = await waitForOnboardingResult();
+  state.onboarding.preparing = false;
+  return resultReady;
+}
+
+function isRectMostlyVisible(rect) {
+  const topLimit = 24;
+  const bottomLimit = window.innerHeight - 24;
+  return rect.top >= topLimit && rect.bottom <= bottomLimit;
+}
+
+function scrollOnboardingTargetIntoView(target) {
+  if (!target || target.matches(".bottom-nav")) return;
+  const rect = target.getBoundingClientRect();
+  if (isRectMostlyVisible(rect)) return;
+  target.scrollIntoView({
+    behavior: prefersReducedMotion() ? "auto" : "smooth",
+    block: "center",
+    inline: "nearest",
+  });
+}
+
+function clampOnboardingPosition(value, min, max) {
+  if (max < min) return min;
+  return Math.min(max, Math.max(min, value));
+}
+
+function positionOnboarding() {
+  if (!state.onboarding.active || !els.onboardingSpotlight || !els.onboardingCard) return;
+  const target = currentOnboardingTarget();
+  if (!target) return;
+
+  const rect = target.getBoundingClientRect();
+  const pad = target.matches(".bottom-nav") ? 4 : 8;
+  const left = clampOnboardingPosition(rect.left - pad, 8, window.innerWidth - 24);
+  const top = clampOnboardingPosition(rect.top - pad, 8, window.innerHeight - 24);
+  const width = Math.min(window.innerWidth - 16, rect.width + pad * 2);
+  const height = Math.min(window.innerHeight - 16, rect.height + pad * 2);
+  els.onboardingSpotlight.style.setProperty("--spotlight-left", `${left}px`);
+  els.onboardingSpotlight.style.setProperty("--spotlight-top", `${top}px`);
+  els.onboardingSpotlight.style.setProperty("--spotlight-width", `${Math.max(44, width)}px`);
+  els.onboardingSpotlight.style.setProperty("--spotlight-height", `${Math.max(44, height)}px`);
+  els.onboardingSpotlight.style.setProperty("--spotlight-radius", `${ONBOARDING_STEPS[state.onboarding.step].radius}px`);
+
+  const card = els.onboardingCard;
+  const cardWidth = Math.min(window.innerWidth - 32, 360);
+  card.style.width = `${cardWidth}px`;
+  const cardHeight = card.offsetHeight || 260;
+  const gap = 12;
+  const safeBottom = 24;
+  const canPlaceBelow = top + height + gap + cardHeight <= window.innerHeight - safeBottom;
+  const preferredTop = canPlaceBelow ? top + height + gap : top - cardHeight - gap;
+  const cardTop = clampOnboardingPosition(preferredTop, 12, window.innerHeight - safeBottom - cardHeight);
+  const targetCenter = left + width / 2;
+  const cardLeft = clampOnboardingPosition(targetCenter - cardWidth / 2, 16, window.innerWidth - cardWidth - 16);
+  card.style.setProperty("--coach-left", `${cardLeft}px`);
+  card.style.setProperty("--coach-top", `${cardTop}px`);
+}
+
+function requestOnboardingPosition() {
+  if (!state.onboarding.active) return;
+  if (state.onboarding.positionFrame) cancelAnimationFrame(state.onboarding.positionFrame);
+  state.onboarding.positionFrame = requestAnimationFrame(() => {
+    state.onboarding.positionFrame = null;
+    positionOnboarding();
+  });
+}
+
+function renderOnboardingStep() {
+  const step = ONBOARDING_STEPS[state.onboarding.step];
+  if (!step || !els.onboardingCard) return;
+  const target = currentOnboardingTarget();
+  if (target) scrollOnboardingTargetIntoView(target);
+
+  els.onboardingStepLabel.textContent = `${state.onboarding.step + 1} / ${ONBOARDING_STEPS.length}`;
+  els.onboardingTitle.textContent = step.title;
+  els.onboardingDescription.textContent = step.description;
+  els.onboardingHelper.textContent = step.helper || "";
+  els.onboardingPrevButton.disabled = state.onboarding.step === 0;
+  els.onboardingNextButton.disabled = false;
+  els.onboardingNextButton.textContent = step.action;
+
+  clearTimeout(state.onboarding.scrollTimer);
+  state.onboarding.scrollTimer = window.setTimeout(requestOnboardingPosition, prefersReducedMotion() ? 30 : 260);
+  requestOnboardingPosition();
+  els.onboardingCard.focus({ preventScroll: true });
+}
+
+function finishOnboarding(options = {}) {
+  if (!state.onboarding.active) return;
+  const scrollToResult = Boolean(options.scrollToResult);
+  const createdTemporaryRecommendation = state.onboarding.createdTemporaryRecommendation;
+  markOnboardingSeen();
+  cleanupOnboardingTemporaryRecommendation();
+  state.onboarding.active = false;
+  state.onboarding.pending = false;
+  state.onboarding.force = false;
+  state.onboarding.preparing = false;
+  state.onboarding.recommendationSnapshot = null;
+  state.onboarding.hadRecommendationAtStart = false;
+  clearTimeout(state.onboarding.scrollTimer);
+  if (state.onboarding.positionFrame) cancelAnimationFrame(state.onboarding.positionFrame);
+  state.onboarding.positionFrame = null;
+  els.onboardingOverlay.hidden = true;
+  document.body.classList.remove("onboarding-active");
+
+  if (scrollToResult) {
+    switchTab("recommendTab");
+    window.setTimeout(() => {
+      const target = createdTemporaryRecommendation
+        ? els.quickRecommendButton
+        : document.querySelector(".quick-hero-card") || document.querySelector(".recommend-section") || els.quickRecommendButton;
+      target?.scrollIntoView({
+        behavior: prefersReducedMotion() ? "auto" : "smooth",
+        block: createdTemporaryRecommendation ? "center" : "start",
+      });
+      if (target instanceof HTMLElement) target.focus?.({ preventScroll: true });
+    }, 120);
+    return;
+  }
+  state.onboarding.previousFocus?.focus?.({ preventScroll: true });
+}
+
+async function nextOnboardingStep() {
+  if (state.onboarding.preparing) return;
+  if (state.onboarding.step >= ONBOARDING_STEPS.length - 1) {
+    finishOnboarding({ scrollToResult: true });
+    return;
+  }
+  const nextStep = state.onboarding.step + 1;
+  if (nextStep === 2) {
+    await prepareOnboardingRecommendationStep();
+    if (!state.onboarding.active || state.onboarding.step !== 1) return;
+  }
+  state.onboarding.step = nextStep;
+  renderOnboardingStep();
+}
+
+function prevOnboardingStep() {
+  if (state.onboarding.preparing) return;
+  if (state.onboarding.step <= 0) return;
+  state.onboarding.step -= 1;
+  renderOnboardingStep();
+}
+
+function handleOnboardingKeydown(event) {
+  if (!state.onboarding.active || !els.onboardingCard) return;
+  if (event.key === "Escape") {
+    event.preventDefault();
+    finishOnboarding();
+    return;
+  }
+  if (event.key !== "Tab") return;
+  const focusable = [...els.onboardingCard.querySelectorAll("button:not(:disabled), [href], input, select, textarea, [tabindex]:not([tabindex='-1'])")];
+  if (!focusable.length) return;
+  const first = focusable[0];
+  const last = focusable[focusable.length - 1];
+  if (event.shiftKey && document.activeElement === first) {
+    event.preventDefault();
+    last.focus();
+  } else if (!event.shiftKey && document.activeElement === last) {
+    event.preventDefault();
+    first.focus();
+  }
+}
+
 function pushAppState(screen = state.activeTab) {
   if (!history.pushState) return;
   history.pushState({ changwonFoodApp: true, screen }, "", window.location.href);
@@ -3056,6 +3453,7 @@ function handleBackNavigation() {
 function bindEvents() {
   els.locationButton.addEventListener("click", showLocationDialog);
   els.shareButton.addEventListener("click", shareAppLink);
+  els.onboardingHelpButton?.addEventListener("click", () => startOnboarding({ force: true }));
   els.quickRecommendButton.addEventListener("click", quickRecommend);
   els.searchButton.addEventListener("click", searchMenus);
   els.resetFiltersButton.addEventListener("click", resetFilters);
@@ -3240,6 +3638,9 @@ function bindEvents() {
     saveWishlist();
     renderWishlist();
   });
+  els.onboardingSkipButton?.addEventListener("click", () => finishOnboarding());
+  els.onboardingPrevButton?.addEventListener("click", prevOnboardingStep);
+  els.onboardingNextButton?.addEventListener("click", nextOnboardingStep);
   els.worldcupSize.addEventListener("change", () => {
     state.worldcup = null;
     renderWorldcup();
@@ -3251,6 +3652,10 @@ function bindEvents() {
   els.closeReportDialog?.addEventListener("click", () => els.reportDialog.close());
   els.reportForm?.addEventListener("submit", submitInfoReport);
   window.addEventListener("popstate", handleBackNavigation);
+  window.addEventListener("resize", requestOnboardingPosition);
+  window.addEventListener("orientationchange", requestOnboardingPosition);
+  window.addEventListener("scroll", requestOnboardingPosition, { passive: true });
+  document.addEventListener("keydown", handleOnboardingKeydown);
 }
 
 function finishSplash() {
@@ -3261,7 +3666,9 @@ function finishSplash() {
     state.appReady = true;
     els.splashScreen?.classList.add("is-hidden");
     document.body.classList.remove("splash-active");
+    render();
     handleLocationAfterSplash();
+    scheduleOnboardingStart();
   };
   const elapsed = Date.now() - splashStartedAt;
   const remaining = Math.max(0, SPLASH_MIN_DURATION - elapsed);
