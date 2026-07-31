@@ -54,6 +54,7 @@
           <div class="top-actions" aria-label="앱 도구">
             <button id="locationButton" class="location-pill" aria-label="위치 갱신">위치</button>
             <button id="shareButton" class="top-tool" aria-label="링크 공유">공유</button>
+            <button id="onboardingHelpButton" class="top-tool top-help-button" aria-label="묵찌 PICK! 사용법 보기" title="묵찌 PICK! 사용법 보기">사용법</button>
           </div>
         </div>
       </header>
@@ -346,6 +347,24 @@
         <a class="report-fallback-link" href="https://forms.gle/BUYoZiSUXtFDE81J7" target="_blank" rel="noreferrer">구글폼으로 제보하기</a>
       </form>
     </dialog>
+
+    <div id="onboardingOverlay" class="onboarding-overlay" role="dialog" aria-modal="true" aria-labelledby="onboardingTitle" aria-describedby="onboardingDescription" hidden>
+      <div id="onboardingSpotlight" class="onboarding-spotlight" aria-hidden="true"></div>
+      <div id="onboardingCard" class="onboarding-card" tabindex="-1">
+        <div class="onboarding-card-head">
+          <img src="./assets/mukjji/09_mukjji_greeting_plain_512.webp" alt="" width="48" height="48" loading="lazy" aria-hidden="true" />
+          <span id="onboardingStepLabel">1 / 4</span>
+        </div>
+        <h2 id="onboardingTitle">고민하지 말고 바로 눌러보세요!</h2>
+        <p id="onboardingDescription">묵찌가 창원대 앞 메뉴 중 지금 먹기 좋은 메뉴 3개를 골라드려요.</p>
+        <p id="onboardingHelper" class="onboarding-helper"></p>
+        <div class="onboarding-actions">
+          <button type="button" id="onboardingSkipButton" class="onboarding-secondary">건너뛰기</button>
+          <button type="button" id="onboardingPrevButton" class="onboarding-secondary">이전</button>
+          <button type="button" id="onboardingNextButton">다음</button>
+        </div>
+      </div>
+    </div>
 
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
     <div id="searchOverlay" class="search-overlay" aria-hidden="true">
