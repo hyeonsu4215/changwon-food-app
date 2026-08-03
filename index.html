@@ -61,23 +61,17 @@
 
       <main>
         <section id="recommendTab" class="tab-panel is-active">
-          <section class="recommend-info-card" aria-label="오늘의 추천 정보">
-            <div class="recommend-info-main">
+          <section class="quick-start-card" aria-label="빠른 추천">
+            <div class="quick-start-intro">
               <div>
-                <p class="eyebrow">Mukjji Pick</p>
-                <h2>오늘 뭐 먹지? 묵찌가 골라줄게!</h2>
-                <p id="conditionSummary">창원대 앞 메뉴를 빠르게 3개 골라드려요.</p>
+                <p class="eyebrow">Quick Pick</p>
+                <h2>오늘 뭐 먹지?</h2>
+                <p class="quick-start-lead">묵찌가 창원대 앞 메뉴 3개를 골라줄게!</p>
+                <p class="quick-start-note">취향·날씨·현재 위치는 자동으로 적용하지 않아요.</p>
               </div>
               <img class="home-hero-mukjji" src="./assets/mukjji/02_mukjji_greeting_512.webp" alt="" width="96" height="96" aria-hidden="true" />
             </div>
-          </section>
-
-          <section class="quick-start-card" aria-label="빠른 추천">
-            <div>
-              <p class="eyebrow">Quick Pick</p>
-              <h3>지금 먹을 메뉴를 바로 골라보세요</h3>
-              <p>저장된 취향, 날씨, 현재 위치를 자동으로 적용하지 않아요.</p>
-            </div>
+            <p id="conditionSummary" hidden>창원대 앞 메뉴를 빠르게 3개 골라드려요.</p>
             <button id="quickRecommendButton" class="wide-button quick-start-button" disabled aria-busy="true">추천 준비 중...</button>
           </section>
 
