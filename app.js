@@ -1159,7 +1159,7 @@ function quickHeroHtml(item) {
   return `
     <article class="quick-hero-card">
       <div class="quick-hero-head">
-        <div class="quick-rank-badge">${badge}</div>
+        <div class="quick-rank-badge"><span class="quick-rank-label-desktop">${badge}</span><span class="quick-rank-label-mobile">추천 1</span></div>
         <button class="heart-button ${wished ? "is-wished" : ""}" data-wish="${item.id}" aria-label="${wished ? "찜 해제" : "찜하기"}">${wished ? "♥" : "♡"}</button>
       </div>
       <div class="quick-hero-main">
@@ -1186,7 +1186,7 @@ function quickAlternativeHtml(item, rank) {
   return `
     <article class="quick-alt-card">
       <div class="quick-alt-top">
-        <span><img src="./assets/mukjji/09_mukjji_greeting_plain_512.webp" alt="" width="30" height="30" loading="lazy" aria-hidden="true" />${label}</span>
+        <span><img src="./assets/mukjji/09_mukjji_greeting_plain_512.webp" alt="" width="30" height="30" loading="lazy" aria-hidden="true" /><b class="quick-rank-label-desktop">${label}</b><b class="quick-rank-label-mobile">추천 ${rank}</b></span>
         <button class="heart-button ${wished ? "is-wished" : ""}" data-wish="${item.id}" aria-label="${wished ? "찜 해제" : "찜하기"}">${wished ? "♥" : "♡"}</button>
       </div>
       <h3>${escapeHtml(item.name)}</h3>
