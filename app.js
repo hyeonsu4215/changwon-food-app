@@ -1,6 +1,6 @@
 const DATA = window.CHANGWON_FOOD_DATA;
 
-const FALLBACK_LOCATION = { label: "창원대 정문 임시 기준", lat: 35.24235, lng: 128.68965 };
+const FALLBACK_LOCATION = { label: "국립창원대학교 정문", lat: 35.24235, lng: 128.68965 };
 const DATA_UPDATED_AT = "2026.06.22";
 const FEEDBACK_FORM_URL = "https://forms.gle/BUYoZiSUXtFDE81J7";
 const VISIT_REVIEW_RADIUS_M = 50;
@@ -126,10 +126,11 @@ function readRecommendationPreferences() {
 }
 
 let savedRecommendationPreferences = readRecommendationPreferences();
+let appliedRecommendationPreferences = null;
 
 const state = {
   location: null,
-  locationStatus: "requesting",
+  locationStatus: "idle",
   budget: 8000,
   budgetCustomized: false,
   categories: new Set(),
@@ -168,6 +169,10 @@ const state = {
   quickMode: "discovery",
   discoveryPickCount: 0,
   discoveryNudgeThreshold: 2,
+  rerollCount: 0,
+  rerollPromptVisible: false,
+  quickAppliedWeather: false,
+  quickLocationBase: { ...FALLBACK_LOCATION },
   discoverySeed: discoverySeedValue,
   detailContext: "custom",
   alternativesExpanded: false,
@@ -187,7 +192,7 @@ const state = {
   catalogSource: "static",
   catalogStatus: "내장 데이터 사용 중",
   weather: JSON.parse(localStorage.getItem("changwonFoodWeather") || "null"),
-  weatherEnabled: localStorage.getItem(WEATHER_SETTING_KEY) !== "false",
+  weatherEnabled: false,
   weatherStatus: "idle",
   supabase: null,
   supabaseUserId: null,
@@ -215,7 +220,11 @@ const state = {
     spinning: false,
   },
   locationPreference: localStorage.getItem("changwonFoodLocationPreference") || "",
+  locationRequestId: 0,
+  preserveDraftOnNextConditionOpen: false,
 };
+
+appliedRecommendationPreferences = recommendationPreferencesSnapshot();
 
 const els = {
   locationButton: document.querySelector("#locationButton"),
@@ -247,7 +256,10 @@ const els = {
   saltyValue: document.querySelector("#saltyValue"),
   sweetValue: document.querySelector("#sweetValue"),
   recommendTitle: document.querySelector("#recommendTitle"),
+  recommendSection: document.querySelector(".recommend-section"),
   quickRecommendPanel: document.querySelector("#quickRecommendPanel"),
+  recommendActionDock: document.querySelector("#recommendActionDock"),
+  recommendNudge: document.querySelector("#recommendNudge"),
   rerollQuickButton: document.querySelector("#rerollQuickButton"),
   toggleAlternativesButton: document.querySelector("#toggleAlternativesButton"),
   menuList: document.querySelector("#menuList"),
@@ -550,25 +562,44 @@ function toast(message, variant = "") {
   });
 }
 
-function budgetPreferenceEnabled() {
-  return state.budgetCustomized;
+function tastePreferenceEnabled(preferences = state) {
+  return Boolean(preferences.tastePreferenceCustomized);
 }
 
-function tastePreferenceEnabled() {
-  return state.tastePreferenceCustomized;
+function budgetPreferenceEnabled(preferences = state) {
+  return Boolean(preferences.budgetCustomized);
 }
 
-function hasCustomRecommendationConditions() {
+function cloneRecommendationPreferences(preferences) {
+  if (!preferences) return null;
+  return {
+    ...preferences,
+    categories: [...(preferences.categories || [])],
+    moods: [...(preferences.moods || [])],
+  };
+}
+
+function appliedRecommendationConditions() {
+  return cloneRecommendationPreferences(appliedRecommendationPreferences) || recommendationPreferencesSnapshot();
+}
+
+function conditionSet(value) {
+  return value instanceof Set ? value : new Set(value || []);
+}
+
+function hasCustomRecommendationConditions(preferences = state) {
+  const categories = conditionSet(preferences.categories);
+  const moods = conditionSet(preferences.moods);
   return (
-    budgetPreferenceEnabled() ||
-    state.tastePreferenceCustomized ||
-    state.categories.size > 0 ||
-    state.moods.size > 0 ||
-    state.onlyOpen ||
-    state.needTakeout ||
-    state.needDelivery ||
-    state.needAlone ||
-    state.wantMeat
+    budgetPreferenceEnabled(preferences) ||
+    tastePreferenceEnabled(preferences) ||
+    categories.size > 0 ||
+    moods.size > 0 ||
+    preferences.onlyOpen ||
+    preferences.needTakeout ||
+    preferences.needDelivery ||
+    preferences.needAlone ||
+    preferences.wantMeat
   );
 }
 
@@ -595,12 +626,6 @@ function resetStoreMenuExpansions() {
 
 function markConditionsChanged() {
   state.page = 0;
-  state.hasSearched = false;
-  state.quickItems = [];
-  state.quickSeenIds = new Set();
-  state.quickMode = quickRecommendationMode();
-  resetDiscoveryNudgeCycle();
-  state.alternativesExpanded = false;
 }
 
 function hasSavedRecommendationPreferences() {
@@ -671,20 +696,24 @@ function weatherBoost(menu) {
   return null;
 }
 
-function tastePreferenceReasonEnabled(menuOrItem) {
-  return tastePreferenceEnabled();
+function tastePreferenceReasonEnabled(menuOrItem, preferences = state) {
+  return tastePreferenceEnabled(preferences);
 }
 
 function scoreMenu(menu, options = {}) {
-  const applyBudget = options.applyBudget ?? budgetPreferenceEnabled();
+  const conditions = options.conditions || state;
+  const moods = conditionSet(conditions.moods);
+  const applyBudget = options.applyBudget ?? budgetPreferenceEnabled(conditions);
   // Per-menu tasteOverrides calibrate that menu's taste values, but only the global taste sliders make recommendations personalized.
-  const applyTaste = options.applyTaste ?? tastePreferenceEnabled();
+  const applyTaste = options.applyTaste ?? tastePreferenceEnabled(conditions);
   const applyMoods = options.applyMoods ?? true;
+  const applyWeather = options.applyWeather ?? true;
+  const locationBase = options.locationBase || currentBase();
   const restaurant = restaurantsById.get(menu.restaurantId);
-  const distance = restaurant?.lat && restaurant?.lng ? haversine(currentBase(), restaurant) : Infinity;
+  const distance = restaurant?.lat && restaurant?.lng ? haversine(locationBase, restaurant) : Infinity;
   const taste = menuTaste(menu);
-  const tasteDiff = Math.abs(taste.spicy - state.spicy) + Math.abs(taste.salty - state.salty) + Math.abs(taste.sweet - state.sweet);
-  const budgetDiff = Math.max(0, menu.price - state.budget);
+  const tasteDiff = Math.abs(taste.spicy - conditions.spicy) + Math.abs(taste.salty - conditions.salty) + Math.abs(taste.sweet - conditions.sweet);
+  const budgetDiff = Math.max(0, menu.price - conditions.budget);
   let score = 0;
   const reasons = [];
 
@@ -694,20 +723,20 @@ function scoreMenu(menu, options = {}) {
   score -= menu.value * 3;
   score -= menu.portion * 1.6;
   score -= menu.signature ? 4 : 0;
-  const weather = weatherBoost(menu);
+  const weather = applyWeather ? weatherBoost(menu) : null;
   if (weather) {
     score -= weather.score;
     reasons.push(weather.label);
   }
 
-  if (applyTaste && tastePreferenceReasonEnabled(menu) && tasteDiff <= 2) reasons.push("선택한 맛 취향");
-  if (applyBudget && menu.price <= state.budget) reasons.push("예산 안");
+  if (applyTaste && tastePreferenceReasonEnabled(menu, conditions) && tasteDiff <= 2) reasons.push("선택한 맛 취향");
+  if (applyBudget && menu.price <= conditions.budget) reasons.push("예산 안");
   if (distance <= 300) reasons.push("가까움");
   if (menu.value >= 4) reasons.push("가성비");
   if (menu.portion >= 4) reasons.push("든든함");
 
-  if (applyMoods && state.moods.size) {
-    for (const mood of state.moods) {
+  if (applyMoods && moods.size) {
+    for (const mood of moods) {
       if (menu.tags.includes(mood)) {
         score -= 18;
         if (!reasons.includes(mood)) reasons.push(mood);
@@ -735,28 +764,36 @@ function scoreMenu(menu, options = {}) {
 
 function getRecommendedMenus(options = {}) {
   const mode = options.mode || quickRecommendationMode();
+  const conditions = options.conditions || (mode === "custom" ? appliedRecommendationConditions() : recommendationPreferencesSnapshot());
+  const categories = conditionSet(conditions.categories);
+  const moods = conditionSet(conditions.moods);
   const applyConditions = options.applyConditions ?? mode === "custom";
-  const applyBudget = options.applyBudget ?? (mode === "custom" && budgetPreferenceEnabled());
+  const applyBudget = options.applyBudget ?? (mode === "custom" && budgetPreferenceEnabled(conditions));
   const applyTaste = options.applyTaste ?? (mode === "custom");
   const applyMoods = options.applyMoods ?? applyConditions;
+  const applyWeather = options.applyWeather ?? true;
+  const locationBase = options.locationBase;
   const sorted = DATA.menus
     .filter((menu) => menu.available)
     .map((menu) =>
       scoreMenu(menu, {
         applyBudget,
-        applyTaste: applyTaste && tastePreferenceEnabled(),
+        applyTaste: applyTaste && tastePreferenceEnabled(conditions),
         applyMoods,
+        applyWeather,
+        locationBase,
+        conditions,
       }),
     )
     .filter((item) => {
-      if (applyConditions && state.categories.size && !state.categories.has(item.category)) return false;
-      if (applyConditions && state.moods.size && ![...state.moods].some((mood) => item.tags.includes(mood))) return false;
-      if (applyBudget && item.price > state.budget) return false;
-      if (applyConditions && state.onlyOpen && !item.openNow) return false;
-      if (applyConditions && state.needTakeout && !item.restaurant?.takeout) return false;
-      if (applyConditions && state.needDelivery && !item.restaurant?.delivery) return false;
-      if (applyConditions && state.needAlone && !item.restaurant?.alone) return false;
-      if (applyConditions && state.wantMeat && !item.meat) return false;
+      if (applyConditions && categories.size && !categories.has(item.category)) return false;
+      if (applyConditions && moods.size && ![...moods].some((mood) => item.tags.includes(mood))) return false;
+      if (applyBudget && item.price > conditions.budget) return false;
+      if (applyConditions && conditions.onlyOpen && !item.openNow) return false;
+      if (applyConditions && conditions.needTakeout && !item.restaurant?.takeout) return false;
+      if (applyConditions && conditions.needDelivery && !item.restaurant?.delivery) return false;
+      if (applyConditions && conditions.needAlone && !item.restaurant?.alone) return false;
+      if (applyConditions && conditions.wantMeat && !item.meat) return false;
       return true;
     })
     .sort((a, b) => a.score - b.score);
@@ -840,10 +877,18 @@ function discoveryScore(item) {
   return score;
 }
 
-function getDiscoveryMenus() {
+function getDiscoveryMenus(options = {}) {
   return DATA.menus
     .filter((menu) => menu.available)
-    .map((menu) => scoreMenu(menu, { applyBudget: false, applyTaste: false, applyMoods: false }))
+    .map((menu) =>
+      scoreMenu(menu, {
+        applyBudget: false,
+        applyTaste: false,
+        applyMoods: false,
+        applyWeather: options.applyWeather ?? true,
+        locationBase: options.locationBase,
+      }),
+    )
     .map((item) => ({
       ...item,
       discoveryCharacter: foodCharacter(item),
@@ -948,15 +993,18 @@ function selectDiscoveryRecommendations(allItems, { seenIds = new Set(), previou
   return selected.slice(0, targetCount);
 }
 
-function updateQuickRecommendations({ reroll = false } = {}) {
+function updateQuickRecommendations({ reroll = false, applyWeather = true, locationBase } = {}) {
   const mode = quickRecommendationMode();
+  const resolvedLocationBase = locationBase || currentBase();
   if (state.quickMode !== mode) {
     state.quickItems = [];
     state.quickSeenIds = new Set();
     resetDiscoveryNudgeCycle();
   }
   state.quickMode = mode;
-  const all = mode === "discovery" ? getDiscoveryMenus() : getRecommendedMenus({ mode: "custom" });
+  const all = mode === "discovery"
+    ? getDiscoveryMenus({ applyWeather, locationBase: resolvedLocationBase })
+    : getRecommendedMenus({ mode: "custom", applyWeather, locationBase: resolvedLocationBase });
   const previousIds = new Set(state.quickItems.map((item) => item.id));
   const keepTop = !reroll && !state.quickSeenIds.size;
   state.quickItems =
@@ -971,11 +1019,24 @@ function updateQuickRecommendations({ reroll = false } = {}) {
           previousIds,
         });
   state.quickItems.forEach((item) => state.quickSeenIds.add(item.id));
+  state.quickAppliedWeather = Boolean(applyWeather && weatherFreshForRecommendation());
+  state.quickLocationBase = { ...resolvedLocationBase };
   if (!state.suppressDiscoveryPickCount) {
     state.discoveryPickCount = mode === "discovery" ? state.discoveryPickCount + 1 : 0;
   }
   state.alternativesExpanded = false;
   state.page = 0;
+}
+
+function refreshQuickItemDerivedValues({ applyWeather = state.quickAppliedWeather, locationBase = currentBase() } = {}) {
+  if (!state.quickItems.length) return;
+  const all = state.quickMode === "discovery"
+    ? getDiscoveryMenus({ applyWeather, locationBase })
+    : getRecommendedMenus({ mode: "custom", applyWeather, locationBase });
+  const byId = new Map(all.map((item) => [item.id, item]));
+  state.quickItems = state.quickItems.map((item) => byId.get(item.id) || item);
+  state.quickAppliedWeather = Boolean(applyWeather && weatherFreshForRecommendation());
+  state.quickLocationBase = { ...locationBase };
 }
 
 function mapUrl(item) {
@@ -1013,16 +1074,17 @@ function compactTagsExcluding(item, excludedTags, limit = 4) {
 }
 
 function recommendationReasons(item) {
+  const conditions = appliedRecommendationConditions();
   const reasons = [];
-  const tasteDiff = Math.abs(item.taste.spicy - state.spicy) + Math.abs(item.taste.salty - state.salty) + Math.abs(item.taste.sweet - state.sweet);
+  const tasteDiff = Math.abs(item.taste.spicy - conditions.spicy) + Math.abs(item.taste.salty - conditions.salty) + Math.abs(item.taste.sweet - conditions.sweet);
   if (item.weatherBoost?.reason) reasons.push(item.weatherBoost.reason);
-  if (tastePreferenceReasonEnabled(item) && tasteDiff <= 2) reasons.push("선택한 맛 취향과 잘 맞아요.");
-  if (budgetPreferenceEnabled() && item.price <= state.budget) reasons.push(`예산 ${money(state.budget)} 안에 들어요.`);
+  if (tastePreferenceReasonEnabled(item, conditions) && tasteDiff <= 2) reasons.push("선택한 맛 취향과 잘 맞아요.");
+  if (budgetPreferenceEnabled(conditions) && item.price <= conditions.budget) reasons.push(`예산 ${money(conditions.budget)} 안에 들어요.`);
   if (Number.isFinite(item.distance)) reasons.push(`${meters(item.distance)} 거리라 이동 부담이 적어요.`);
-  if (state.needAlone && item.restaurant?.alone) reasons.push("혼밥 조건에 맞는 곳이에요.");
-  if (state.needTakeout && item.restaurant?.takeout) reasons.push("포장 가능한 곳이에요.");
-  if (state.needDelivery && item.restaurant?.delivery) reasons.push("배달 가능한 곳이에요.");
-  if (state.wantMeat && item.meat) reasons.push("고기 메뉴 조건에 맞아요.");
+  if (conditions.needAlone && item.restaurant?.alone) reasons.push("혼밥 조건에 맞는 곳이에요.");
+  if (conditions.needTakeout && item.restaurant?.takeout) reasons.push("포장 가능한 곳이에요.");
+  if (conditions.needDelivery && item.restaurant?.delivery) reasons.push("배달 가능한 곳이에요.");
+  if (conditions.wantMeat && item.meat) reasons.push("고기 메뉴 조건에 맞아요.");
   if (item.value >= 4) reasons.push("가격 대비 만족도가 좋아요.");
   const uniqueReasons = uniqueTags(reasons);
   return uniqueReasons.length ? uniqueReasons.slice(0, 4) : ["현재 조건에서 추천 점수가 높은 메뉴예요."];
@@ -1131,6 +1193,7 @@ function quickAlternativeHtml(item, rank) {
       <p class="store-line">${escapeHtml(item.restaurant?.name || item.restaurantName)} · ${money(item.price)} · ${meters(item.distance)}</p>
       <p class="recommend-copy">${quickReasonText(item)}</p>
       <div class="card-actions quick-alt-actions">
+        <button data-ate="${item.id}">먹음 기록</button>
         <button data-detail="${item.id}" data-detail-context="${state.quickMode}">상세</button>
         <a href="${mapUrl(item)}" target="_blank" rel="noreferrer">지도</a>
       </div>
@@ -1146,52 +1209,24 @@ function quickRecommendationsHtml(items) {
   const alternativeGrid = alternatives.length
     ? `<div class="quick-alt-grid">${alternatives.map((item, index) => quickAlternativeHtml(item, index + 2)).join("")}</div>`
     : "";
-  const nudgeVisible = shouldShowDiscoveryNudge();
-  const nudge = nudgeVisible ? discoveryNudgeHtml() : "";
   const preferenceNote = discoveryStoredPreferenceNoteHtml();
-  const preferenceShortcut = nudgeVisible ? "" : discoveryPreferenceShortcutHtml();
   const returnDiscovery = returnDiscoveryButtonHtml();
   return `
     <div class="quick-recommend-grid">
       ${quickHeroHtml(hero)}
       ${alternativeGrid}
       ${preferenceNote}
-      ${nudge}
-      ${preferenceShortcut}
       ${returnDiscovery}
     </div>
   `;
 }
 
 function shouldShowDiscoveryNudge() {
-  return (
-    state.quickMode === "discovery" &&
-    state.discoveryPickCount >= state.discoveryNudgeThreshold
-  );
-}
-
-function discoveryNudgeHtml() {
-  return `
-    <div class="discovery-nudge-card">
-      <div>
-        <strong>마음에 드는 메뉴가 없나요?</strong>
-        <p>예산과 맛 취향을 알려주면 더 잘 골라드릴게요.</p>
-      </div>
-      <div class="discovery-nudge-actions">
-        <button type="button" data-open-preferences>취향 설정하기</button>
-        <button type="button" data-dismiss-discovery-nudge>계속 랜덤 추천</button>
-      </div>
-    </div>
-  `;
-}
-
-function discoveryPreferenceShortcutHtml() {
-  if (state.quickMode !== "discovery") return "";
-  return `<button type="button" class="discovery-preference-link" data-open-preferences>취향 설정하기</button>`;
+  return state.quickMode === "discovery" && state.rerollPromptVisible;
 }
 
 function discoveryStoredPreferenceNoteHtml() {
-  if (state.quickMode !== "discovery" || !hasCustomRecommendationConditions()) return "";
+  if (state.quickMode !== "discovery" || !hasCustomRecommendationConditions(appliedRecommendationConditions())) return "";
   return `<p class="discovery-mode-note">저장된 취향은 맞춤 추천을 선택하면 반영돼요.</p>`;
 }
 
@@ -1304,9 +1339,13 @@ function renderStoreSearch() {
 }
 
 function renderRecommendations() {
+  const hasResults = Boolean(state.hasSearched && state.quickItems.length);
+  els.recommendSection?.classList.toggle("is-pristine", !state.hasSearched);
+  document.body.classList.toggle("has-recommendations", hasResults);
+  if (els.recommendActionDock) els.recommendActionDock.hidden = !hasResults;
   if (!state.hasSearched) {
-    els.recommendTitle.textContent = "빠른 추천 준비";
-    els.quickRecommendPanel.innerHTML = quickRecommendationsHtml([]);
+    els.recommendTitle.textContent = "메뉴 추천";
+    els.quickRecommendPanel.innerHTML = "";
     els.rerollQuickButton.style.display = "none";
     els.toggleAlternativesButton.style.display = "none";
     els.menuList.innerHTML = "";
@@ -1316,21 +1355,18 @@ function renderRecommendations() {
   const { all, items, start } = pageMenus();
   const mode = quickRecommendationMode();
   state.quickMode = mode;
-  els.recommendTitle.textContent = all.length ? (mode === "discovery" ? "발견 추천" : "맞춤 추천") : "추천 결과 없음";
+  els.recommendTitle.textContent = all.length ? (mode === "discovery" ? "오늘의 메뉴 3개" : "맞춤 메뉴 3개") : "추천 결과 없음";
   els.quickRecommendPanel.innerHTML = state.quickItems.length
     ? quickRecommendationsHtml(state.quickItems)
     : `<div class="empty-state">조건에 맞는 메뉴가 없어요. 예산이나 조건을 조금 풀어보세요.</div>`;
   const nudgeVisible = Boolean(state.quickItems.length && shouldShowDiscoveryNudge());
+  if (els.recommendActionDock) els.recommendActionDock.hidden = !hasResults || (all.length <= 3 && !nudgeVisible);
   els.rerollQuickButton.style.display = all.length > 3 && !nudgeVisible ? "block" : "none";
-  els.rerollQuickButton.textContent = mode === "discovery" ? "다른 조합 보여줘" : "다른 맞춤 메뉴 보기";
-  els.toggleAlternativesButton.style.display = all.length ? "block" : "none";
-  els.toggleAlternativesButton.textContent = state.alternativesExpanded ? "대안 메뉴 접기" : "대안 메뉴 보기";
-  els.toggleAlternativesButton.setAttribute("aria-expanded", String(state.alternativesExpanded));
-  els.menuList.innerHTML = state.alternativesExpanded && items.length
-    ? items.map((item, index) => `<article class="menu-card">${cardHtml(item, start + index + 1, mode)}</article>`).join("")
-    : "";
-  els.nextRecommendButton.textContent = "다음 대안 보기";
-  els.nextRecommendButton.style.display = state.alternativesExpanded && all.length > 10 ? "block" : "none";
+  els.rerollQuickButton.textContent = "다른 메뉴 추천해줘";
+  if (els.recommendNudge) els.recommendNudge.hidden = !nudgeVisible;
+  els.toggleAlternativesButton.style.display = "none";
+  els.menuList.innerHTML = "";
+  els.nextRecommendButton.style.display = "none";
 }
 
 function openRoulette() {
@@ -1468,7 +1504,7 @@ function syncControls() {
       ? "추천 준비 중..."
       : state.isSearching
         ? "추천 고르는 중..."
-        : "지금 먹을 메뉴 추천해 줘";
+        : "메뉴 3개 추천받기";
   }
   if (els.searchButton) els.searchButton.disabled = state.isSearching;
   if (els.rerollQuickButton) els.rerollQuickButton.disabled = state.isSearching;
@@ -1505,14 +1541,19 @@ function syncControls() {
 }
 
 function renderConditionSummary() {
+  if (!state.hasSearched) {
+    els.conditionSummary.textContent = "창원대 앞 메뉴를 빠르게 3개 골라드려요.";
+    return;
+  }
   if (quickRecommendationMode() === "discovery") {
     els.conditionSummary.textContent = "전체 음식 · 예산 자유 · 상황 자유";
     return;
   }
-  const categoryText = state.categories.size ? [...state.categories].join(", ") : "전체 음식";
-  const moodText = state.moods.size ? [...state.moods].slice(0, 2).join(", ") : "상황 자유";
-  const moreMood = state.moods.size > 2 ? ` 외 ${state.moods.size - 2}` : "";
-  const budgetText = budgetPreferenceEnabled() ? `${Number(state.budget).toLocaleString("ko-KR")}원 이하` : "예산 자유";
+  const conditions = appliedRecommendationConditions();
+  const categoryText = conditions.categories.length ? conditions.categories.join(", ") : "전체 음식";
+  const moodText = conditions.moods.length ? conditions.moods.slice(0, 2).join(", ") : "상황 자유";
+  const moreMood = conditions.moods.length > 2 ? ` 외 ${conditions.moods.length - 2}` : "";
+  const budgetText = budgetPreferenceEnabled(conditions) ? `${Number(conditions.budget).toLocaleString("ko-KR")}원 이하` : "예산 자유";
   els.conditionSummary.textContent = `${categoryText} · ${budgetText} · ${moodText}${moreMood}`;
 }
 
@@ -1530,9 +1571,9 @@ function renderLocationStatus() {
     els.locationButton.textContent = "불가";
     els.locationButton.setAttribute("aria-label", "위치 사용 불가");
   } else if (state.locationStatus === "idle") {
-    els.locationStatus.textContent = "위치를 허용하면 현재 위치 기준 거리로 추천해요.";
+    els.locationStatus.textContent = "창원대 정문 기준 거리";
     els.locationButton.textContent = "위치";
-    els.locationButton.setAttribute("aria-label", "위치 선택");
+    els.locationButton.setAttribute("aria-label", "내 위치 기준 선택");
   } else {
     els.locationStatus.textContent = "거리 계산 중";
     els.locationButton.textContent = "확인";
@@ -1550,6 +1591,20 @@ function renderWeatherCard() {
       현재 날씨 참고 ${toggleText}
     </button>
   `;
+  if (!state.weatherEnabled) {
+    els.weatherCard.innerHTML = `
+      <div class="weather-main">
+        <span class="weather-symbol" aria-hidden="true">${weatherIcon(null)}</span>
+        <div>
+          <p class="eyebrow">Weather</p>
+          <strong>현재 날씨 참고 OFF</strong>
+          <span>직접 켠 경우에만 작은 추천 가산점으로 참고해요.</span>
+        </div>
+      </div>
+      ${toggle}
+    `;
+    return;
+  }
   if (!weather) {
     els.weatherCard.innerHTML = `
       <div class="weather-main">
@@ -1632,7 +1687,13 @@ function toggleWeatherReference() {
   state.weatherEnabled = !state.weatherEnabled;
   localStorage.setItem(WEATHER_SETTING_KEY, String(state.weatherEnabled));
   markConditionsChanged();
-  render();
+  if (!state.weatherEnabled) {
+    refreshQuickItemDerivedValues({ applyWeather: false, locationBase: state.quickLocationBase || currentBase() });
+    render();
+  } else {
+    renderConditionDraft();
+  }
+  if (state.weatherEnabled && !cachedWeatherFresh()) loadWeather();
 }
 
 function render() {
@@ -1648,6 +1709,27 @@ function render() {
   renderRoulette();
   renderStoreSearch();
   els.searchOverlay?.classList.toggle("is-visible", state.isSearching);
+}
+
+function renderConditionDraft() {
+  syncControls();
+  renderSavedPreferenceCard();
+  renderWeatherCard();
+}
+
+function copyAppliedConditionsToDraft() {
+  applyRecommendationPreferences(appliedRecommendationConditions());
+  renderConditionDraft();
+}
+
+function handleConditionDetailsToggle() {
+  syncConditionDetailsAccessibility();
+  if (!els.conditionDetails?.open) return;
+  if (state.preserveDraftOnNextConditionOpen) {
+    state.preserveDraftOnNextConditionOpen = false;
+    return;
+  }
+  copyAppliedConditionsToDraft();
 }
 
 function renderSavedPreferenceCard() {
@@ -1690,23 +1772,31 @@ function resetFilters() {
   setTastePreferenceCustomized(false);
   clearRecommendationPreferences();
   savedRecommendationPreferences = null;
+  appliedRecommendationPreferences = recommendationPreferencesSnapshot();
   markConditionsChanged();
+  state.hasSearched = false;
+  state.quickItems = [];
+  state.quickSeenIds = new Set();
+  state.rerollCount = 0;
+  state.rerollPromptVisible = false;
+  state.alternativesExpanded = false;
+  if (els.conditionDetails) els.conditionDetails.open = false;
   render();
 }
 
 function loadSavedRecommendationPreferences() {
-  setActiveRecommendationMode("discovery");
   if (!applyRecommendationPreferences(savedRecommendationPreferences)) {
     toast("불러올 지난 취향이 없어요");
     render();
     return;
   }
   if (els.conditionDetails) {
+    state.preserveDraftOnNextConditionOpen = !els.conditionDetails.open;
     els.conditionDetails.open = true;
     syncConditionDetailsAccessibility();
   }
   toast("지난번 취향을 불러왔어요. 확인 후 조건에 맞게 찾기를 눌러 주세요.");
-  render();
+  renderConditionDraft();
 }
 
 function finishRecommendation(delay, options = {}) {
@@ -1716,6 +1806,10 @@ function finishRecommendation(delay, options = {}) {
   }
   if (state.recommendTimer) return;
   const suppressDiscoveryPickCount = Boolean(options.suppressDiscoveryPickCount);
+  const recommendationOptions = {
+    applyWeather: options.applyWeather ?? true,
+    locationBase: options.locationBase,
+  };
   state.isSearching = true;
   state.hasSearched = false;
   state.page = 0;
@@ -1726,23 +1820,38 @@ function finishRecommendation(delay, options = {}) {
     state.hasSearched = true;
     state.suppressDiscoveryPickCount = suppressDiscoveryPickCount;
     try {
-      updateQuickRecommendations();
+      updateQuickRecommendations(recommendationOptions);
     } finally {
       state.suppressDiscoveryPickCount = false;
     }
     render();
+    if (options.collapseConditions && els.conditionDetails) {
+      els.conditionDetails.open = false;
+      syncConditionDetailsAccessibility();
+    }
     document.querySelector(".recommend-section").scrollIntoView({ behavior: "smooth", block: "start" });
   }, delay);
 }
 
 function searchMenus() {
-  saveRecommendationPreferences();
+  appliedRecommendationPreferences = recommendationPreferencesSnapshot();
+  saveRecommendationPreferences(appliedRecommendationPreferences);
   setActiveRecommendationMode("personalized");
-  finishRecommendation(900);
+  state.quickItems = [];
+  state.quickSeenIds = new Set();
+  state.rerollPromptVisible = false;
+  state.rerollCount = 0;
+  finishRecommendation(900, { collapseConditions: true });
 }
 
 function quickRecommend() {
-  finishRecommendation(600);
+  setActiveRecommendationMode("discovery");
+  state.rerollPromptVisible = false;
+  state.rerollCount = 0;
+  finishRecommendation(600, {
+    applyWeather: false,
+    locationBase: FALLBACK_LOCATION,
+  });
 }
 
 function rerollQuickRecommendations() {
@@ -1750,14 +1859,23 @@ function rerollQuickRecommendations() {
     quickRecommend();
     return;
   }
+  state.rerollCount += 1;
+  if (state.quickMode === "discovery" && state.rerollCount % 4 === 0) {
+    state.rerollPromptVisible = true;
+    renderRecommendations();
+    return;
+  }
+  state.rerollPromptVisible = false;
   updateQuickRecommendations({ reroll: true });
   renderRecommendations();
   document.querySelector(".recommend-section").scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
 function openPreferenceSettings() {
-  resetDiscoveryNudgeCycle(3);
+  state.rerollPromptVisible = false;
   if (els.conditionDetails) {
+    copyAppliedConditionsToDraft();
+    state.preserveDraftOnNextConditionOpen = !els.conditionDetails.open;
     els.conditionDetails.open = true;
     syncConditionDetailsAccessibility();
     renderRecommendations();
@@ -1766,7 +1884,7 @@ function openPreferenceSettings() {
 }
 
 function dismissDiscoveryNudge() {
-  resetDiscoveryNudgeCycle(3);
+  state.rerollPromptVisible = false;
   if (state.hasSearched) {
     updateQuickRecommendations({ reroll: true });
   }
@@ -1778,6 +1896,8 @@ function returnToDiscoveryRecommendations() {
   state.quickItems = [];
   state.quickSeenIds = new Set();
   resetDiscoveryNudgeCycle();
+  state.rerollCount = 0;
+  state.rerollPromptVisible = false;
   state.alternativesExpanded = false;
   state.page = 0;
   state.hasSearched = true;
@@ -1791,6 +1911,8 @@ function restoreDiscoveryModeAfterPageShow() {
   state.quickItems = [];
   state.quickSeenIds = new Set();
   resetDiscoveryNudgeCycle();
+  state.rerollCount = 0;
+  state.rerollPromptVisible = false;
   state.alternativesExpanded = false;
   state.page = 0;
   state.hasSearched = false;
@@ -1832,29 +1954,37 @@ function toggleAlternativeMenus() {
   renderRecommendations();
 }
 
+function applyLocationBasis(location, status) {
+  state.location = location ? { ...location } : null;
+  state.locationStatus = status;
+  const locationBase = currentBase();
+  refreshQuickItemDerivedValues({
+    applyWeather: state.quickAppliedWeather,
+    locationBase,
+  });
+  render();
+}
+
 function requestLocation() {
+  const requestId = ++state.locationRequestId;
   if (!navigator.geolocation) {
-    state.locationStatus = "unsupported";
-    render();
+    applyLocationBasis(null, "unsupported");
     return;
   }
   state.locationStatus = "requesting";
   renderLocationStatus();
   navigator.geolocation.getCurrentPosition(
     (pos) => {
-      state.location = {
+      if (requestId !== state.locationRequestId) return;
+      applyLocationBasis({
         label: "현재 위치",
         lat: pos.coords.latitude,
         lng: pos.coords.longitude,
-      };
-      state.locationStatus = "ready";
-      state.page = 0;
-      render();
+      }, "ready");
     },
     () => {
-      state.location = null;
-      state.locationStatus = "denied";
-      render();
+      if (requestId !== state.locationRequestId) return;
+      applyLocationBasis(null, "denied");
     },
     { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 },
   );
@@ -1874,8 +2004,6 @@ function getCurrentGpsLocation() {
           lng: pos.coords.longitude,
           accuracy: pos.coords.accuracy,
         };
-        state.location = location;
-        state.locationStatus = "ready";
         resolve(location);
       },
       (error) => reject(error),
@@ -1930,11 +2058,10 @@ function chooseLocationPreference(choice) {
     return;
   }
   if (choice === "deny") {
+    state.locationRequestId += 1;
     state.locationPreference = "deny";
     localStorage.setItem("changwonFoodLocationPreference", "deny");
-    state.location = null;
-    state.locationStatus = "denied";
-    render();
+    applyLocationBasis(null, "denied");
     return;
   }
   state.locationPreference = "once";
@@ -1942,24 +2069,16 @@ function chooseLocationPreference(choice) {
 }
 
 function handleLocationAfterSplash() {
-  if (state.locationPreference === "always") {
-    requestLocation();
-    return;
-  }
-  if (state.locationPreference === "deny") {
-    state.locationStatus = "denied";
-    render();
-    return;
-  }
-  state.locationStatus = "idle";
-  render();
-  showLocationDialog();
+  state.locationRequestId += 1;
+  applyLocationBasis(null, "idle");
 }
 
 function showDetail(id, context = "custom") {
   const detailContext = context === "discovery" ? "discovery" : "custom";
   state.detailContext = detailContext;
-  const scoreOptions = detailContext === "discovery" ? { applyBudget: false, applyTaste: false, applyMoods: false } : {};
+  const scoreOptions = detailContext === "discovery"
+    ? { applyBudget: false, applyTaste: false, applyMoods: false }
+    : { conditions: appliedRecommendationConditions() };
   const item = DATA.menus.map((menu) => scoreMenu(menu, scoreOptions)).find((menu) => menu.id === id);
   if (!item) return;
   const wished = isWished(item.id);
@@ -2120,8 +2239,8 @@ function recommendationPreferencesSnapshot() {
   };
 }
 
-function saveRecommendationPreferences() {
-  savedRecommendationPreferences = recommendationPreferencesSnapshot();
+function saveRecommendationPreferences(preferences = recommendationPreferencesSnapshot()) {
+  savedRecommendationPreferences = cloneRecommendationPreferences(preferences);
   localStorage.setItem(RECOMMENDATION_PREFERENCES_KEY, JSON.stringify(savedRecommendationPreferences));
 }
 
@@ -2172,7 +2291,7 @@ function commitRangePreference(key, eventOrValue, source = "input") {
   if (isBudget) setBudgetCustomized(true);
   else setTastePreferenceCustomized(true);
   markConditionsChanged();
-  render();
+  renderConditionDraft();
   return true;
 }
 
@@ -3074,7 +3193,7 @@ const ONBOARDING_STEPS = [
     title: "다른 방법으로도 메뉴를 골라보세요!",
     description: "월드컵과 검색으로 메뉴를 고르고, 찜한 메뉴와 내 기록도 언제든 확인할 수 있어요.",
     helper: "",
-    action: "앱 사용하기",
+    action: "메뉴 추천받기",
     radius: 24,
   },
 ];
@@ -3110,6 +3229,7 @@ function hasReusableOnboardingRecommendation() {
 
 function snapshotRecommendationState() {
   return {
+    activeRecommendationMode: state.activeRecommendationMode,
     hasSearched: state.hasSearched,
     isSearching: state.isSearching,
     quickItems: [...state.quickItems],
@@ -3118,6 +3238,10 @@ function snapshotRecommendationState() {
     discoveryPickCount: state.discoveryPickCount,
     discoveryNudgeThreshold: state.discoveryNudgeThreshold,
     alternativesExpanded: state.alternativesExpanded,
+    rerollCount: state.rerollCount,
+    rerollPromptVisible: state.rerollPromptVisible,
+    quickAppliedWeather: state.quickAppliedWeather,
+    quickLocationBase: { ...state.quickLocationBase },
     page: state.page,
   };
 }
@@ -3128,6 +3252,7 @@ function restoreRecommendationSnapshot(snapshot) {
     clearTimeout(state.recommendTimer);
     state.recommendTimer = null;
   }
+  state.activeRecommendationMode = snapshot.activeRecommendationMode;
   state.hasSearched = snapshot.hasSearched;
   state.isSearching = snapshot.isSearching;
   state.quickItems = [...snapshot.quickItems];
@@ -3136,6 +3261,10 @@ function restoreRecommendationSnapshot(snapshot) {
   state.discoveryPickCount = snapshot.discoveryPickCount;
   state.discoveryNudgeThreshold = snapshot.discoveryNudgeThreshold;
   state.alternativesExpanded = snapshot.alternativesExpanded;
+  state.rerollCount = snapshot.rerollCount;
+  state.rerollPromptVisible = snapshot.rerollPromptVisible;
+  state.quickAppliedWeather = snapshot.quickAppliedWeather;
+  state.quickLocationBase = { ...snapshot.quickLocationBase };
   state.page = snapshot.page;
   state.suppressDiscoveryPickCount = false;
   render();
@@ -3232,13 +3361,18 @@ async function prepareOnboardingRecommendationStep() {
     return true;
   }
   if (!state.appReady) return false;
+  setActiveRecommendationMode("discovery");
   state.onboarding.preparing = true;
   els.onboardingNextButton.disabled = true;
   els.onboardingNextButton.textContent = "추천 준비 중...";
 
   if (!state.recommendTimer) {
     state.onboarding.createdTemporaryRecommendation = true;
-    finishRecommendation(600, { suppressDiscoveryPickCount: true });
+    finishRecommendation(600, {
+      suppressDiscoveryPickCount: true,
+      applyWeather: false,
+      locationBase: FALLBACK_LOCATION,
+    });
   }
   const resultReady = await waitForOnboardingResult();
   state.onboarding.preparing = false;
@@ -3331,6 +3465,7 @@ function renderOnboardingStep() {
 function finishOnboarding(options = {}) {
   if (!state.onboarding.active) return;
   const scrollToResult = Boolean(options.scrollToResult);
+  const startRecommendation = Boolean(options.startRecommendation);
   const createdTemporaryRecommendation = state.onboarding.createdTemporaryRecommendation;
   markOnboardingSeen();
   cleanupOnboardingTemporaryRecommendation();
@@ -3345,6 +3480,12 @@ function finishOnboarding(options = {}) {
   state.onboarding.positionFrame = null;
   els.onboardingOverlay.hidden = true;
   document.body.classList.remove("onboarding-active");
+
+  if (startRecommendation) {
+    switchTab("recommendTab");
+    quickRecommend();
+    return;
+  }
 
   if (scrollToResult) {
     switchTab("recommendTab");
@@ -3366,7 +3507,7 @@ function finishOnboarding(options = {}) {
 async function nextOnboardingStep() {
   if (state.onboarding.preparing) return;
   if (state.onboarding.step >= ONBOARDING_STEPS.length - 1) {
-    finishOnboarding({ scrollToResult: true });
+    finishOnboarding({ startRecommendation: true });
     return;
   }
   const nextStep = state.onboarding.step + 1;
@@ -3459,7 +3600,7 @@ function bindEvents() {
   els.resetFiltersButton.addEventListener("click", resetFilters);
   els.rerollQuickButton.addEventListener("click", rerollQuickRecommendations);
   els.toggleAlternativesButton.addEventListener("click", toggleAlternativeMenus);
-  els.conditionDetails?.addEventListener("toggle", syncConditionDetailsAccessibility);
+  els.conditionDetails?.addEventListener("toggle", handleConditionDetailsToggle);
   els.conditionDetails?.addEventListener("click", (event) => {
     if (event.target.closest("[data-load-saved-preferences]")) {
       loadSavedRecommendationPreferences();
@@ -3488,7 +3629,7 @@ function bindEvents() {
     els[key].addEventListener("change", (event) => {
       state[key] = event.target.checked;
       markConditionsChanged();
-      render();
+      renderConditionDraft();
     });
   }
   els.categoryGrid.addEventListener("click", (event) => {
@@ -3498,7 +3639,7 @@ function bindEvents() {
     state.categories.has(value) ? state.categories.delete(value) : state.categories.add(value);
     resetStoreMenuExpansions();
     markConditionsChanged();
-    render();
+    renderConditionDraft();
   });
   els.moodGrid.addEventListener("click", (event) => {
     const button = event.target.closest("[data-mood]");
@@ -3506,7 +3647,7 @@ function bindEvents() {
     const value = button.dataset.mood;
     state.moods.has(value) ? state.moods.delete(value) : state.moods.add(value);
     markConditionsChanged();
-    render();
+    renderConditionDraft();
   });
   els.worldcupCategoryGrid.addEventListener("click", (event) => {
     const button = event.target.closest("[data-worldcup-category]");
@@ -3535,6 +3676,11 @@ function bindEvents() {
     const weatherToggle = event.target.closest("[data-weather-toggle]");
     if (weatherToggle) {
       toggleWeatherReference();
+      return;
+    }
+    const openLocationButton = event.target.closest("[data-open-location]");
+    if (openLocationButton) {
+      showLocationDialog();
       return;
     }
     const storeMenuToggle = event.target.closest("[data-store-menu-toggle]");
@@ -3684,7 +3830,6 @@ if (history.replaceState && history.pushState) {
 render();
 finishSplash();
 initSupabase();
-loadWeather();
 
 window.addEventListener("pagehide", handlePageHideForRestore);
 window.addEventListener("pageshow", handlePageShowRestore);

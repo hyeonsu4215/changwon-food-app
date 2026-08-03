@@ -336,6 +336,10 @@ main {
   padding: 8px 12px calc(126px + env(safe-area-inset-bottom));
 }
 
+body.has-recommendations main {
+  padding-bottom: calc(218px + env(safe-area-inset-bottom));
+}
+
 .recommend-info-card {
   display: grid;
   gap: 8px;
@@ -442,8 +446,10 @@ main {
 }
 
 .weather-toggle {
+  display: inline-flex;
   justify-self: start;
-  min-height: 34px;
+  min-height: 44px;
+  align-items: center;
   border: 1px solid rgba(13, 71, 161, 0.2);
   border-radius: 999px;
   padding: 6px 9px;
@@ -524,9 +530,57 @@ dialog {
   margin-bottom: 12px;
 }
 
+.condition-details-body {
+  min-width: 0;
+}
+
+.optional-context-settings {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.location-setting-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid rgba(13, 71, 161, 0.14);
+  border-radius: var(--radius-control);
+  background: #fff;
+}
+
+.location-setting-row strong,
+.location-setting-row span {
+  display: block;
+}
+
+.location-setting-row strong {
+  font-size: 14px;
+}
+
+.location-setting-row span {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.location-setting-row button {
+  min-height: 44px;
+  border: 1px solid rgba(13, 71, 161, 0.2);
+  border-radius: var(--radius-control);
+  padding: 0 12px;
+  background: #fff;
+  color: var(--primary);
+  font-size: 13px;
+  font-weight: var(--font-weight-strong);
+  white-space: nowrap;
+}
+
 .condition-details > summary {
   display: flex;
-  min-height: 42px;
+  min-height: 44px;
   align-items: center;
   justify-content: center;
   border-radius: 8px;
@@ -894,6 +948,85 @@ input[type="range"] {
 .quick-recommend-panel {
   display: grid;
   gap: 10px;
+}
+
+.recommend-section.is-pristine > .recommendation-heading,
+.recommend-section.is-pristine > .quick-recommend-panel {
+  display: none;
+}
+
+.has-recommendations .recommend-info-card,
+.has-recommendations .quick-start-card {
+  display: none;
+}
+
+.recommend-section:not(.is-pristine) .condition-details {
+  margin-top: 10px;
+}
+
+.legacy-alternative-controls[hidden] {
+  display: none !important;
+}
+
+.recommend-action-dock {
+  position: fixed;
+  left: 50%;
+  bottom: calc(94px + env(safe-area-inset-bottom));
+  z-index: 18;
+  width: min(calc(100% - 24px), 496px);
+  transform: translateX(-50%);
+  padding: 8px;
+  border: 1px solid rgba(13, 71, 161, 0.14);
+  border-radius: 18px;
+  background: rgba(245, 247, 250, 0.96);
+  box-shadow: 0 12px 30px rgba(13, 71, 161, 0.16);
+  backdrop-filter: blur(16px);
+}
+
+.recommend-action-dock[hidden],
+.recommend-nudge[hidden] {
+  display: none;
+}
+
+.recommend-action-dock .quick-reroll-button {
+  min-height: 50px;
+  margin: 0;
+}
+
+.recommend-nudge {
+  display: grid;
+  gap: 7px;
+}
+
+.recommend-nudge p {
+  margin: 0;
+  color: var(--ink);
+  font-size: 14px;
+  text-align: center;
+}
+
+.recommend-nudge > div {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 7px;
+}
+
+.recommend-nudge button {
+  min-width: 0;
+  min-height: 46px;
+  border: 1px solid rgba(13, 71, 161, 0.2);
+  border-radius: var(--radius-control);
+  padding: 0 9px;
+  background: var(--primary);
+  color: #fff;
+  font-size: 13px;
+  font-weight: var(--font-weight-strong);
+  white-space: nowrap;
+}
+
+.recommend-nudge button:last-child {
+  background: #fff;
+  color: var(--primary);
 }
 
 .quick-recommend-grid {
