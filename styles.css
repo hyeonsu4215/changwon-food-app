@@ -294,23 +294,11 @@ h1 {
   line-height: 1.35;
 }
 
-.app-footer-note {
-  display: flex;
-  width: min(100% - 24px, 496px);
-  align-items: center;
-  gap: 7px;
-  margin: -92px auto 86px;
-  padding: 8px 10px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-control);
-  background: rgba(255, 255, 255, 0.78);
-}
-
-.app-footer-note img {
-  flex: 0 0 auto;
-  width: 34px;
-  height: 34px;
-  object-fit: contain;
+.record-official-note {
+  margin: 14px 0 0;
+  padding: 12px 4px 4px;
+  border-top: 1px solid var(--line);
+  text-align: center;
 }
 
 h2 {
@@ -1044,8 +1032,52 @@ input[type="range"] {
   gap: 10px;
 }
 
+.recommend-subtitle {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.recommend-subtitle[hidden],
+.share-pick-button[hidden] {
+  display: none;
+}
+
+.share-pick-button {
+  display: grid;
+  width: 100%;
+  min-height: 58px;
+  justify-items: start;
+  gap: 2px;
+  margin: 10px 0 0;
+  padding: 9px 14px;
+  border: 1px solid rgba(13, 71, 161, 0.28);
+  border-radius: 14px;
+  background: var(--blue-soft);
+  color: var(--primary);
+  text-align: left;
+}
+
+.share-pick-button span {
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.share-pick-button small {
+  color: #526273;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.share-pick-button:disabled {
+  cursor: wait;
+  opacity: 0.62;
+}
+
 .quick-hero-card,
 .quick-alt-card {
+  position: relative;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--surface);
@@ -1053,13 +1085,47 @@ input[type="range"] {
 }
 
 .quick-hero-card {
-  position: relative;
   display: grid;
   gap: 10px;
   padding: 14px;
   border-color: rgba(13, 71, 161, 0.26);
   background: linear-gradient(135deg, #ffffff 0%, var(--blue-soft) 100%);
   overflow: hidden;
+}
+
+.quick-card-detail-hit {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  width: 100%;
+  min-height: 100%;
+  border: 0;
+  border-radius: inherit;
+  padding: 0;
+  background: transparent;
+  color: transparent;
+  cursor: pointer;
+}
+
+.quick-card-detail-hit:hover {
+  background: rgba(13, 71, 161, 0.035);
+}
+
+.quick-card-detail-hit:active {
+  background: rgba(13, 71, 161, 0.075);
+}
+
+.quick-card-detail-hit:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: -4px;
+}
+
+.quick-hero-card .heart-button,
+.quick-alt-card .heart-button,
+.quick-hero-card .card-actions,
+.quick-alt-card .card-actions {
+  position: relative;
+  z-index: 2;
 }
 
 .quick-hero-head {
@@ -1084,7 +1150,6 @@ input[type="range"] {
   display: none;
 }
 
-.quick-mobile-tags,
 .quick-alt-card-mukjji,
 .quick-map-label-mobile {
   display: none;
@@ -2760,6 +2825,12 @@ dialog::backdrop {
   color: var(--muted) !important;
 }
 
+.onboarding-card .onboarding-official-note {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
 .onboarding-actions {
   display: grid;
   grid-template-columns: minmax(0, 0.9fr) minmax(0, 0.8fr) minmax(0, 1.2fr);
@@ -3350,9 +3421,8 @@ h3,
   :root {
     --mobile-nav-clearance: 94px;
     --mobile-reroll-height: 72px;
-    --mobile-footer-height: 30px;
     --mobile-fixed-gap: 14px;
-    --mobile-quick-card-height: clamp(322px, 82vw, 342px);
+    --mobile-quick-card-height: clamp(286px, 76vw, 312px);
     --mobile-quick-image-size: clamp(58px, 17vw, 68px);
   }
 
@@ -3364,7 +3434,6 @@ h3,
   body.has-recommendations main {
     padding-bottom: calc(
       var(--mobile-nav-clearance) + var(--mobile-reroll-height) + var(--mobile-fixed-gap) +
-        var(--mobile-footer-height) +
         env(safe-area-inset-bottom)
     );
   }
@@ -3417,7 +3486,7 @@ h3,
   .quick-alt-card {
     position: relative;
     display: grid;
-    grid-template-rows: 30px 36px 30px 62px 34px 22px 76px;
+    grid-template-rows: 44px 36px 30px 62px 42px 40px;
     align-content: space-between;
     gap: 2px;
     width: 100%;
@@ -3480,12 +3549,12 @@ h3,
 
   .quick-hero-card .heart-button,
   .quick-alt-card .heart-button {
-    flex: 0 0 38px;
-    width: 38px;
-    min-width: 38px;
-    height: 38px;
-    min-height: 38px;
-    margin: -3px -3px 0 0;
+    flex: 0 0 44px;
+    width: 44px;
+    min-width: 44px;
+    height: 44px;
+    min-height: 44px;
+    margin: 0 -3px 0 0;
     font-size: 18px;
   }
 
@@ -3538,62 +3607,26 @@ h3,
   .quick-alt-card .recommend-copy {
     display: -webkit-box;
     grid-row: 5;
-    height: 34px;
+    height: 42px;
     margin: 0;
     overflow: hidden;
     color: #475467;
-    font-size: 10.5px;
-    line-height: 1.45;
+    font-size: clamp(12px, 3.2vw, 13px);
+    line-height: 1.5;
     overflow-wrap: anywhere;
     -webkit-box-orient: vertical;
     -webkit-line-clamp: 2;
   }
 
-  .quick-hero-card .meta-tags,
-  .quick-mobile-tags {
-    display: flex;
-    grid-row: 6;
-    min-width: 0;
-    height: 22px;
-    align-items: center;
-    gap: 2px;
-    margin: 0;
-    overflow: hidden;
-  }
-
-  .quick-hero-card .meta-tags span,
-  .quick-mobile-tags span {
-    min-width: 0;
-    max-width: 48%;
-    padding: 3px 5px;
-    overflow: hidden;
-    font-size: 10px;
-    line-height: 1.2;
-    white-space: nowrap;
-    text-overflow: ellipsis;
-  }
-
-  .quick-hero-card .meta-tags span:nth-child(n + 3),
-  .quick-mobile-tags span:nth-child(n + 3) {
-    display: none;
-  }
-
   .quick-actions,
   .quick-alt-actions {
     display: grid;
-    grid-row: 7;
+    grid-row: 6;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    grid-template-areas:
-      "detail detail"
-      "record map";
+    grid-template-areas: "record map";
     gap: 4px;
-    height: 76px;
+    height: 40px;
     margin: 0;
-  }
-
-  .quick-actions [data-detail],
-  .quick-alt-actions [data-detail] {
-    grid-area: detail;
   }
 
   .quick-actions [data-ate],
@@ -3611,7 +3644,7 @@ h3,
   .quick-alt-actions button,
   .quick-alt-actions a {
     min-width: 0;
-    min-height: 36px;
+    min-height: 40px;
     padding: 0 3px;
     font-size: clamp(10.5px, 2.9vw, 12px);
     line-height: 1.15;
@@ -3675,29 +3708,6 @@ h3,
     min-height: 56px;
   }
 
-  body.has-recommendations .app-footer-note {
-    position: fixed;
-    left: 50%;
-    bottom: calc(
-      var(--mobile-nav-clearance) + var(--mobile-reroll-height) + var(--mobile-fixed-gap) +
-        env(safe-area-inset-bottom)
-        - 4px
-    );
-    z-index: 17;
-    width: min(calc(100% - 24px), 496px);
-    margin: 0;
-    transform: translateX(-50%);
-    min-height: var(--mobile-footer-height);
-    padding: 3px 8px;
-    background: rgba(255, 255, 255, 0.94);
-    font-size: 10.5px;
-    line-height: 1.2;
-    backdrop-filter: blur(12px);
-  }
-
-  body.has-recommendations .app-footer-note img {
-    display: none;
-  }
 }
 
 /* The pristine recommendation screen is one clear action, not two competing intro cards. */

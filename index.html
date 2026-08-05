@@ -41,7 +41,6 @@
         <p class="splash-copy">오늘 뭐 먹지? 묵찌가 골라줄게!</p>
         <div class="splash-loader" aria-hidden="true"></div>
       </div>
-      <strong>국립창원대학교 공식 앱이 아닌 학생 편의 서비스입니다.</strong>
     </div>
 
     <div class="app-shell">
@@ -53,7 +52,7 @@
           </div>
           <div class="top-actions" aria-label="앱 도구">
             <button id="locationButton" class="location-pill" aria-label="위치 갱신">위치</button>
-            <button id="shareButton" class="top-tool" aria-label="링크 공유">공유</button>
+            <button id="shareButton" class="top-tool" aria-label="묵찌 PICK! 앱 공유">앱 공유</button>
             <button id="onboardingHelpButton" class="top-tool top-help-button" aria-label="묵찌 PICK! 사용법 보기" title="묵찌 PICK! 사용법 보기">사용법</button>
           </div>
         </div>
@@ -80,10 +79,16 @@
               <div>
                 <p class="eyebrow">Recommendation</p>
                 <h2 id="recommendTitle">메뉴 추천</h2>
+                <p id="recommendSubtitle" class="recommend-subtitle" hidden></p>
               </div>
               <button id="rouletteButton" class="icon-button">룰렛</button>
             </div>
             <div id="quickRecommendPanel" class="quick-recommend-panel"></div>
+
+            <button id="sharePickButton" type="button" class="share-pick-button" aria-label="현재 추천 메뉴 3개를 친구와 공유" hidden>
+              <span>친구와 같이 고르기</span>
+              <small>지금 나온 메뉴 3개를 그대로 보내요</small>
+            </button>
 
           <details id="conditionDetails" class="control-surface condition-details" aria-label="추천 조건">
             <summary aria-expanded="false" aria-controls="conditionDetailsBody">
@@ -274,13 +279,11 @@
             </div>
           </div>
           <div id="dataDashboard" class="dashboard-grid"></div>
+          <p class="official-note record-official-note">
+            묵찌 PICK!은 국립창원대학교 공식 앱이 아닌 학생 편의 서비스입니다.
+          </p>
         </section>
       </main>
-
-      <p class="official-note app-footer-note">
-        <img src="./assets/mukjji/09_mukjji_greeting_plain_512.webp" alt="" width="34" height="34" loading="lazy" aria-hidden="true" />
-        묵찌 PICK!은 국립창원대학교 공식 앱이 아닌 학생 편의 서비스입니다.
-      </p>
 
       <nav class="bottom-nav" aria-label="하단 메뉴">
         <button class="is-active" data-tab="recommendTab" aria-label="추천">
@@ -383,6 +386,7 @@
         <h2 id="onboardingTitle">고민하지 말고 바로 눌러보세요!</h2>
         <p id="onboardingDescription">묵찌가 창원대 앞 메뉴 중 지금 먹기 좋은 메뉴 3개를 골라드려요.</p>
         <p id="onboardingHelper" class="onboarding-helper"></p>
+        <p class="onboarding-official-note">묵찌 PICK!은 국립창원대학교 공식 앱이 아닌 학생 편의 서비스입니다.</p>
         <div class="onboarding-actions">
           <button type="button" id="onboardingSkipButton" class="onboarding-secondary">건너뛰기</button>
           <button type="button" id="onboardingPrevButton" class="onboarding-secondary">이전</button>

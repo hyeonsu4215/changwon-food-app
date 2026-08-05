@@ -11,6 +11,10 @@ const BUDGET_CUSTOMIZED_KEY = "changwonFoodBudgetCustomized";
 const RECOMMENDATION_PREFERENCES_KEY = "changwonFoodRecommendationPreferencesV1";
 const DISCOVERY_SEED_KEY = "changwonFoodDiscoverySeed";
 const ONBOARDING_SEEN_KEY = "changwonFoodOnboardingSeenV1";
+const APP_SHARE_URL = "https://changwon-food-app.vercel.app/";
+const SHARED_PICK_VERSION = "v1";
+const SHARED_PICK_VERSION_PARAM = "sharedPick";
+const SHARED_PICK_MENUS_PARAM = "menus";
 const SPLASH_MIN_DURATION = 1200;
 const splashStartedAt = Date.now();
 const WEATHER_BOOSTS = { rain: 5, hot: 4, cold: 5, humid: 3 };
@@ -222,6 +226,9 @@ const state = {
   locationPreference: localStorage.getItem("changwonFoodLocationPreference") || "",
   locationRequestId: 0,
   preserveDraftOnNextConditionOpen: false,
+  sharedPickStatus: "none",
+  sharedPickIds: [],
+  sharePickPending: false,
 };
 
 appliedRecommendationPreferences = recommendationPreferencesSnapshot();
@@ -256,8 +263,10 @@ const els = {
   saltyValue: document.querySelector("#saltyValue"),
   sweetValue: document.querySelector("#sweetValue"),
   recommendTitle: document.querySelector("#recommendTitle"),
+  recommendSubtitle: document.querySelector("#recommendSubtitle"),
   recommendSection: document.querySelector(".recommend-section"),
   quickRecommendPanel: document.querySelector("#quickRecommendPanel"),
+  sharePickButton: document.querySelector("#sharePickButton"),
   recommendActionDock: document.querySelector("#recommendActionDock"),
   recommendNudge: document.querySelector("#recommendNudge"),
   rerollQuickButton: document.querySelector("#rerollQuickButton"),
@@ -417,6 +426,94 @@ function haversine(a, b) {
 
 function currentBase() {
   return state.location || FALLBACK_LOCATION;
+}
+
+function parseSharedPickFromUrl(urlValue = window.location.href) {
+  try {
+    const url = new URL(urlValue, window.location.origin);
+    const hasVersion = url.searchParams.has(SHARED_PICK_VERSION_PARAM);
+    const hasMenus = url.searchParams.has(SHARED_PICK_MENUS_PARAM);
+    if (!hasVersion && !hasMenus) return { present: false, valid: false, ids: [] };
+    const version = url.searchParams.get(SHARED_PICK_VERSION_PARAM);
+    const rawIds = String(url.searchParams.get(SHARED_PICK_MENUS_PARAM) || "").split(",");
+    const ids = rawIds.map((id) => id.trim());
+    const safeIds = ids.every((id) => /^[A-Za-z0-9_-]{1,64}$/.test(id));
+    const uniqueIds = new Set(ids);
+    const availableIds = new Set(DATA.menus.filter((menu) => menu.available).map((menu) => String(menu.id)));
+    const valid =
+      version === SHARED_PICK_VERSION &&
+      ids.length === 3 &&
+      safeIds &&
+      uniqueIds.size === 3 &&
+      ids.every((id) => availableIds.has(id));
+    return { present: true, valid, ids: valid ? ids : [] };
+  } catch {
+    return { present: true, valid: false, ids: [] };
+  }
+}
+
+function buildSharedPickUrl(menuIds) {
+  const url = new URL(APP_SHARE_URL);
+  url.searchParams.set(SHARED_PICK_VERSION_PARAM, SHARED_PICK_VERSION);
+  url.searchParams.set(SHARED_PICK_MENUS_PARAM, menuIds.map((id) => String(id)).join(","));
+  return url.toString();
+}
+
+function resolveSharedPickItems(menuIds, locationBase = FALLBACK_LOCATION) {
+  const menusById = new Map(DATA.menus.filter((menu) => menu.available).map((menu) => [String(menu.id), menu]));
+  return menuIds.map((id) => {
+    const menu = menusById.get(String(id));
+    return menu
+      ? scoreMenu(menu, {
+          applyBudget: false,
+          applyTaste: false,
+          applyMoods: false,
+          applyWeather: false,
+          locationBase,
+        })
+      : null;
+  }).filter(Boolean);
+}
+
+function cleanAppUrl() {
+  const url = new URL(window.location.href);
+  url.searchParams.delete(SHARED_PICK_VERSION_PARAM);
+  url.searchParams.delete(SHARED_PICK_MENUS_PARAM);
+  return `${url.pathname}${url.search}${url.hash}`;
+}
+
+function setSharedPickState(parsed, locationBase = FALLBACK_LOCATION) {
+  if (state.recommendTimer) {
+    window.clearTimeout(state.recommendTimer);
+    state.recommendTimer = null;
+  }
+  state.isSearching = false;
+  state.hasSearched = true;
+  setActiveRecommendationMode("discovery");
+  state.quickMode = "discovery";
+  state.quickSeenIds = new Set();
+  state.rerollCount = 0;
+  state.rerollPromptVisible = false;
+  state.quickAppliedWeather = false;
+  state.quickLocationBase = { ...locationBase };
+  state.sharedPickStatus = parsed.valid ? "valid" : "error";
+  state.sharedPickIds = parsed.valid ? [...parsed.ids] : [];
+  state.quickItems = parsed.valid ? resolveSharedPickItems(parsed.ids, locationBase) : [];
+  state.page = 0;
+}
+
+function clearSharedPickState({ pushHistory = false } = {}) {
+  if (state.sharedPickStatus === "none") return;
+  state.sharedPickStatus = "none";
+  state.sharedPickIds = [];
+  if (pushHistory && history.pushState) {
+    history.pushState({ changwonFoodApp: true, screen: "recommendTab" }, "", cleanAppUrl());
+  }
+}
+
+function initializeSharedPickFromUrl() {
+  const parsed = parseSharedPickFromUrl();
+  if (parsed.present) setSharedPickState(parsed, FALLBACK_LOCATION);
 }
 
 function weekdayKo(date = new Date()) {
@@ -1030,6 +1127,12 @@ function updateQuickRecommendations({ reroll = false, applyWeather = true, locat
 
 function refreshQuickItemDerivedValues({ applyWeather = state.quickAppliedWeather, locationBase = currentBase() } = {}) {
   if (!state.quickItems.length) return;
+  if (state.sharedPickStatus === "valid") {
+    state.quickItems = resolveSharedPickItems(state.sharedPickIds, locationBase);
+    state.quickAppliedWeather = false;
+    state.quickLocationBase = { ...locationBase };
+    return;
+  }
   const all = state.quickMode === "discovery"
     ? getDiscoveryMenus({ applyWeather, locationBase })
     : getRecommendedMenus({ mode: "custom", applyWeather, locationBase });
@@ -1136,8 +1239,20 @@ function cardHtml(item, rank, context = "custom") {
 }
 
 function quickReasonText(item) {
+  if (item.weatherBoost?.label) {
+    return {
+      "비 오는 날": "비 오는 날 잘 어울리는 메뉴예요.",
+      "더운 날": "더운 날 잘 어울리는 메뉴예요.",
+      "추운 날": "쌀쌀한 날 잘 어울리는 메뉴예요.",
+      "흐린 날": "흐린 날 잘 어울리는 메뉴예요.",
+    }[item.weatherBoost.label] || item.weatherBoost.reason;
+  }
   const reasons = state.quickMode === "discovery" ? discoveryReasons(item) : recommendationReasons(item);
-  return reasons.slice(0, 2).join(" ") || "오늘은 이런 메뉴 어때요?";
+  const reason = reasons[0] || "";
+  if (reason.startsWith("예산 ")) return "설정한 예산 안에 들어요.";
+  if (reason.includes("거리라 이동 부담")) return `${meters(item.distance)} 거리예요.`;
+  if (reason === "현재 영업 정보를 확인할 수 있는 가게예요.") return "영업 정보를 확인할 수 있어요.";
+  return reason || (state.quickMode === "discovery" ? "오늘은 이런 메뉴 어때요?" : "선택한 조건에 잘 맞는 메뉴예요.");
 }
 
 function mukjjiEmptyHtml(message, className = "") {
@@ -1151,15 +1266,20 @@ function mukjjiEmptyHtml(message, className = "") {
 
 function quickHeroHtml(item) {
   const wished = isWished(item.id);
-  const tagList = compactTags(item, 3);
-  const badge = state.quickMode === "discovery" ? "오늘의 픽" : "맞춤 추천 1순위";
+  const badge = state.sharedPickStatus === "valid"
+    ? "후보 1"
+    : state.quickMode === "discovery"
+      ? "오늘의 픽"
+      : "맞춤 추천 1순위";
+  const mobileBadge = state.sharedPickStatus === "valid" ? "후보 1" : "추천 1";
   const mukjjiSrc = state.quickMode === "discovery"
     ? "./assets/mukjji/05_mukjji_recommend_bowl_512.webp"
     : "./assets/mukjji/07_mukjji_best_pick_512.webp";
   return `
     <article class="quick-hero-card">
+      <button type="button" class="quick-card-detail-hit" data-detail="${item.id}" data-detail-context="${state.quickMode}" aria-label="${escapeHtml(item.name)} 상세 보기"></button>
       <div class="quick-hero-head">
-        <div class="quick-rank-badge"><span class="quick-rank-label-desktop">${badge}</span><span class="quick-rank-label-mobile">추천 1</span></div>
+        <div class="quick-rank-badge"><span class="quick-rank-label-desktop">${badge}</span><span class="quick-rank-label-mobile">${mobileBadge}</span></div>
         <button class="heart-button ${wished ? "is-wished" : ""}" data-wish="${item.id}" aria-label="${wished ? "찜 해제" : "찜하기"}">${wished ? "♥" : "♡"}</button>
       </div>
       <div class="quick-hero-main">
@@ -1170,10 +1290,8 @@ function quickHeroHtml(item) {
         </div>
         <img class="quick-card-mukjji quick-hero-mukjji" src="${mukjjiSrc}" alt="" width="108" height="108" loading="lazy" aria-hidden="true" />
       </div>
-      <div class="meta-tags">${tagList.map((tag) => `<span>${tag}</span>`).join("")}</div>
       <div class="card-actions quick-actions">
-        <button data-ate="${item.id}">먹음 기록</button>
-        <button data-detail="${item.id}" data-detail-context="${state.quickMode}">상세 보기</button>
+        <button data-ate="${item.id}" aria-label="${escapeHtml(item.name)} 먹음 기록">먹음 기록</button>
         <a href="${mapUrl(item)}" target="_blank" rel="noreferrer"><span class="quick-map-label-desktop">네이버 지도</span><span class="quick-map-label-mobile">지도</span></a>
       </div>
     </article>
@@ -1182,25 +1300,28 @@ function quickHeroHtml(item) {
 
 function quickAlternativeHtml(item, rank) {
   const wished = isWished(item.id);
-  const tagList = compactTags(item, 3);
-  const label = state.quickMode === "discovery" ? (rank === 2 ? "다른 선택" : "또 다른 선택") : `맞춤 추천 ${rank}순위`;
+  const label = state.sharedPickStatus === "valid"
+    ? `후보 ${rank}`
+    : state.quickMode === "discovery"
+      ? (rank === 2 ? "다른 선택" : "또 다른 선택")
+      : `맞춤 추천 ${rank}순위`;
+  const mobileLabel = state.sharedPickStatus === "valid" ? `후보 ${rank}` : `추천 ${rank}`;
   const mukjjiSrc = rank === 2
     ? "./assets/mukjji/09_mukjji_greeting_plain_512.webp"
     : "./assets/mukjji/06_mukjji_eating_happy_512.webp";
   return `
     <article class="quick-alt-card">
+      <button type="button" class="quick-card-detail-hit" data-detail="${item.id}" data-detail-context="${state.quickMode}" aria-label="${escapeHtml(item.name)} 상세 보기"></button>
       <div class="quick-alt-top">
-        <span><img class="quick-alt-badge-mukjji" src="${mukjjiSrc}" alt="" width="30" height="30" loading="lazy" aria-hidden="true" /><b class="quick-rank-label-desktop">${label}</b><b class="quick-rank-label-mobile">추천 ${rank}</b></span>
+        <span><img class="quick-alt-badge-mukjji" src="${mukjjiSrc}" alt="" width="30" height="30" loading="lazy" aria-hidden="true" /><b class="quick-rank-label-desktop">${label}</b><b class="quick-rank-label-mobile">${mobileLabel}</b></span>
         <button class="heart-button ${wished ? "is-wished" : ""}" data-wish="${item.id}" aria-label="${wished ? "찜 해제" : "찜하기"}">${wished ? "♥" : "♡"}</button>
       </div>
       <h3>${escapeHtml(item.name)}</h3>
       <p class="store-line">${escapeHtml(item.restaurant?.name || item.restaurantName)} · ${money(item.price)} · ${meters(item.distance)}</p>
       <img class="quick-card-mukjji quick-alt-card-mukjji" src="${mukjjiSrc}" alt="" width="72" height="72" loading="lazy" aria-hidden="true" />
       <p class="recommend-copy">${quickReasonText(item)}</p>
-      <div class="meta-tags quick-mobile-tags">${tagList.map((tag) => `<span>${tag}</span>`).join("")}</div>
       <div class="card-actions quick-alt-actions">
-        <button data-ate="${item.id}">먹음 기록</button>
-        <button data-detail="${item.id}" data-detail-context="${state.quickMode}">상세 보기</button>
+        <button data-ate="${item.id}" aria-label="${escapeHtml(item.name)} 먹음 기록">먹음 기록</button>
         <a href="${mapUrl(item)}" target="_blank" rel="noreferrer"><span class="quick-map-label-desktop">지도</span><span class="quick-map-label-mobile">지도</span></a>
       </div>
     </article>
@@ -1232,7 +1353,7 @@ function shouldShowDiscoveryNudge() {
 }
 
 function discoveryStoredPreferenceNoteHtml() {
-  if (state.quickMode !== "discovery" || !hasCustomRecommendationConditions(appliedRecommendationConditions())) return "";
+  if (state.sharedPickStatus !== "none" || state.quickMode !== "discovery" || !hasCustomRecommendationConditions(appliedRecommendationConditions())) return "";
   return `<p class="discovery-mode-note">저장된 취향은 맞춤 추천을 선택하면 반영돼요.</p>`;
 }
 
@@ -1345,29 +1466,45 @@ function renderStoreSearch() {
 }
 
 function renderRecommendations() {
-  const hasResults = Boolean(state.hasSearched && state.quickItems.length);
+  const sharedView = state.sharedPickStatus !== "none";
+  const sharedError = state.sharedPickStatus === "error";
+  const hasResults = Boolean(state.hasSearched && (state.quickItems.length || sharedError));
   els.recommendSection?.classList.toggle("is-pristine", !state.hasSearched);
   document.body.classList.toggle("has-recommendations", hasResults);
   if (els.recommendActionDock) els.recommendActionDock.hidden = !hasResults;
+  if (els.sharePickButton) els.sharePickButton.hidden = state.quickItems.length !== 3;
   if (!state.hasSearched) {
     els.recommendTitle.textContent = "메뉴 추천";
+    if (els.recommendSubtitle) els.recommendSubtitle.hidden = true;
     els.quickRecommendPanel.innerHTML = "";
+    if (els.sharePickButton) els.sharePickButton.hidden = true;
     els.rerollQuickButton.style.display = "none";
     els.toggleAlternativesButton.style.display = "none";
     els.menuList.innerHTML = "";
     els.nextRecommendButton.style.display = "none";
     return;
   }
-  const { all, items, start } = pageMenus();
-  const mode = quickRecommendationMode();
+  const { all } = sharedView ? { all: state.quickItems } : pageMenus();
+  const mode = sharedView ? "discovery" : quickRecommendationMode();
   state.quickMode = mode;
-  els.recommendTitle.textContent = all.length ? (mode === "discovery" ? "오늘의 메뉴 3개" : "맞춤 메뉴 3개") : "추천 결과 없음";
-  els.quickRecommendPanel.innerHTML = state.quickItems.length
-    ? quickRecommendationsHtml(state.quickItems)
-    : `<div class="empty-state">조건에 맞는 메뉴가 없어요. 예산이나 조건을 조금 풀어보세요.</div>`;
-  const nudgeVisible = Boolean(state.quickItems.length && shouldShowDiscoveryNudge());
-  if (els.recommendActionDock) els.recommendActionDock.hidden = !hasResults || (all.length <= 3 && !nudgeVisible);
-  els.rerollQuickButton.style.display = all.length > 3 && !nudgeVisible ? "block" : "none";
+  els.recommendTitle.textContent = sharedView
+    ? "친구가 보낸 메뉴 후보예요"
+    : all.length
+      ? (mode === "discovery" ? "오늘의 메뉴 3개" : "맞춤 메뉴 3개")
+      : "추천 결과 없음";
+  if (els.recommendSubtitle) {
+    els.recommendSubtitle.textContent = sharedView ? "이 중에 뭐 먹을까요?" : "";
+    els.recommendSubtitle.hidden = !sharedView;
+  }
+  els.quickRecommendPanel.innerHTML = sharedError
+    ? `<div class="empty-state shared-pick-error" role="status">공유된 메뉴 정보를 불러올 수 없어요.</div>`
+    : state.quickItems.length
+      ? quickRecommendationsHtml(state.quickItems)
+      : `<div class="empty-state">조건에 맞는 메뉴가 없어요. 예산이나 조건을 조금 풀어보세요.</div>`;
+  const nudgeVisible = Boolean(!sharedView && state.quickItems.length && shouldShowDiscoveryNudge());
+  const rerollAvailable = sharedView || all.length > 3;
+  if (els.recommendActionDock) els.recommendActionDock.hidden = !hasResults || (!rerollAvailable && !nudgeVisible);
+  els.rerollQuickButton.style.display = rerollAvailable && !nudgeVisible ? "block" : "none";
   els.rerollQuickButton.textContent = "다른 메뉴 추천해줘";
   if (els.recommendNudge) els.recommendNudge.hidden = !nudgeVisible;
   els.toggleAlternativesButton.style.display = "none";
@@ -1760,6 +1897,7 @@ function renderSavedPreferenceCard() {
 }
 
 function resetFilters() {
+  const preserveSharedPick = state.sharedPickStatus !== "none";
   state.budget = 8000;
   setBudgetCustomized(false);
   refreshDiscoverySeed();
@@ -1780,9 +1918,11 @@ function resetFilters() {
   savedRecommendationPreferences = null;
   appliedRecommendationPreferences = recommendationPreferencesSnapshot();
   markConditionsChanged();
-  state.hasSearched = false;
-  state.quickItems = [];
-  state.quickSeenIds = new Set();
+  if (!preserveSharedPick) {
+    state.hasSearched = false;
+    state.quickItems = [];
+    state.quickSeenIds = new Set();
+  }
   state.rerollCount = 0;
   state.rerollPromptVisible = false;
   state.alternativesExpanded = false;
@@ -1840,6 +1980,7 @@ function finishRecommendation(delay, options = {}) {
 }
 
 function searchMenus() {
+  clearSharedPickState({ pushHistory: true });
   appliedRecommendationPreferences = recommendationPreferencesSnapshot();
   saveRecommendationPreferences(appliedRecommendationPreferences);
   setActiveRecommendationMode("personalized");
@@ -1851,6 +1992,7 @@ function searchMenus() {
 }
 
 function quickRecommend() {
+  clearSharedPickState({ pushHistory: true });
   setActiveRecommendationMode("discovery");
   state.rerollPromptVisible = false;
   state.rerollCount = 0;
@@ -1861,6 +2003,14 @@ function quickRecommend() {
 }
 
 function rerollQuickRecommendations() {
+  if (state.sharedPickStatus !== "none") {
+    clearSharedPickState({ pushHistory: true });
+    state.hasSearched = false;
+    state.quickItems = [];
+    state.quickSeenIds = new Set();
+    quickRecommend();
+    return;
+  }
   if (!state.hasSearched) {
     quickRecommend();
     return;
@@ -1898,6 +2048,7 @@ function dismissDiscoveryNudge() {
 }
 
 function returnToDiscoveryRecommendations() {
+  clearSharedPickState({ pushHistory: true });
   setActiveRecommendationMode("discovery");
   state.quickItems = [];
   state.quickSeenIds = new Set();
@@ -1950,6 +2101,12 @@ function handlePageShowRestore(event) {
   state.externalLinkClickAt = 0;
   state.pagehideAfterExternalLink = false;
   if (shouldKeepCurrentState) return;
+  const sharedPick = parseSharedPickFromUrl();
+  if (sharedPick.present) {
+    setSharedPickState(sharedPick, FALLBACK_LOCATION);
+    render();
+    return;
+  }
   restoreDiscoveryModeAfterPageShow();
 }
 
@@ -2732,19 +2889,89 @@ async function submitInfoReport(event) {
   toast("제보 접수 완료!");
 }
 
+async function copyTextToClipboard(value) {
+  if (navigator.clipboard?.writeText) {
+    try {
+      await navigator.clipboard.writeText(value);
+      return true;
+    } catch {
+      // Fall through for in-app browsers that expose Clipboard API but reject it.
+    }
+  }
+  const textArea = document.createElement("textarea");
+  textArea.value = value;
+  textArea.setAttribute("readonly", "");
+  textArea.style.position = "fixed";
+  textArea.style.opacity = "0";
+  document.body.appendChild(textArea);
+  textArea.select();
+  let copied = false;
+  try {
+    copied = document.execCommand("copy");
+  } catch {
+    copied = false;
+  }
+  textArea.remove();
+  return copied;
+}
+
 async function shareAppLink() {
-  const url = "https://changwon-food-app.vercel.app/";
   const shareData = {
     title: "묵찌 PICK! | 창원대 앞 오늘 뭐 먹지?",
     text: "오늘 뭐 먹을지 고민된다면? 묵찌 PICK!에서 창원대 앞 메뉴 3개를 추천받아봐!",
-    url,
+    url: APP_SHARE_URL,
   };
   if (navigator.share) {
-    await navigator.share(shareData).catch(() => {});
+    try {
+      await navigator.share(shareData);
+      return;
+    } catch (error) {
+      if (error?.name === "AbortError") return;
+    }
+  }
+  const copied = await copyTextToClipboard(APP_SHARE_URL);
+  toast(copied ? "묵찌 PICK! 링크를 복사했어요." : "링크를 복사하지 못했어요. 다시 시도해 주세요.");
+}
+
+function sharedPickMessage(items) {
+  const rows = items.map((item, index) => {
+    const details = [item.name, item.restaurant?.name || item.restaurantName];
+    if (Number.isFinite(Number(item.price)) && Number(item.price) > 0) details.push(money(item.price));
+    return `${index + 1}. ${details.join(" · ")}`;
+  });
+  return ["오늘 뭐 먹지? 묵찌가 3개 골랐어!", "", ...rows, "", "우리 뭐 먹을까?"].join("\n");
+}
+
+async function shareCurrentPick() {
+  if (state.sharePickPending) return;
+  if (state.quickItems.length !== 3) {
+    toast("공유할 메뉴 3개가 준비되지 않았어요.");
     return;
   }
-  await navigator.clipboard?.writeText(url).catch(() => {});
-  toast("묵찌 PICK! 링크를 복사했어요.");
+  const menuIds = state.quickItems.map((item) => String(item.id));
+  const sharedUrl = buildSharedPickUrl(menuIds);
+  const shareData = {
+    title: "묵찌 PICK! 메뉴 3개",
+    text: sharedPickMessage(state.quickItems),
+    url: sharedUrl,
+  };
+  state.sharePickPending = true;
+  if (els.sharePickButton) els.sharePickButton.disabled = true;
+  try {
+    if (navigator.share) {
+      try {
+        await navigator.share(shareData);
+        return;
+      } catch (error) {
+        if (error?.name === "AbortError") return;
+      }
+    }
+    const copied = await copyTextToClipboard(sharedUrl);
+    toast(copied ? "추천 메뉴 3개 링크를 복사했어요." : "링크를 복사하지 못했어요. 다시 시도해 주세요.");
+  } finally {
+    state.sharePickPending = false;
+    if (els.sharePickButton) els.sharePickButton.disabled = false;
+  }
 }
 
 function formatDateTime(value) {
@@ -3159,12 +3386,12 @@ function renderDashboard() {
   `;
 }
 
-function switchTab(tabId) {
+function switchTab(tabId, options = {}) {
   document.querySelectorAll(".tab-panel").forEach((panel) => panel.classList.toggle("is-active", panel.id === tabId));
   document.querySelectorAll(".bottom-nav button").forEach((button) => button.classList.toggle("is-active", button.dataset.tab === tabId));
   state.activeTab = tabId;
   closeRoulette();
-  pushAppState(tabId);
+  if (options.pushHistory !== false) pushAppState(tabId);
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
@@ -3285,6 +3512,7 @@ function cleanupOnboardingTemporaryRecommendation() {
 function scheduleOnboardingStart(options = {}) {
   const force = Boolean(options.force);
   if (!els.onboardingOverlay) return;
+  if (!force && state.sharedPickStatus !== "none") return;
   if (!force && hasSeenOnboarding()) return;
   if (state.onboarding.active || state.onboarding.pending) return;
   state.onboarding.pending = true;
@@ -3295,6 +3523,10 @@ function scheduleOnboardingStart(options = {}) {
       return;
     }
     if (!force && hasSeenOnboarding()) {
+      state.onboarding.pending = false;
+      return;
+    }
+    if (!force && state.sharedPickStatus !== "none") {
       state.onboarding.pending = false;
       return;
     }
@@ -3597,9 +3829,30 @@ function handleBackNavigation() {
   pushAppState("recommendTab");
 }
 
+function handlePopNavigation() {
+  const parsed = parseSharedPickFromUrl();
+  if (parsed.present) {
+    setSharedPickState(parsed, FALLBACK_LOCATION);
+    switchTab("recommendTab", { pushHistory: false });
+    render();
+    return;
+  }
+  if (state.sharedPickStatus !== "none") {
+    clearSharedPickState();
+    state.hasSearched = false;
+    state.quickItems = [];
+    state.quickSeenIds = new Set();
+    switchTab("recommendTab", { pushHistory: false });
+    quickRecommend();
+    return;
+  }
+  handleBackNavigation();
+}
+
 function bindEvents() {
   els.locationButton.addEventListener("click", showLocationDialog);
   els.shareButton.addEventListener("click", shareAppLink);
+  els.sharePickButton?.addEventListener("click", shareCurrentPick);
   els.onboardingHelpButton?.addEventListener("click", () => startOnboarding({ force: true }));
   els.quickRecommendButton.addEventListener("click", quickRecommend);
   els.searchButton.addEventListener("click", searchMenus);
@@ -3803,7 +4056,7 @@ function bindEvents() {
   els.closeDialog.addEventListener("click", () => els.detailDialog.close());
   els.closeReportDialog?.addEventListener("click", () => els.reportDialog.close());
   els.reportForm?.addEventListener("submit", submitInfoReport);
-  window.addEventListener("popstate", handleBackNavigation);
+  window.addEventListener("popstate", handlePopNavigation);
   window.addEventListener("resize", requestOnboardingPosition);
   window.addEventListener("orientationchange", requestOnboardingPosition);
   window.addEventListener("scroll", requestOnboardingPosition, { passive: true });
@@ -3829,6 +4082,7 @@ function finishSplash() {
 
 renderChips();
 bindEvents();
+initializeSharedPickFromUrl();
 if (history.replaceState && history.pushState) {
   history.replaceState({ changwonFoodApp: true, screen: "entry" }, "", window.location.href);
   history.pushState({ changwonFoodApp: true, screen: "recommendTab" }, "", window.location.href);
