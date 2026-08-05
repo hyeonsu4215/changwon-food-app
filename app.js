@@ -1151,7 +1151,7 @@ function mukjjiEmptyHtml(message, className = "") {
 
 function quickHeroHtml(item) {
   const wished = isWished(item.id);
-  const tagList = compactTags(item, 5);
+  const tagList = compactTags(item, 3);
   const badge = state.quickMode === "discovery" ? "오늘의 픽" : "맞춤 추천 1순위";
   const mukjjiSrc = state.quickMode === "discovery"
     ? "./assets/mukjji/05_mukjji_recommend_bowl_512.webp"
@@ -1168,13 +1168,13 @@ function quickHeroHtml(item) {
           <p class="store-line">${escapeHtml(item.restaurant?.name || item.restaurantName)} · ${money(item.price)} · ${meters(item.distance)}</p>
           <p class="recommend-copy">${quickReasonText(item)}</p>
         </div>
-        <img class="quick-hero-mukjji" src="${mukjjiSrc}" alt="" width="108" height="108" loading="lazy" aria-hidden="true" />
+        <img class="quick-card-mukjji quick-hero-mukjji" src="${mukjjiSrc}" alt="" width="108" height="108" loading="lazy" aria-hidden="true" />
       </div>
       <div class="meta-tags">${tagList.map((tag) => `<span>${tag}</span>`).join("")}</div>
       <div class="card-actions quick-actions">
         <button data-ate="${item.id}">먹음 기록</button>
         <button data-detail="${item.id}" data-detail-context="${state.quickMode}">상세 보기</button>
-        <a href="${mapUrl(item)}" target="_blank" rel="noreferrer">네이버 지도</a>
+        <a href="${mapUrl(item)}" target="_blank" rel="noreferrer"><span class="quick-map-label-desktop">네이버 지도</span><span class="quick-map-label-mobile">지도</span></a>
       </div>
     </article>
   `;
@@ -1182,20 +1182,26 @@ function quickHeroHtml(item) {
 
 function quickAlternativeHtml(item, rank) {
   const wished = isWished(item.id);
+  const tagList = compactTags(item, 3);
   const label = state.quickMode === "discovery" ? (rank === 2 ? "다른 선택" : "또 다른 선택") : `맞춤 추천 ${rank}순위`;
+  const mukjjiSrc = rank === 2
+    ? "./assets/mukjji/09_mukjji_greeting_plain_512.webp"
+    : "./assets/mukjji/06_mukjji_eating_happy_512.webp";
   return `
     <article class="quick-alt-card">
       <div class="quick-alt-top">
-        <span><img src="./assets/mukjji/09_mukjji_greeting_plain_512.webp" alt="" width="30" height="30" loading="lazy" aria-hidden="true" /><b class="quick-rank-label-desktop">${label}</b><b class="quick-rank-label-mobile">추천 ${rank}</b></span>
+        <span><img class="quick-alt-badge-mukjji" src="${mukjjiSrc}" alt="" width="30" height="30" loading="lazy" aria-hidden="true" /><b class="quick-rank-label-desktop">${label}</b><b class="quick-rank-label-mobile">추천 ${rank}</b></span>
         <button class="heart-button ${wished ? "is-wished" : ""}" data-wish="${item.id}" aria-label="${wished ? "찜 해제" : "찜하기"}">${wished ? "♥" : "♡"}</button>
       </div>
       <h3>${escapeHtml(item.name)}</h3>
       <p class="store-line">${escapeHtml(item.restaurant?.name || item.restaurantName)} · ${money(item.price)} · ${meters(item.distance)}</p>
+      <img class="quick-card-mukjji quick-alt-card-mukjji" src="${mukjjiSrc}" alt="" width="72" height="72" loading="lazy" aria-hidden="true" />
       <p class="recommend-copy">${quickReasonText(item)}</p>
+      <div class="meta-tags quick-mobile-tags">${tagList.map((tag) => `<span>${tag}</span>`).join("")}</div>
       <div class="card-actions quick-alt-actions">
         <button data-ate="${item.id}">먹음 기록</button>
-        <button data-detail="${item.id}" data-detail-context="${state.quickMode}">상세</button>
-        <a href="${mapUrl(item)}" target="_blank" rel="noreferrer">지도</a>
+        <button data-detail="${item.id}" data-detail-context="${state.quickMode}">상세 보기</button>
+        <a href="${mapUrl(item)}" target="_blank" rel="noreferrer"><span class="quick-map-label-desktop">지도</span><span class="quick-map-label-mobile">지도</span></a>
       </div>
     </article>
   `;
