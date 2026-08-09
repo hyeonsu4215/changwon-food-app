@@ -1,12 +1,54 @@
 const DATA = window.CHANGWON_FOOD_DATA;
+const catalogPolicy = window.CHANGWON_CATALOG_POLICY;
+const CATALOG_SEED_LOCKED = true;
+
+function cloneStaticValue(value) {
+  if (Array.isArray(value)) return value.map(cloneStaticValue);
+  if (value && typeof value === "object") {
+    return Object.fromEntries(Object.entries(value).map(([key, nestedValue]) => [key, cloneStaticValue(nestedValue)]));
+  }
+  return value;
+}
+
+function deepFreeze(value) {
+  if (!value || typeof value !== "object" || Object.isFrozen(value)) return value;
+  Object.values(value).forEach(deepFreeze);
+  return Object.freeze(value);
+}
+
+function readStaticCatalog(data) {
+  if (!data || !Array.isArray(data.restaurants) || !Array.isArray(data.menus)) {
+    return {
+      restaurants: [],
+      menus: [],
+      error: { message: "data.js의 가게 또는 메뉴 배열을 읽을 수 없습니다." },
+    };
+  }
+  return {
+    restaurants: deepFreeze(cloneStaticValue(data.restaurants)),
+    menus: deepFreeze(cloneStaticValue(data.menus)),
+    error: null,
+  };
+}
+
+const staticCatalog = readStaticCatalog(DATA);
 
 const state = {
   supabase: null,
   user: null,
   reviews: [],
   reports: [],
-  restaurants: [...DATA.restaurants],
-  menus: [...DATA.menus],
+  restaurants: [],
+  menus: [],
+  staticRestaurants: staticCatalog.restaurants,
+  staticMenus: staticCatalog.menus,
+  staticDataError: staticCatalog.error,
+  catalogConnection: { connected: false, error: null },
+  catalogResponse: { restaurants: [], menus: [] },
+  dataStatus: null,
+  catalogSource: "supabase",
+  selectedRestaurantId: null,
+  selectedMenuId: null,
   reviewFilter: "all",
   reviewMode: "all",
   reviewRestaurantId: "all",
@@ -18,12 +60,24 @@ const state = {
 
 const els = {
   adminStatus: document.querySelector("#adminStatus"),
+  connectionBadge: document.querySelector("#connectionBadge"),
   signOutButton: document.querySelector("#signOutButton"),
   loginPanel: document.querySelector("#loginPanel"),
   loginForm: document.querySelector("#loginForm"),
   adminEmail: document.querySelector("#adminEmail"),
   adminPassword: document.querySelector("#adminPassword"),
   adminPanel: document.querySelector("#adminPanel"),
+  refreshDataStatus: document.querySelector("#refreshDataStatus"),
+  catalogHealthBadge: document.querySelector("#catalogHealthBadge"),
+  catalogHealthTitle: document.querySelector("#catalogHealthTitle"),
+  diagConnection: document.querySelector("#diagConnection"),
+  diagSupabaseStores: document.querySelector("#diagSupabaseStores"),
+  diagSupabaseMenus: document.querySelector("#diagSupabaseMenus"),
+  diagStaticCounts: document.querySelector("#diagStaticCounts"),
+  diagAdminSource: document.querySelector("#diagAdminSource"),
+  diagUserSource: document.querySelector("#diagUserSource"),
+  diagRefreshedAt: document.querySelector("#diagRefreshedAt"),
+  diagnosticWarnings: document.querySelector("#diagnosticWarnings"),
   reviewsPanel: document.querySelector("#reviewsPanel"),
   reportsPanel: document.querySelector("#reportsPanel"),
   catalogPanel: document.querySelector("#catalogPanel"),
@@ -35,6 +89,10 @@ const els = {
   reportList: document.querySelector("#reportList"),
   catalogList: document.querySelector("#catalogList"),
   catalogCount: document.querySelector("#catalogCount"),
+  catalogSourceBadge: document.querySelector("#catalogSourceBadge"),
+  catalogSourceSummary: document.querySelector("#catalogSourceSummary"),
+  catalogWriteWarning: document.querySelector("#catalogWriteWarning"),
+  newCatalogButton: document.querySelector("#newCatalogButton"),
   restaurantEditor: document.querySelector("#restaurantEditor"),
   menuEditor: document.querySelector("#menuEditor"),
   restaurantForm: document.querySelector("#restaurantForm"),
@@ -45,8 +103,10 @@ const els = {
   refreshReports: document.querySelector("#refreshReports"),
 };
 
-const restaurantsById = new Map(DATA.restaurants.map((restaurant) => [restaurant.id, restaurant]));
-const menusById = new Map(DATA.menus.map((menu) => [menu.id, menu]));
+const restaurantsById = new Map();
+const menusById = new Map();
+const staticRestaurantsById = new Map(state.staticRestaurants.map((restaurant) => [restaurant.id, restaurant]));
+const staticMenusById = new Map(state.staticMenus.map((menu) => [menu.id, menu]));
 
 function refreshCatalogMaps() {
   restaurantsById.clear();
@@ -79,6 +139,145 @@ function toDateInput(value) {
 
 function dateInputToIso(value) {
   return value ? `${value}T00:00:00` : null;
+}
+
+function sourceLabel(source) {
+  return {
+    supabase: "Supabase 관리 데이터",
+    static: "정적 data.js · 읽기 전용",
+    unavailable: "사용 불가",
+  }[source] || "확인 불가";
+}
+
+function healthMeta(status) {
+  return {
+    normal: { label: "정상", title: "Supabase 카탈로그를 운영 앱도 사용할 것으로 예상됩니다.", className: "is-normal" },
+    partial: { label: "부분 데이터", title: "데이터 불일치 주의", className: "is-warning" },
+    empty: { label: "빈 데이터", title: "Supabase 카탈로그가 비어 있습니다.", className: "is-warning" },
+    "static-error": { label: "정적 데이터 오류", title: "정적 기준 데이터를 읽지 못했습니다.", className: "is-danger" },
+    "data-shape-error": { label: "응답 형식 오류", title: "Supabase 응답 형식이 올바르지 않습니다.", className: "is-danger" },
+    "policy-load-error": { label: "정책 로드 오류", title: "데이터 판정 정책 파일 로드 오류", className: "is-danger" },
+    "connection-error": { label: "연결 오류", title: "Supabase 카탈로그를 조회하지 못했습니다.", className: "is-danger" },
+  }[status] || { label: "확인 불가", title: "데이터 상태를 확인할 수 없습니다.", className: "is-idle" };
+}
+
+function formatRefreshTime(value) {
+  if (!value) return "아직 새로고침하지 않음";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "확인 불가";
+  return date.toLocaleString("ko-KR", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  });
+}
+
+function updateDataStatus(refreshedAt = state.dataStatus?.refreshedAt || null) {
+  if (!catalogPolicy?.assessCatalogData) {
+    state.dataStatus = {
+      source: "unavailable",
+      status: "policy-load-error",
+      supabase: {
+        connected: state.catalogConnection.connected,
+        storesCount: state.restaurants.length,
+        menusCount: state.menus.length,
+        activeStoresCount: state.restaurants.filter((restaurant) => restaurant.active === true).length,
+        availableMenusCount: state.menus.filter((menu) => menu.available === true).length,
+        validAvailableMenusCount: 0,
+        inactiveRestaurantMenusCount: 0,
+        orphanMenusCount: 0,
+        responseShapeValid: false,
+        error: null,
+      },
+      staticData: {
+        loaded: !state.staticDataError,
+        storesCount: state.staticRestaurants.length,
+        menusCount: state.staticMenus.length,
+        error: state.staticDataError,
+      },
+      userAppExpectedSource: "unavailable",
+      adminDisplayedSource: "unavailable",
+      sourceMismatch: false,
+      refreshedAt,
+      warnings: [{ code: "policy-load-error", level: "danger", message: "데이터 판정 정책 파일 로드 오류가 발생했습니다. 카탈로그 편집을 사용할 수 없습니다." }],
+    };
+    renderDataStatus();
+    return;
+  }
+  state.dataStatus = catalogPolicy.assessCatalogData({
+    supabaseConnected: state.catalogConnection.connected,
+    supabaseRestaurants: state.catalogResponse.restaurants,
+    supabaseMenus: state.catalogResponse.menus,
+    supabaseError: state.catalogConnection.error,
+    staticRestaurants: state.staticRestaurants,
+    staticMenus: state.staticMenus,
+    staticError: state.staticDataError,
+    adminDisplayedSource: state.catalogSource,
+    refreshedAt,
+  });
+  renderDataStatus();
+}
+
+function renderDataStatus() {
+  const status = state.dataStatus;
+  if (!status) return;
+  const health = healthMeta(status.status);
+  const responseError = status.status === "data-shape-error";
+  const policyError = status.status === "policy-load-error";
+  els.catalogHealthBadge.textContent = health.label;
+  els.catalogHealthBadge.className = `health-badge ${health.className}`;
+  els.catalogHealthTitle.textContent = health.title;
+  els.diagConnection.textContent = policyError
+    ? "정책 파일 로드 오류"
+    : responseError
+      ? "연결됨 · 응답 형식 오류"
+      : status.supabase.connected
+        ? "연결됨"
+        : "연결 오류";
+  els.diagSupabaseStores.textContent = `${status.supabase.storesCount}곳 (운영 표시 ${status.supabase.activeStoresCount}곳)`;
+  els.diagSupabaseMenus.textContent = `${status.supabase.menusCount}개 (판매중 ${status.supabase.availableMenusCount}개)`;
+  els.diagStaticCounts.textContent = status.staticData.loaded
+    ? `가게 ${status.staticData.storesCount}곳 · 메뉴 ${status.staticData.menusCount}개`
+    : "읽기 오류";
+  els.diagAdminSource.textContent = sourceLabel(status.adminDisplayedSource);
+  els.diagUserSource.textContent = sourceLabel(status.userAppExpectedSource);
+  els.diagRefreshedAt.textContent = formatRefreshTime(status.refreshedAt);
+  els.connectionBadge.textContent = policyError
+    ? "판정 정책 오류"
+    : responseError
+      ? "Supabase 응답 오류"
+      : status.supabase.connected
+        ? "Supabase 연결됨"
+        : "Supabase 연결 오류";
+  els.connectionBadge.className = `connection-badge ${status.supabase.connected && !responseError && !policyError ? "is-connected" : "is-error"}`;
+  els.diagnosticWarnings.innerHTML = status.warnings.length
+    ? status.warnings
+        .map((warning) => `<p class="diagnostic-warning ${warning.level}">${escapeHtml(warning.message)}</p>`)
+        .join("")
+    : `<p class="diagnostic-ok">가게·메뉴 원본과 기본 참조 관계가 정상입니다.</p>`;
+}
+
+function currentCatalogData() {
+  if (state.catalogSource === "static") {
+    return {
+      restaurants: state.staticRestaurants,
+      menus: state.staticMenus,
+      restaurantsById: staticRestaurantsById,
+      editable: false,
+    };
+  }
+  return {
+    restaurants: state.restaurants,
+    menus: state.menus,
+    restaurantsById,
+    editable: Boolean(
+      state.dataStatus?.supabase.connected &&
+      !["connection-error", "data-shape-error", "policy-load-error"].includes(state.dataStatus.status),
+    ),
+  };
 }
 
 function dbRestaurantToApp(row) {
@@ -192,30 +391,40 @@ function nextId(prefix, rows) {
 function menuLabel(menuId) {
   const menu = menusById.get(menuId);
   const restaurant = menu ? restaurantsById.get(menu.restaurantId) : null;
-  if (!menu) return menuId || "메뉴 없음";
+  if (!menu) {
+    const staticMenu = staticMenusById.get(menuId);
+    const staticRestaurant = staticMenu ? staticRestaurantsById.get(staticMenu.restaurantId) : null;
+    if (staticMenu) return `${staticRestaurant?.name || staticMenu.restaurantName} · ${staticMenu.name} (정적 기준)`;
+    return menuId || "메뉴 없음";
+  }
   return `${restaurant?.name || menu.restaurantName} · ${menu.name}`;
 }
 
 function reviewRestaurantId(review) {
   if (review.restaurant_id) return review.restaurant_id;
   const menu = menusById.get(review.menu_id);
-  return menu?.restaurantId || "";
+  return menu?.restaurantId || staticMenusById.get(review.menu_id)?.restaurantId || "";
 }
 
 function reviewRestaurantName(review) {
   const id = reviewRestaurantId(review);
-  return restaurantsById.get(id)?.name || "가게 정보 없음";
+  return restaurantsById.get(id)?.name || (staticRestaurantsById.get(id)?.name ? `${staticRestaurantsById.get(id).name} (정적 기준)` : "가게 정보 없음");
 }
 
 function renderRestaurantFilterOptions() {
   if (!els.reviewRestaurantFilter) return;
-  const options = state.restaurants
+  const supabaseIds = new Set(state.restaurants.map((restaurant) => restaurant.id));
+  const supabaseOptions = state.restaurants
     .map((restaurant) => `<option value="${restaurant.id}">${escapeHtml(restaurant.name)}</option>`)
     .join("");
-  els.reviewRestaurantFilter.innerHTML = `<option value="all">전체 가게</option>${options}`;
+  const staticOptions = state.staticRestaurants
+    .filter((restaurant) => !supabaseIds.has(restaurant.id))
+    .map((restaurant) => `<option value="${restaurant.id}">${escapeHtml(restaurant.name)} (정적 기준)</option>`)
+    .join("");
+  els.reviewRestaurantFilter.innerHTML = `<option value="all">전체 가게</option>${supabaseOptions}${staticOptions}`;
   const menuSelect = els.menuForm?.elements.restaurantId;
   if (menuSelect) {
-    menuSelect.innerHTML = options;
+    menuSelect.innerHTML = supabaseOptions;
   }
 }
 
@@ -239,6 +448,8 @@ async function initSupabase() {
   const config = window.CHANGWON_SUPABASE_CONFIG;
   if (!config?.enabled || !config.url || !config.anonKey) {
     els.adminStatus.textContent = "Supabase 설정이 없습니다.";
+    state.catalogConnection = { connected: false, error: { message: "Supabase 설정이 없습니다." } };
+    updateDataStatus();
     return false;
   }
   if (!window.supabase?.createClient) {
@@ -246,6 +457,8 @@ async function initSupabase() {
   }
   if (!window.supabase?.createClient) {
     els.adminStatus.textContent = "Supabase 라이브러리를 불러오지 못했습니다.";
+    state.catalogConnection = { connected: false, error: { message: "Supabase 라이브러리 로딩 실패" } };
+    updateDataStatus();
     return false;
   }
   state.supabase = window.supabase.createClient(config.url, config.anonKey);
@@ -310,34 +523,53 @@ async function signOut() {
 
 async function loadCatalog() {
   if (!els.catalogList) return;
-  const [restaurantResult, menuResult] = await Promise.all([
-    state.supabase.from("restaurants").select("*").order("name", { ascending: true }),
-    state.supabase.from("menus").select("*").order("name", { ascending: true }),
-  ]).catch((error) => {
+  els.catalogList.innerHTML = `<div class="empty">Supabase 가게·메뉴 데이터를 불러오는 중...</div>`;
+  let restaurantResult;
+  let menuResult;
+  try {
+    [restaurantResult, menuResult] = await Promise.all([
+      state.supabase.from("restaurants").select("*").order("name", { ascending: true }),
+      state.supabase.from("menus").select("*").order("name", { ascending: true }),
+    ]);
+  } catch (error) {
     console.warn("catalog load failed", error);
-    return [];
-  });
+    restaurantResult = { data: null, error };
+    menuResult = { data: null, error };
+  }
 
-  if (restaurantResult?.error || menuResult?.error) {
-    els.catalogList.innerHTML = `<div class="empty">가게/메뉴 테이블이 아직 없습니다. Supabase에서 05_catalog_tables_policies.sql을 먼저 실행해주세요.</div>`;
+  state.catalogResponse = {
+    restaurants: restaurantResult?.data,
+    menus: menuResult?.data,
+  };
+  const catalogError = restaurantResult?.error || menuResult?.error;
+  if (catalogError) {
+    state.restaurants = [];
+    state.menus = [];
+    state.catalogConnection = { connected: false, error: catalogError };
+    refreshCatalogMaps();
+    renderRestaurantFilterOptions();
+    updateDataStatus(new Date().toISOString());
+    renderCatalog();
     return;
   }
 
-  if (restaurantResult?.data?.length) {
-    state.restaurants = restaurantResult.data.map(dbRestaurantToApp);
-    refreshCatalogMaps();
-  }
-  if (menuResult?.data?.length) {
-    state.menus = menuResult.data.map(dbMenuToApp);
-    refreshCatalogMaps();
-  }
+  state.restaurants = Array.isArray(restaurantResult?.data) ? restaurantResult.data.map(dbRestaurantToApp) : [];
+  refreshCatalogMaps();
+  state.menus = Array.isArray(menuResult?.data) ? menuResult.data.map(dbMenuToApp) : [];
+  state.catalogConnection = { connected: true, error: null };
+  refreshCatalogMaps();
   renderRestaurantFilterOptions();
   clearRestaurantForm();
   clearMenuForm();
+  updateDataStatus(new Date().toISOString());
   renderCatalog();
 }
 
 async function seedCatalogFromStatic() {
+  if (CATALOG_SEED_LOCKED) {
+    alert("초기 업로드는 안전 기능이 준비될 때까지 잠겨 있습니다.");
+    return false;
+  }
   if (!confirm("현재 data.js의 가게/메뉴를 Supabase에 업로드할까요? 같은 ID는 덮어씁니다.")) return;
   els.catalogList.innerHTML = `<div class="empty">초기 데이터를 업로드하는 중...</div>`;
   state.restaurants = [...DATA.restaurants].map((restaurant) => ({ ...restaurant, active: true }));
@@ -515,61 +747,126 @@ async function updateReportStatus(id, status) {
 
 function renderCatalog() {
   if (!els.catalogList) return;
+  updateDataStatus();
+  const catalog = currentCatalogData();
   const isRestaurantMode = state.catalogMode === "restaurants";
-  els.restaurantEditor.hidden = !isRestaurantMode;
-  els.menuEditor.hidden = isRestaurantMode;
-  els.catalogCount.textContent = isRestaurantMode ? `가게 ${state.restaurants.length}곳` : `메뉴 ${state.menus.length}개`;
-  els.catalogList.innerHTML = isRestaurantMode ? renderRestaurantRows() : renderMenuRows();
+  els.restaurantEditor.hidden = !catalog.editable || !isRestaurantMode;
+  els.menuEditor.hidden = !catalog.editable || isRestaurantMode;
+  els.newCatalogButton.disabled = !catalog.editable;
+  els.catalogCount.textContent = isRestaurantMode ? `가게 ${catalog.restaurants.length}곳` : `메뉴 ${catalog.menus.length}개`;
+  els.catalogSourceBadge.textContent = state.catalogSource === "static" ? "정적 기준 · 읽기 전용" : "SUPABASE";
+  els.catalogSourceBadge.className = `source-badge ${state.catalogSource}`;
+  els.catalogSourceSummary.textContent = catalogSourceSummary(catalog, isRestaurantMode);
+  renderCatalogWriteWarning(catalog);
+  document.querySelectorAll("[data-catalog-source]").forEach((button) => {
+    const selected = button.dataset.catalogSource === state.catalogSource;
+    button.classList.toggle("is-active", selected);
+    button.setAttribute("aria-pressed", String(selected));
+  });
+  els.catalogList.innerHTML = isRestaurantMode
+    ? renderRestaurantRows(catalog.restaurants, catalog.editable)
+    : renderMenuRows(catalog.menus, catalog.restaurantsById, catalog.editable);
 }
 
-function renderRestaurantRows() {
-  return state.restaurants.length
-    ? state.restaurants
+function catalogSourceSummary(catalog, isRestaurantMode) {
+  const count = isRestaurantMode ? catalog.restaurants.length : catalog.menus.length;
+  const unit = isRestaurantMode ? "곳" : "개";
+  if (state.catalogSource === "static") {
+    return state.staticDataError
+      ? "정적 data.js를 읽지 못했습니다."
+      : `정적 기준 데이터 ${count}${unit} · 편집할 수 없습니다.`;
+  }
+  if (state.dataStatus?.status === "policy-load-error") return "데이터 판정 정책 파일 로드 오류 · 편집할 수 없습니다.";
+  if (state.dataStatus?.status === "data-shape-error") return "Supabase 응답 형식 오류 · 빈 데이터로 처리하지 않았습니다.";
+  if (!state.dataStatus?.supabase.connected) return "Supabase 조회 실패 · 정적 데이터로 자동 대체하지 않았습니다.";
+  if (state.dataStatus.status === "partial") return `Supabase에 저장된 준비 데이터 ${count}${unit} · 전체 운영 목록이 아닐 수 있습니다.`;
+  if (state.dataStatus.status === "empty") return `Supabase에 저장된 데이터 0${unit}`;
+  return `Supabase 운영 데이터 ${count}${unit}`;
+}
+
+function renderCatalogWriteWarning(catalog) {
+  let message = "";
+  if (!catalog.editable && state.catalogSource === "static") {
+    message = "정적 data.js는 기준 확인용 읽기 전용 데이터입니다. 이 목록에서는 추가, 수정, 삭제할 수 없습니다.";
+  } else if (state.dataStatus?.status === "policy-load-error") {
+    message = "데이터 판정 정책 파일 로드 오류가 발생해 카탈로그 편집을 잠갔습니다.";
+  } else if (state.dataStatus?.status === "data-shape-error") {
+    message = "Supabase 응답 형식이 올바르지 않아 카탈로그 편집을 잠갔습니다.";
+  } else if (!catalog.editable) {
+    message = "Supabase 조회에 실패해 편집 기능을 사용할 수 없습니다. 연결 상태를 먼저 확인하세요.";
+  } else if (state.dataStatus?.userAppExpectedSource !== "supabase") {
+    message = "현재 운영 사용자 앱은 정적 data.js를 사용할 것으로 예상됩니다. 여기서 저장한 변경이 운영 앱에 반영되지 않을 수 있습니다.";
+  }
+  els.catalogWriteWarning.hidden = !message;
+  els.catalogWriteWarning.textContent = message;
+}
+
+function catalogEmptyMessage() {
+  if (state.catalogSource === "static" && state.staticDataError) return "정적 data.js를 읽지 못했습니다.";
+  if (state.catalogSource === "supabase" && state.dataStatus?.status === "policy-load-error") {
+    return "데이터 판정 정책 파일 로드 오류로 Supabase 목록을 사용할 수 없습니다.";
+  }
+  if (state.catalogSource === "supabase" && state.dataStatus?.status === "data-shape-error") {
+    return "Supabase 응답 형식 오류입니다. 빈 데이터와 구분해 편집을 차단했습니다.";
+  }
+  if (state.catalogSource === "supabase" && !state.dataStatus?.supabase.connected) {
+    return "Supabase 조회에 실패했습니다. 정적 데이터로 자동 대체하지 않았습니다.";
+  }
+  if (state.catalogSource === "supabase" && state.dataStatus?.status === "partial") {
+    return "이 원본에는 해당 데이터가 없습니다. 정적 기준 데이터는 위 원본 전환에서 별도로 확인하세요.";
+  }
+  return "등록된 데이터가 없습니다.";
+}
+
+function renderRestaurantRows(restaurants, editable) {
+  return restaurants.length
+    ? restaurants
         .map(
           (restaurant) => `
             <article class="admin-row catalog-row">
               <div class="row-top">
                 <strong>${escapeHtml(restaurant.name)}</strong>
-                <span class="badge ${restaurant.active === false ? "hidden" : "visible"}">${restaurant.active === false ? "숨김" : "표시"}</span>
+                <div class="badge-group">
+                  <span class="source-badge ${state.catalogSource}">${state.catalogSource === "static" ? "정적 기준" : "SUPABASE"}</span>
+                  <span class="badge ${restaurant.active === false ? "hidden" : "visible"}">${restaurant.active === false ? "숨김" : "표시"}</span>
+                </div>
               </div>
               <div class="meta">${escapeHtml(restaurant.id)} · ${escapeHtml(restaurant.address || "주소 없음")} · ${restaurant.openTime || "-"}-${restaurant.closeTime || "-"}</div>
               <p class="message">포장 ${restaurant.takeout ? "O" : "X"} · 배달 ${restaurant.delivery ? "O" : "X"} · 혼밥 ${restaurant.alone ? "O" : "X"} · 좌석 ${restaurant.seats || 0}</p>
-              <div class="row-actions">
-                <button data-edit-restaurant="${restaurant.id}">수정</button>
-                <button class="danger" data-delete-restaurant="${restaurant.id}">삭제</button>
-              </div>
+              ${editable ? `<div class="row-actions"><button data-edit-restaurant="${restaurant.id}">수정</button><button class="danger" data-delete-restaurant="${restaurant.id}">삭제</button></div>` : ""}
             </article>
           `,
         )
         .join("")
-    : `<div class="empty">등록된 가게가 없습니다.</div>`;
+    : `<div class="empty">${catalogEmptyMessage()}</div>`;
 }
 
-function renderMenuRows() {
-  return state.menus.length
-    ? state.menus
+function renderMenuRows(menus, restaurantMap, editable) {
+  return menus.length
+    ? menus
         .map(
           (menu) => `
             <article class="admin-row catalog-row">
               <div class="row-top">
                 <strong>${escapeHtml(menu.name)}</strong>
-                <span class="badge ${menu.available === false ? "hidden" : "visible"}">${menu.available === false ? "중지" : "판매중"}</span>
+                <div class="badge-group">
+                  <span class="source-badge ${state.catalogSource}">${state.catalogSource === "static" ? "정적 기준" : "SUPABASE"}</span>
+                  <span class="badge ${menu.available === false ? "hidden" : "visible"}">${menu.available === false ? "중지" : "판매중"}</span>
+                </div>
               </div>
-              <div class="meta">${escapeHtml(menu.id)} · ${escapeHtml(restaurantsById.get(menu.restaurantId)?.name || menu.restaurantName || "가게 없음")} · ${escapeHtml(menu.category)} · ${Number(menu.price || 0).toLocaleString("ko-KR")}원</div>
+              <div class="meta">${escapeHtml(menu.id)} · ${escapeHtml(restaurantMap.get(menu.restaurantId)?.name || menu.restaurantName || "가게 없음")} · ${escapeHtml(menu.category)} · ${Number(menu.price || 0).toLocaleString("ko-KR")}원</div>
               <p class="message">맵기 ${menu.spicy} · 짠맛 ${menu.salty} · 단맛 ${menu.sweet} · ${escapeHtml((menu.tags || []).join(", "))}</p>
-              <div class="row-actions">
-                <button data-edit-menu="${menu.id}">수정</button>
-                <button class="danger" data-delete-menu="${menu.id}">삭제</button>
-              </div>
+              ${editable ? `<div class="row-actions"><button data-edit-menu="${menu.id}">수정</button><button class="danger" data-delete-menu="${menu.id}">삭제</button></div>` : ""}
             </article>
           `,
         )
         .join("")
-    : `<div class="empty">등록된 메뉴가 없습니다.</div>`;
+    : `<div class="empty">${catalogEmptyMessage()}</div>`;
 }
 
 function clearRestaurantForm() {
   if (!els.restaurantForm) return;
+  state.selectedRestaurantId = null;
   els.restaurantForm.reset();
   els.restaurantForm.elements.id.value = nextId("C", state.restaurants);
   els.restaurantForm.elements.area.value = "정문";
@@ -582,6 +879,7 @@ function clearRestaurantForm() {
 
 function clearMenuForm() {
   if (!els.menuForm) return;
+  state.selectedMenuId = null;
   els.menuForm.reset();
   els.menuForm.elements.id.value = nextId("M", state.menus);
   els.menuForm.elements.price.value = 0;
@@ -598,6 +896,7 @@ function clearMenuForm() {
 function editRestaurant(id) {
   const restaurant = state.restaurants.find((item) => item.id === id);
   if (!restaurant) return;
+  state.selectedRestaurantId = id;
   const form = els.restaurantForm.elements;
   form.id.value = restaurant.id;
   form.name.value = restaurant.name || "";
@@ -626,6 +925,7 @@ function editRestaurant(id) {
 function editMenu(id) {
   const menu = state.menus.find((item) => item.id === id);
   if (!menu) return;
+  state.selectedMenuId = id;
   const form = els.menuForm.elements;
   form.id.value = menu.id;
   form.restaurantId.value = menu.restaurantId;
@@ -647,8 +947,31 @@ function editMenu(id) {
   els.menuEditor.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
+function resetCatalogEditingState() {
+  state.selectedRestaurantId = null;
+  state.selectedMenuId = null;
+  clearRestaurantForm();
+  clearMenuForm();
+}
+
+function switchCatalogSource(nextSource) {
+  if (!["supabase", "static"].includes(nextSource) || nextSource === state.catalogSource) return false;
+  state.catalogSource = nextSource;
+  resetCatalogEditingState();
+  renderCatalog();
+  return true;
+}
+
+function canEditSupabaseCatalog() {
+  return state.catalogSource === "supabase" && currentCatalogData().editable;
+}
+
 async function saveRestaurant(event) {
   event.preventDefault();
+  if (!canEditSupabaseCatalog()) {
+    alert("현재 데이터 원본은 편집할 수 없습니다.");
+    return;
+  }
   const form = els.restaurantForm.elements;
   const restaurant = {
     id: form.id.value.trim(),
@@ -684,6 +1007,10 @@ async function saveRestaurant(event) {
 
 async function saveMenu(event) {
   event.preventDefault();
+  if (!canEditSupabaseCatalog()) {
+    alert("현재 데이터 원본은 편집할 수 없습니다.");
+    return;
+  }
   const form = els.menuForm.elements;
   const restaurant = restaurantsById.get(form.restaurantId.value);
   const menu = {
@@ -716,6 +1043,7 @@ async function saveMenu(event) {
 }
 
 async function deleteRestaurant(id) {
+  if (!canEditSupabaseCatalog()) return;
   if (!confirm("이 가게를 삭제할까요? 연결된 메뉴도 함께 삭제됩니다.")) return;
   const { error } = await state.supabase.from("restaurants").delete().eq("id", id);
   if (error) {
@@ -726,6 +1054,7 @@ async function deleteRestaurant(id) {
 }
 
 async function deleteMenu(id) {
+  if (!canEditSupabaseCatalog()) return;
   if (!confirm("이 메뉴를 삭제할까요?")) return;
   const { error } = await state.supabase.from("menus").delete().eq("id", id);
   if (error) {
@@ -741,6 +1070,7 @@ function bindEvents() {
   els.refreshReviews.addEventListener("click", loadReviews);
   els.refreshReports.addEventListener("click", loadReports);
   els.refreshCatalog?.addEventListener("click", loadCatalog);
+  els.refreshDataStatus?.addEventListener("click", loadCatalog);
   els.seedCatalog?.addEventListener("click", seedCatalogFromStatic);
   els.restaurantForm?.addEventListener("submit", saveRestaurant);
   els.menuForm?.addEventListener("submit", saveMenu);
@@ -790,7 +1120,12 @@ function bindEvents() {
       document.querySelectorAll("[data-catalog-mode]").forEach((button) => button.classList.toggle("is-active", button === catalogMode));
       renderCatalog();
     }
+    const catalogSource = event.target.closest("[data-catalog-source]");
+    if (catalogSource) {
+      switchCatalogSource(catalogSource.dataset.catalogSource);
+    }
     if (event.target.closest("[data-new-catalog]")) {
+      if (!canEditSupabaseCatalog()) return;
       state.catalogMode === "restaurants" ? clearRestaurantForm() : clearMenuForm();
     }
     if (event.target.closest("[data-clear-restaurant]")) clearRestaurantForm();
