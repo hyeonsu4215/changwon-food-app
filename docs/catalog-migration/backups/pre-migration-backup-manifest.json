@@ -1,0 +1,20 @@
+{
+  "metadata": {
+    "purpose": "Integrity manifest for read-only baseline backups",
+    "generated_at": "2026-08-09T09:05:09.474Z",
+    "project_url": "https://poxvxxwtrblkjfrqqnrw.supabase.co",
+    "secret_stored": false
+  },
+  "files": [
+    {
+      "name": "pre-migration-stores.json",
+      "row_count": 1,
+      "sha256": "1685bef17ed4494e44989a101b0ebf91cddf244e9b7f24c30498ddf68f999c02"
+    },
+    {
+      "name": "pre-migration-menus.json",
+      "row_count": 0,
+      "sha256": "b25ac27862dcf9ebead0a7ac622484fecf1188a4a97ab392116bc243008f73e1"
+    }
+  ]
+}

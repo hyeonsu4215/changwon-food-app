@@ -1,0 +1,34 @@
+{
+  "metadata": {
+    "purpose": "Pre-migration read-only catalog backup",
+    "exported_at": "2026-08-09T09:05:09.474Z",
+    "project_url": "https://poxvxxwtrblkjfrqqnrw.supabase.co",
+    "project_ref": "poxvxxwtrblkjfrqqnrw",
+    "table": "public.menus",
+    "access": "anon GET/SELECT",
+    "row_count": 0,
+    "content_range": "*/0",
+    "verified_select_columns": [
+      "id",
+      "restaurant_id",
+      "restaurant_name",
+      "name",
+      "category",
+      "price",
+      "spicy",
+      "salty",
+      "sweet",
+      "portion",
+      "value",
+      "speed",
+      "signature",
+      "available",
+      "tags",
+      "source",
+      "last_checked",
+      "recommend_note"
+    ],
+    "secret_stored": false
+  },
+  "rows": []
+}

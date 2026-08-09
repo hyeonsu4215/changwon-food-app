@@ -1,0 +1,61 @@
+{
+  "metadata": {
+    "purpose": "Pre-migration read-only catalog backup",
+    "exported_at": "2026-08-09T09:05:09.474Z",
+    "project_url": "https://poxvxxwtrblkjfrqqnrw.supabase.co",
+    "project_ref": "poxvxxwtrblkjfrqqnrw",
+    "table": "public.restaurants",
+    "access": "anon GET/SELECT",
+    "row_count": 1,
+    "content_range": "0-0/1",
+    "verified_select_columns": [
+      "id",
+      "name",
+      "area",
+      "address",
+      "lat",
+      "lng",
+      "phone",
+      "open_time",
+      "close_time",
+      "break_time",
+      "closed_days",
+      "takeout",
+      "delivery",
+      "alone",
+      "group_available",
+      "seats",
+      "review_count",
+      "source",
+      "last_checked",
+      "memo",
+      "active"
+    ],
+    "secret_stored": false
+  },
+  "rows": [
+    {
+      "id": "C001",
+      "name": "리코리코",
+      "area": "정문",
+      "address": "경상남도 창원시 의창구 퇴촌로25번길 6-32",
+      "lat": 35.2425,
+      "lng": 128.6898,
+      "phone": "055-267-4300",
+      "open_time": "10:00:00",
+      "close_time": "20:40:00",
+      "break_time": "",
+      "closed_days": "일요일",
+      "takeout": true,
+      "delivery": true,
+      "alone": true,
+      "group_available": true,
+      "seats": 54,
+      "review_count": 173,
+      "source": "네이버지도",
+      "last_checked": "2026-06-15T00:00:00+00:00",
+      "memo": "",
+      "active": true
+    }
+  ]
+}
