@@ -3,18 +3,21 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>창대앞 뭐먹지 관리자</title>
+    <title>묵찌 PICK! 관리자</title>
     <link rel="stylesheet" href="./admin.css" />
   </head>
   <body>
     <main class="admin-shell">
       <header class="admin-top">
         <div>
-          <p>Admin mode</p>
-          <h1>창대앞 뭐먹지 관리자</h1>
+          <p>ADMIN CONSOLE</p>
+          <h1>묵찌 PICK! 관리자</h1>
           <span id="adminStatus">로그인이 필요합니다.</span>
         </div>
-        <button id="signOutButton" hidden>로그아웃</button>
+        <div class="header-actions">
+          <span id="connectionBadge" class="connection-badge is-idle">연결 확인 전</span>
+          <button id="signOutButton" hidden>로그아웃</button>
+        </div>
       </header>
 
       <section id="loginPanel" class="admin-card">
@@ -34,6 +37,31 @@
       </section>
 
       <section id="adminPanel" hidden>
+        <section id="dataStatusPanel" class="admin-card data-status-panel" aria-live="polite">
+          <div class="panel-heading">
+            <div>
+              <p class="section-kicker">DATA SAFETY</p>
+              <h2>데이터 상태 진단</h2>
+              <p>관리 데이터와 운영 앱이 바라볼 데이터 원본을 구분해 표시합니다.</p>
+            </div>
+            <button id="refreshDataStatus" type="button">상태 새로고침</button>
+          </div>
+          <div class="diagnostic-summary">
+            <span id="catalogHealthBadge" class="health-badge is-idle">확인 중</span>
+            <strong id="catalogHealthTitle">데이터 상태를 확인하고 있습니다.</strong>
+          </div>
+          <dl class="diagnostic-grid">
+            <div><dt>Supabase 연결</dt><dd id="diagConnection">확인 중</dd></div>
+            <div><dt>Supabase 가게</dt><dd id="diagSupabaseStores">-</dd></div>
+            <div><dt>Supabase 메뉴</dt><dd id="diagSupabaseMenus">-</dd></div>
+            <div><dt>정적 data.js</dt><dd id="diagStaticCounts">-</dd></div>
+            <div><dt>관리자 표시 원본</dt><dd id="diagAdminSource">-</dd></div>
+            <div><dt>운영 앱 예상 원본</dt><dd id="diagUserSource">-</dd></div>
+            <div class="diagnostic-wide"><dt>마지막 새로고침</dt><dd id="diagRefreshedAt">-</dd></div>
+          </dl>
+          <div id="diagnosticWarnings" class="diagnostic-warnings"></div>
+        </section>
+
         <nav class="admin-tabs">
           <button class="is-active" data-admin-tab="reviews">후기 관리</button>
           <button data-admin-tab="reports">정보 제보 관리</button>
@@ -90,19 +118,30 @@
           <div class="panel-heading">
             <div>
               <h2>가게/메뉴 관리</h2>
-              <p>엑셀 대신 Supabase에 저장된 가게와 대표 메뉴를 추가하거나 수정합니다.</p>
+              <p>Supabase 관리 데이터와 정적 기준 데이터를 구분해 확인합니다.</p>
             </div>
             <div class="heading-actions">
-              <button id="seedCatalog">현재 앱 데이터 초기 업로드</button>
+              <button id="seedCatalog" class="locked-action" type="button" disabled>정적 데이터와 Supabase 비교 준비 중</button>
               <button id="refreshCatalog">새로고침</button>
             </div>
           </div>
+          <div class="catalog-source-bar">
+            <div class="segmented source-segmented" aria-label="카탈로그 데이터 원본">
+              <button class="is-active" data-catalog-source="supabase" aria-pressed="true">Supabase 관리 데이터</button>
+              <button data-catalog-source="static" aria-pressed="false">정적 기준 · 읽기 전용</button>
+            </div>
+            <span id="catalogSourceBadge" class="source-badge supabase">SUPABASE</span>
+            <strong id="catalogSourceSummary">Supabase 데이터를 불러오는 중입니다.</strong>
+          </div>
+          <p class="locked-help">초기 업로드는 백업, 변경 미리보기, 데이터 diff, 충돌 검사 기능이 준비된 후 사용할 수 있습니다.</p>
+          <div id="catalogWriteWarning" class="catalog-write-warning" hidden></div>
+
           <div class="review-tools">
             <div class="segmented">
               <button class="is-active" data-catalog-mode="restaurants">가게</button>
               <button data-catalog-mode="menus">메뉴</button>
             </div>
-            <button data-new-catalog>새 항목 추가</button>
+            <button id="newCatalogButton" data-new-catalog>새 항목 추가</button>
             <span id="catalogCount" class="count-text"></span>
           </div>
 
@@ -146,6 +185,13 @@
               <label><span>가게</span><select name="restaurantId" required></select></label>
               <label><span>메뉴명</span><input name="name" required /></label>
               <label><span>카테고리</span><input name="category" required placeholder="한식" /></label>
+              <label class="wide food-character-preview">
+                <span>Primary Food Character <b>FC-1 PREVIEW</b></span>
+                <select id="foodCharacterPreview" name="foodCharacterPreview" disabled aria-describedby="foodCharacterPreviewHelp">
+                  <option value="">미설정 · DB 저장 구조 준비 전</option>
+                </select>
+                <small id="foodCharacterPreviewHelp">DB 저장 구조 준비 전 단계입니다. 실제 선택 및 저장은 FC-2 승인 후 활성화됩니다.</small>
+              </label>
               <label><span>가격</span><input name="price" type="number" min="0" required /></label>
               <label><span>맵기</span><input name="spicy" type="number" min="0" max="5" step="0.5" /></label>
               <label><span>짠맛</span><input name="salty" type="number" min="0" max="5" step="0.5" /></label>
@@ -173,6 +219,8 @@
     </main>
 
     <script src="./data.js"></script>
+    <script src="./catalog-policy.js"></script>
+    <script src="./food-character-admin.js"></script>
     <script src="./supabase-config.js"></script>
     <script src="./admin.js"></script>
   </body>
