@@ -1,0 +1,402 @@
+[
+  {
+    "id": "M001",
+    "food_character": "quick-snack"
+  },
+  {
+    "id": "M002",
+    "food_character": "quick-snack"
+  },
+  {
+    "id": "M003",
+    "food_character": "quick-snack"
+  },
+  {
+    "id": "M004",
+    "food_character": "quick-snack"
+  },
+  {
+    "id": "M005",
+    "food_character": "quick-snack"
+  },
+  {
+    "id": "M006",
+    "food_character": "main-dish"
+  },
+  {
+    "id": "M007",
+    "food_character": "main-dish"
+  },
+  {
+    "id": "M008",
+    "food_character": "main-dish"
+  },
+  {
+    "id": "M009",
+    "food_character": "hot-soup"
+  },
+  {
+    "id": "M010",
+    "food_character": "hot-soup"
+  },
+  {
+    "id": "M011",
+    "food_character": "hot-soup"
+  },
+  {
+    "id": "M012",
+    "food_character": "main-dish"
+  },
+  {
+    "id": "M013",
+    "food_character": "rice-meal"
+  },
+  {
+    "id": "M014",
+    "food_character": "hot-soup"
+  },
+  {
+    "id": "M015",
+    "food_character": "rice-meal"
+  },
+  {
+    "id": "M016",
+    "food_character": "rice-meal"
+  },
+  {
+    "id": "M017",
+    "food_character": "rice-meal"
+  },
+  {
+    "id": "M018",
+    "food_character": "rice-meal"
+  },
+  {
+    "id": "M019",
+    "food_character": "rice-meal"
+  },
+  {
+    "id": "M020",
+    "food_character": "rice-meal"
+  },
+  {
+    "id": "M021",
+    "food_character": "rice-meal"
+  },
+  {
+    "id": "M022",
+    "food_character": "rice-meal"
+  },
+  {
+    "id": "M023",
+    "food_character": "noodle-special"
+  },
+  {
+    "id": "M024",
+    "food_character": "noodle-special"
+  },
+  {
+    "id": "M025",
+    "food_character": "noodle-special"
+  },
+  {
+    "id": "M026",
+    "food_character": "noodle-special"
+  },
+  {
+    "id": "M027",
+    "food_character": "quick-snack"
+  },
+  {
+    "id": "M028",
+    "food_character": "quick-snack"
+  },
+  {
+    "id": "M029",
+    "food_character": "quick-snack"
+  },
+  {
+    "id": "M030",
+    "food_character": "quick-snack"
+  },
+  {
+    "id": "M031",
+    "food_character": "noodle-special"
+  },
+  {
+    "id": "M032",
+    "food_character": "noodle-special"
+  },
+  {
+    "id": "M033",
+    "food_character": "rice-meal"
+  },
+  {
+    "id": "M034",
+    "food_character": "quick-snack"
+  },
+  {
+    "id": "M035",
+    "food_character": "quick-snack"
+  },
+  {
+    "id": "M036",
+    "food_character": "quick-snack"
+  },
+  {
+    "id": "M037",
+    "food_character": "hot-soup"
+  },
+  {
+    "id": "M038",
+    "food_character": "noodle-special"
+  },
+  {
+    "id": "M039",
+    "food_character": "noodle-special"
+  },
+  {
+    "id": "M040",
+    "food_character": "noodle-special"
+  },
+  {
+    "id": "M041",
+    "food_character": "quick-snack"
+  },
+  {
+    "id": "M042",
+    "food_character": "hot-soup"
+  },
+  {
+    "id": "M043",
+    "food_character": "main-dish"
+  },
+  {
+    "id": "M044",
+    "food_character": "rice-meal"
+  },
+  {
+    "id": "M045",
+    "food_character": "rice-meal"
+  },
+  {
+    "id": "M046",
+    "food_character": "rice-meal"
+  },
+  {
+    "id": "M047",
+    "food_character": "rice-meal"
+  },
+  {
+    "id": "M048",
+    "food_character": "rice-meal"
+  },
+  {
+    "id": "M049",
+    "food_character": "rice-meal"
+  },
+  {
+    "id": "M050",
+    "food_character": "quick-snack"
+  },
+  {
+    "id": "M051",
+    "food_character": "quick-snack"
+  },
+  {
+    "id": "M052",
+    "food_character": "quick-snack"
+  },
+  {
+    "id": "M053",
+    "food_character": "quick-snack"
+  },
+  {
+    "id": "M054",
+    "food_character": "quick-snack"
+  },
+  {
+    "id": "M055",
+    "food_character": "main-dish"
+  },
+  {
+    "id": "M056",
+    "food_character": "hot-soup"
+  },
+  {
+    "id": "M057",
+    "food_character": "hot-soup"
+  },
+  {
+    "id": "M058",
+    "food_character": "noodle-special"
+  },
+  {
+    "id": "M059",
+    "food_character": "noodle-special"
+  },
+  {
+    "id": "M060",
+    "food_character": "rice-meal"
+  },
+  {
+    "id": "M061",
+    "food_character": "main-dish"
+  },
+  {
+    "id": "M062",
+    "food_character": "noodle-special"
+  },
+  {
+    "id": "M063",
+    "food_character": "noodle-special"
+  },
+  {
+    "id": "M064",
+    "food_character": "quick-snack"
+  },
+  {
+    "id": "M065",
+    "food_character": "rice-meal"
+  },
+  {
+    "id": "M066",
+    "food_character": "noodle-special"
+  },
+  {
+    "id": "M067",
+    "food_character": "quick-snack"
+  },
+  {
+    "id": "M068",
+    "food_character": "hot-soup"
+  },
+  {
+    "id": "M069",
+    "food_character": "hot-soup"
+  },
+  {
+    "id": "M070",
+    "food_character": "hot-soup"
+  },
+  {
+    "id": "M071",
+    "food_character": "main-dish"
+  },
+  {
+    "id": "M072",
+    "food_character": "noodle-special"
+  },
+  {
+    "id": "M073",
+    "food_character": "noodle-special"
+  },
+  {
+    "id": "M074",
+    "food_character": "rice-meal"
+  },
+  {
+    "id": "M075",
+    "food_character": "main-dish"
+  },
+  {
+    "id": "M076",
+    "food_character": "noodle-special"
+  },
+  {
+    "id": "M077",
+    "food_character": "noodle-special"
+  },
+  {
+    "id": "M078",
+    "food_character": "quick-snack"
+  },
+  {
+    "id": "M079",
+    "food_character": "noodle-special"
+  },
+  {
+    "id": "M080",
+    "food_character": "noodle-special"
+  },
+  {
+    "id": "M081",
+    "food_character": "main-dish"
+  },
+  {
+    "id": "M082",
+    "food_character": "main-dish"
+  },
+  {
+    "id": "M083",
+    "food_character": "main-dish"
+  },
+  {
+    "id": "M084",
+    "food_character": "rice-meal"
+  },
+  {
+    "id": "M085",
+    "food_character": "rice-meal"
+  },
+  {
+    "id": "M086",
+    "food_character": "main-dish"
+  },
+  {
+    "id": "M087",
+    "food_character": "rice-meal"
+  },
+  {
+    "id": "M088",
+    "food_character": "hot-soup"
+  },
+  {
+    "id": "M089",
+    "food_character": "hot-soup"
+  },
+  {
+    "id": "M090",
+    "food_character": "hot-soup"
+  },
+  {
+    "id": "M091",
+    "food_character": "hot-soup"
+  },
+  {
+    "id": "M092",
+    "food_character": "hot-soup"
+  },
+  {
+    "id": "M093",
+    "food_character": "noodle-special"
+  },
+  {
+    "id": "M094",
+    "food_character": "noodle-special"
+  },
+  {
+    "id": "M095",
+    "food_character": "rice-meal"
+  },
+  {
+    "id": "M096",
+    "food_character": "noodle-special"
+  },
+  {
+    "id": "M097",
+    "food_character": "noodle-special"
+  },
+  {
+    "id": "M098",
+    "food_character": "main-dish"
+  },
+  {
+    "id": "M099",
+    "food_character": "noodle-special"
+  },
+  {
+    "id": "M100",
+    "food_character": "rice-meal"
+  }
+]

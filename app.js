@@ -2679,7 +2679,9 @@ async function loadRemoteCatalog() {
 
   const restaurantRows = restaurantResult?.data || [];
   const menuRows = menuResult?.data || [];
-  if (!restaurantRows.length || !menuRows.length) {
+  const shouldUseSupabase = window.CHANGWON_CATALOG_POLICY?.shouldUseSupabaseCatalog(restaurantRows, menuRows)
+    ?? (restaurantRows.length > 0 && menuRows.length > 0);
+  if (!shouldUseSupabase) {
     state.catalogSource = "static";
     state.catalogStatus = "Supabase 데이터가 비어 있어 내장 데이터 사용 중";
     return false;

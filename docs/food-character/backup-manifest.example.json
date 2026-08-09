@@ -1,0 +1,15 @@
+{
+  "backup_timestamp": "YYYY-MM-DDTHH:mm:ss.sssZ",
+  "supabase_project_identifier": "PROJECT_IDENTIFIER",
+  "stores_count": null,
+  "menus_count": null,
+  "origin_main_sha": "FULL_SHA",
+  "feature_sha": "FULL_SHA",
+  "purpose": "Primary Food Character FC-2 pre-migration backup",
+  "files": [
+    {
+      "name": "menus-before-food-character.json",
+      "sha256": "SHA256"
+    }
+  ]
+}
