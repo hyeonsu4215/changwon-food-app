@@ -146,6 +146,13 @@
               <label><span>가게</span><select name="restaurantId" required></select></label>
               <label><span>메뉴명</span><input name="name" required /></label>
               <label><span>카테고리</span><input name="category" required placeholder="한식" /></label>
+              <label class="wide food-character-preview">
+                <span>Primary Food Character <b>FC-1 PREVIEW</b></span>
+                <select id="foodCharacterPreview" name="foodCharacterPreview" disabled aria-describedby="foodCharacterPreviewHelp">
+                  <option value="">미설정 · DB 저장 구조 준비 전</option>
+                </select>
+                <small id="foodCharacterPreviewHelp">현재 Supabase menus 스키마에는 food_character 컬럼이 없습니다. 실제 선택 및 저장은 FC-2 승인 후 활성화됩니다.</small>
+              </label>
               <label><span>가격</span><input name="price" type="number" min="0" required /></label>
               <label><span>맵기</span><input name="spicy" type="number" min="0" max="5" step="0.5" /></label>
               <label><span>짠맛</span><input name="salty" type="number" min="0" max="5" step="0.5" /></label>
@@ -173,6 +180,7 @@
     </main>
 
     <script src="./data.js"></script>
+    <script src="./food-character-admin.js"></script>
     <script src="./supabase-config.js"></script>
     <script src="./admin.js"></script>
   </body>

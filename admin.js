@@ -1,4 +1,5 @@
 const DATA = window.CHANGWON_FOOD_DATA;
+const ADMIN_FOOD_CHARACTER = window.CHANGWON_ADMIN_FOOD_CHARACTER;
 
 const state = {
   supabase: null,
@@ -79,6 +80,22 @@ function toDateInput(value) {
 
 function dateInputToIso(value) {
   return value ? `${value}T00:00:00` : null;
+}
+
+function renderFoodCharacterPreview() {
+  const field = els.menuForm?.elements.foodCharacterPreview;
+  const help = document.querySelector("#foodCharacterPreviewHelp");
+  if (!field || !ADMIN_FOOD_CHARACTER?.definitions) return;
+  const options = ADMIN_FOOD_CHARACTER.definitions
+    .map((definition) => `<option value="${definition.value}">${definition.label} · ${definition.value}</option>`)
+    .join("");
+  field.innerHTML = `<option value="">미설정 · DB 저장 구조 준비 전</option>${options}`;
+  field.value = "";
+  field.disabled = true;
+  if (help) {
+    const labels = ADMIN_FOOD_CHARACTER.definitions.map((definition) => definition.label).join(" · ");
+    help.textContent = `DB 저장 구조 준비 전 단계입니다. 허용 예정: ${labels}. 실제 선택 및 저장은 FC-2 승인 후 활성화됩니다.`;
+  }
 }
 
 function dbRestaurantToApp(row) {
@@ -583,6 +600,7 @@ function clearRestaurantForm() {
 function clearMenuForm() {
   if (!els.menuForm) return;
   els.menuForm.reset();
+  if (els.menuForm.elements.foodCharacterPreview) els.menuForm.elements.foodCharacterPreview.value = "";
   els.menuForm.elements.id.value = nextId("M", state.menus);
   els.menuForm.elements.price.value = 0;
   els.menuForm.elements.spicy.value = 2;
@@ -631,6 +649,7 @@ function editMenu(id) {
   form.restaurantId.value = menu.restaurantId;
   form.name.value = menu.name || "";
   form.category.value = menu.category || "";
+  if (form.foodCharacterPreview) form.foodCharacterPreview.value = "";
   form.price.value = menu.price || 0;
   form.spicy.value = menu.spicy || 0;
   form.salty.value = menu.salty || 0;
@@ -812,5 +831,6 @@ function bindEvents() {
 }
 
 renderRestaurantFilterOptions();
+renderFoodCharacterPreview();
 bindEvents();
 initSupabase();

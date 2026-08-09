@@ -1,4 +1,5 @@
-const CACHE_NAME = "changwon-food-app-v47";
+const CACHE_PREFIX = "changwon-food-app-";
+const CACHE_NAME = `${CACHE_PREFIX}v48`;
 const CORE_ASSETS = [
   "./",
   "./index.html",
@@ -19,6 +20,7 @@ const STATIC_ASSETS = [
   "./admin.html",
   "./admin.css",
   "./admin.js",
+  "./food-character-admin.js",
   "./supabase-config.js",
   "./assets/icons/apple-touch-icon-180.png",
   "./assets/icons/favicon-32.png",
@@ -38,6 +40,12 @@ const STATIC_ASSETS = [
 const PRECACHE_ASSETS = [...CORE_ASSETS, ...MUKJJI_CORE_ASSETS, ...STATIC_ASSETS];
 const NETWORK_FIRST_PATHS = new Set(["/", "/index.html", "/app.js", "/styles.css", "/data.js", "/manifest.webmanifest"]);
 
+function outdatedAppCacheNames(cacheNames) {
+  return cacheNames.filter(
+    (cacheName) => cacheName.startsWith(CACHE_PREFIX) && cacheName !== CACHE_NAME,
+  );
+}
+
 self.addEventListener("install", (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) =>
@@ -51,7 +59,7 @@ self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches
       .keys()
-      .then((keys) => Promise.all(keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key)))),
+      .then((keys) => Promise.all(outdatedAppCacheNames(keys).map((key) => caches.delete(key)))),
   );
   self.clients.claim();
 });

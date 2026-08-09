@@ -1,0 +1,2090 @@
+{
+  "metadata": {
+    "purpose": "FC-1 human review draft; never use directly for a database update",
+    "generated_at": "2026-08-09T04:43:28.522Z",
+    "source": "data.js",
+    "stores_count": 29,
+    "menus_count": 100,
+    "review_policy": "Every row requires human approval before FC-2",
+    "tags_used_for_classification": false
+  },
+  "definitions": [
+    {
+      "value": "rice-meal",
+      "label": "밥 중심 한 끼",
+      "description": "덮밥, 도시락, 비빔밥, 볶음밥, 알밥, 리조또, 정식처럼 밥이 중심인 식사"
+    },
+    {
+      "value": "noodle-special",
+      "label": "면 중심 한 끼",
+      "description": "라멘, 쌀국수, 국수, 칼국수, 수제비, 라면, 짜장면, 짬뽕, 파스타, 밀면처럼 면이 중심인 식사"
+    },
+    {
+      "value": "hot-soup",
+      "label": "국물·찌개 중심",
+      "description": "김치찌개, 된장찌개, 순두부찌개, 육개장, 국밥, 해장국, 마라탕처럼 면이 아닌 국물 중심 식사"
+    },
+    {
+      "value": "quick-snack",
+      "label": "빠르고 간편한 식사",
+      "description": "햄버거, 부리또, 김밥, 토스트, 떡볶이, 밥버거, 만두처럼 빠르고 간편한 식사"
+    },
+    {
+      "value": "main-dish",
+      "label": "메인 요리 중심",
+      "description": "돈까스, 닭갈비, 찜닭, 불고기, 피자, 탕수육, 전류처럼 메인 요리가 중심인 식사"
+    }
+  ],
+  "stats": {
+    "total_menus": 100,
+    "suggested_counts": {
+      "rice-meal": 23,
+      "noodle-special": 25,
+      "hot-soup": 16,
+      "quick-snack": 21,
+      "main-dish": 15
+    },
+    "unclassified_count": 0,
+    "warning_count": 18,
+    "needs_review_count": 100
+  },
+  "items": [
+    {
+      "menu_id": "M001",
+      "store_id": "C001",
+      "store_name": "리코리코",
+      "menu_name": "닭고기 부리또",
+      "category": "햄버거",
+      "tags": [
+        "가성비",
+        "혼밥",
+        "빠른식사",
+        "든든함",
+        "포장",
+        "배달",
+        "시험기간"
+      ],
+      "current_food_character": null,
+      "suggested_food_character": "quick-snack",
+      "confidence": "high",
+      "warning": "기존 tags 문자열 오분류 방지 확인: 부리또는 quick-snack 후보입니다.",
+      "review_status": "needs-review"
+    },
+    {
+      "menu_id": "M002",
+      "store_id": "C001",
+      "store_name": "리코리코",
+      "menu_name": "소고기 부리또",
+      "category": "햄버거",
+      "tags": [
+        "가성비",
+        "혼밥",
+        "빠른식사",
+        "든든함",
+        "포장",
+        "배달",
+        "시험기간"
+      ],
+      "current_food_character": null,
+      "suggested_food_character": "quick-snack",
+      "confidence": "high",
+      "warning": "기존 tags 문자열 오분류 방지 확인: 부리또는 quick-snack 후보입니다.",
+      "review_status": "needs-review"
+    },
+    {
+      "menu_id": "M003",
+      "store_id": "C001",
+      "store_name": "리코리코",
+      "menu_name": "섞어 부리또",
+      "category": "햄버거",
+      "tags": [
+        "가성비",
+        "혼밥",
+        "빠른식사",
+        "든든함",
+        "포장",
+        "배달",
+        "시험기간"
+      ],
+      "current_food_character": null,
+      "suggested_food_character": "quick-snack",
+      "confidence": "high",
+      "warning": "기존 tags 문자열 오분류 방지 확인: 부리또는 quick-snack 후보입니다.",
+      "review_status": "needs-review"
+    },
+    {
+      "menu_id": "M004",
+      "store_id": "C001",
+      "store_name": "리코리코",
+      "menu_name": "치킨텐더 부리또",
+      "category": "햄버거",
+      "tags": [
+        "가성비",
+        "혼밥",
+        "빠른식사",
+        "든든함",
+        "포장",
+        "배달",
+        "시험기간"
+      ],
+      "current_food_character": null,
+      "suggested_food_character": "quick-snack",
+      "confidence": "high",
+      "warning": "기존 tags 문자열 오분류 방지 확인: 부리또는 quick-snack 후보입니다.",
+      "review_status": "needs-review"
+    },
+    {
+      "menu_id": "M005",
+      "store_id": "C001",
+      "store_name": "리코리코",
+      "menu_name": "제육 부리또",
+      "category": "햄버거",
+      "tags": [
+        "가성비",
+        "혼밥",
+        "빠른식사",
+        "든든함",
+        "포장",
+        "배달",
+        "시험기간"
+      ],
+      "current_food_character": null,
+      "suggested_food_character": "quick-snack",
+      "confidence": "high",
+      "warning": "기존 tags 문자열 오분류 방지 확인: 부리또는 quick-snack 후보입니다.",
+      "review_status": "needs-review"
+    },
+    {
+      "menu_id": "M006",
+      "store_id": "C002",
+      "store_name": "달인의 찜닭",
+      "menu_name": "달인 순살 찜닭",
+      "category": "찜/탕",
+      "tags": [
+        "단체",
+        "데이트",
+        "든든함",
+        "시험기간"
+      ],
+      "current_food_character": null,
+      "suggested_food_character": "main-dish",
+      "confidence": "high",
+      "warning": "",
+      "review_status": "needs-review"
+    },
+    {
+      "menu_id": "M007",
+      "store_id": "C002",
+      "store_name": "달인의 찜닭",
+      "menu_name": "달인 치즈순살 찜닭",
+      "category": "찜/탕",
+      "tags": [
+        "단체",
+        "데이트",
+        "든든함",
+        "시험기간"
+      ],
+      "current_food_character": null,
+      "suggested_food_character": "main-dish",
+      "confidence": "high",
+      "warning": "",
+      "review_status": "needs-review"
+    },
+    {
+      "menu_id": "M008",
+      "store_id": "C003",
+      "store_name": "엄마손",
+      "menu_name": "두루치기",
+      "category": "한식",
+      "tags": [
+        "가성비",
+        "혼밥",
+        "단체",
+        "든든함",
+        "가볍게"
+      ],
+      "current_food_character": null,
+      "suggested_food_character": "main-dish",
+      "confidence": "high",
+      "warning": "",
+      "review_status": "needs-review"
+    },
+    {
+      "menu_id": "M009",
+      "store_id": "C003",
+      "store_name": "엄마손",
+      "menu_name": "된장찌개",
+      "category": "한식",
+      "tags": [
+        "가성비",
+        "혼밥",
+        "단체",
+        "든든함",
+        "가볍게"
+      ],
+      "current_food_character": null,
+      "suggested_food_character": "hot-soup",
+      "confidence": "high",
+      "warning": "",
+      "review_status": "needs-review"
+    },
+    {
+      "menu_id": "M010",
+      "store_id": "C003",
+      "store_name": "엄마손",
+      "menu_name": "김치찌개",
+      "category": "한식",
+      "tags": [
+        "가성비",
+        "혼밥",
+        "단체",
+        "든든함",
+        "가볍게"
+      ],
+      "current_food_character": null,
+      "suggested_food_character": "hot-soup",
+      "confidence": "high",
+      "warning": "",
+      "review_status": "needs-review"
+    },
+    {
+      "menu_id": "M011",
+      "store_id": "C003",
+      "store_name": "엄마손",
+      "menu_name": "순두부찌개",
+      "category": "한식",
+      "tags": [
+        "가성비",
+        "혼밥",
+        "단체",
+        "든든함",
+        "가볍게"
+      ],
+      "current_food_character": null,
+      "suggested_food_character": "hot-soup",
+      "confidence": "high",
+      "warning": "",
+      "review_status": "needs-review"
+    },
+    {
+      "menu_id": "M012",
+      "store_id": "C003",
+      "store_name": "엄마손",
+      "menu_name": "뚝배기불고기",
+      "category": "한식",
+      "tags": [
+        "가성비",
+        "혼밥",
+        "단체",
+        "든든함",
+        "가볍게"
+      ],
+      "current_food_character": null,
+      "suggested_food_character": "main-dish",
+      "confidence": "high",
+      "warning": "",
+      "review_status": "needs-review"
+    },
+    {
+      "menu_id": "M013",
+      "store_id": "C003",
+      "store_name": "엄마손",
+      "menu_name": "돌솥비빔밥",
+      "category": "한식",
+      "tags": [
+        "가성비",
+        "혼밥",
+        "단체",
+        "든든함",
+        "가볍게"
+      ],
+      "current_food_character": null,
+      "suggested_food_character": "rice-meal",
+      "confidence": "high",
+      "warning": "",
+      "review_status": "needs-review"
+    },
+    {
+      "menu_id": "M014",
+      "store_id": "C003",
+      "store_name": "엄마손",
+      "menu_name": "육개장",
+      "category": "한식",
+      "tags": [
+        "가성비",
+        "혼밥",
+        "단체",
+        "든든함",
+        "가볍게",
+        "해장"
+      ],
+      "current_food_character": null,
+      "suggested_food_character": "hot-soup",
+      "confidence": "high",
+      "warning": "",
+      "review_status": "needs-review"
+    },
+    {
+      "menu_id": "M015",
+      "store_id": "C004",
+      "store_name": "한솥도시락",
+      "menu_name": "빅치킨마요",
+      "category": "도시락",
+      "tags": [
+        "가성비",
+        "혼밥",
+        "단체",
+        "든든함",
+        "가볍게",
+        "포장",
+        "배달",
+        "시험기간",
+        "빠른식사"
+      ],
+      "current_food_character": null,
+      "suggested_food_character": "rice-meal",
+      "confidence": "low",
+      "warning": "메뉴명 규칙이 없어 category '도시락' 기준으로 제안했습니다.",
+      "review_status": "needs-review"
+    },
+    {
+      "menu_id": "M016",
+      "store_id": "C004",
+      "store_name": "한솥도시락",
+      "menu_name": "제육 많이 덮밥",
+      "category": "도시락",
+      "tags": [
+        "가성비",
+        "혼밥",
+        "단체",
+        "든든함",
+        "가볍게",
+        "포장",
+        "배달",
+        "시험기간",
+        "빠른식사"
+      ],
+      "current_food_character": null,
+      "suggested_food_character": "rice-meal",
+      "confidence": "high",
+      "warning": "",
+      "review_status": "needs-review"
+    },
+    {
+      "menu_id": "M017",
+      "store_id": "C004",
+      "store_name": "한솥도시락",
+      "menu_name": "돈까스 도련님 고기고기",
+      "category": "도시락",
+      "tags": [
+        "가성비",
+        "혼밥",
+        "단체",
+        "든든함",
+        "가볍게",
+        "포장",
+        "배달",
+        "시험기간",
+        "빠른식사"
+      ],
+      "current_food_character": null,
+      "suggested_food_character": "main-dish",
+      "confidence": "high",
+      "warning": "",
+      "review_status": "needs-review"
+    },
+    {
+      "menu_id": "M018",
+      "store_id": "C004",
+      "store_name": "한솥도시락",
+      "menu_name": "왕카레돈까스 덮밥",
+      "category": "도시락",
+      "tags": [
+        "가성비",
+        "혼밥",
+        "단체",
+        "든든함",
+        "가볍게",
+        "포장",
+        "배달",
+        "시험기간",
+        "빠른식사"
+      ],
+      "current_food_character": null,
+      "suggested_food_character": "rice-meal",
+      "confidence": "medium",
+      "warning": "복수 식사 형태 후보가 감지되었습니다: rice-meal, main-dish.",
+      "review_status": "needs-review"
+    },
+    {
+      "menu_id": "M019",
+      "store_id": "C005",
+      "store_name": "경대컵밥",
+      "menu_name": "경대컵밥도시락",
+      "category": "도시락",
+      "tags": [
+        "가성비",
+        "혼밥",
+        "단체",
+        "든든함",
+        "가볍게",
+        "포장",
+        "배달",
+        "시험기간",
+        "빠른식사"
+      ],
+      "current_food_character": null,
+      "suggested_food_character": "rice-meal",
+      "confidence": "high",
+      "warning": "",
+      "review_status": "needs-review"
+    },
+    {
+      "menu_id": "M020",
+      "store_id": "C005",
+      "store_name": "경대컵밥",
+      "menu_name": "오리훈제컵밥도시락",
+      "category": "도시락",
+      "tags": [
+        "가성비",
+        "혼밥",
+        "단체",
+        "든든함",
+        "가볍게",
+        "포장",
+        "배달",
+        "시험기간",
+        "빠른식사"
+      ],
+      "current_food_character": null,
+      "suggested_food_character": "rice-meal",
+      "confidence": "high",
+      "warning": "",
+      "review_status": "needs-review"
+    },
+    {
+      "menu_id": "M021",
+      "store_id": "C005",
+      "store_name": "경대컵밥",
+      "menu_name": "제육컵밥도시락",
+      "category": "도시락",
+      "tags": [
+        "가성비",
+        "혼밥",
+        "단체",
+        "든든함",
+        "가볍게",
+        "포장",
+        "배달",
+        "시험기간",
+        "빠른식사"
+      ],
+      "current_food_character": null,
+      "suggested_food_character": "rice-meal",
+      "confidence": "high",
+      "warning": "",
+      "review_status": "needs-review"
+    },
+    {
+      "menu_id": "M022",
+      "store_id": "C005",
+      "store_name": "경대컵밥",
+      "menu_name": "치즈컵밥도시락",
+      "category": "도시락",
+      "tags": [
+        "가성비",
+        "혼밥",
+        "단체",
+        "든든함",
+        "가볍게",
+        "포장",
+        "배달",
+        "시험기간",
+        "빠른식사"
+      ],
+      "current_food_character": null,
+      "suggested_food_character": "rice-meal",
+      "confidence": "high",
+      "warning": "",
+      "review_status": "needs-review"
+    },
+    {
+      "menu_id": "M023",
+      "store_id": "C006",
+      "store_name": "쇼부라멘",
+      "menu_name": "소유라멘",
+      "category": "일식/돈까스",
+      "tags": [
+        "혼밥",
+        "든든함",
+        "가볍게",
+        "시험기간",
+        "빠른식사",
+        "해장",
+        "데이트"
+      ],
+      "current_food_character": null,
+      "suggested_food_character": "noodle-special",
+      "confidence": "high",
+      "warning": "",
+      "review_status": "needs-review"
+    },
+    {
+      "menu_id": "M024",
+      "store_id": "C006",
+      "store_name": "쇼부라멘",
+      "menu_name": "미소라멘",
+      "category": "일식/돈까스",
+      "tags": [
+        "혼밥",
+        "든든함",
+        "가볍게",
+        "시험기간",
+        "빠른식사",
+        "해장",
+        "데이트"
+      ],
+      "current_food_character": null,
+      "suggested_food_character": "noodle-special",
+      "confidence": "high",
+      "warning": "",
+      "review_status": "needs-review"
+    },
+    {
+      "menu_id": "M025",
+      "store_id": "C006",
+      "store_name": "쇼부라멘",
+      "menu_name": "돈코츠라멘",
+      "category": "일식/돈까스",
+      "tags": [
+        "혼밥",
+        "든든함",
+        "가볍게",
+        "시험기간",
+        "빠른식사",
+        "해장",
+        "데이트"
+      ],
+      "current_food_character": null,
+      "suggested_food_character": "noodle-special",
+      "confidence": "high",
+      "warning": "",
+      "review_status": "needs-review"
+    },
+    {
+      "menu_id": "M026",
+      "store_id": "C006",
+      "store_name": "쇼부라멘",
+      "menu_name": "탄탄멘",
+      "category": "일식/돈까스",
+      "tags": [
+        "혼밥",
+        "든든함",
+        "가볍게",
+        "시험기간",
+        "빠른식사",
+        "해장",
+        "데이트"
+      ],
+      "current_food_character": null,
+      "suggested_food_character": "noodle-special",
+      "confidence": "high",
+      "warning": "",
+      "review_status": "needs-review"
+    },
+    {
+      "menu_id": "M027",
+      "store_id": "C007",
+      "store_name": "봉구스밥버거",
+      "menu_name": "봉구스",
+      "category": "도시락",
+      "tags": [
+        "혼밥",
+        "가볍게",
+        "시험기간",
+        "빠른식사",
+        "포장",
+        "배달",
+        "가성비"
+      ],
+      "current_food_character": null,
+      "suggested_food_character": "quick-snack",
+      "confidence": "medium",
+      "warning": "가게명 문맥으로 밥버거 후보를 제안했습니다.",
+      "review_status": "needs-review"
+    },
+    {
+      "menu_id": "M028",
+      "store_id": "C007",
+      "store_name": "봉구스밥버거",
+      "menu_name": "햄치즈",
+      "category": "도시락",
+      "tags": [
+        "혼밥",
+        "가볍게",
+        "시험기간",
+        "빠른식사",
+        "포장",
+        "배달"
+      ],
+      "current_food_character": null,
+      "suggested_food_character": "quick-snack",
+      "confidence": "medium",
+      "warning": "가게명 문맥으로 밥버거 후보를 제안했습니다.",
+      "review_status": "needs-review"
+    },
+    {
+      "menu_id": "M029",
+      "store_id": "C007",
+      "store_name": "봉구스밥버거",
+      "menu_name": "봉구킹",
+      "category": "도시락",
+      "tags": [
+        "혼밥",
+        "가볍게",
+        "시험기간",
+        "빠른식사",
+        "포장",
+        "배달"
+      ],
+      "current_food_character": null,
+      "suggested_food_character": "quick-snack",
+      "confidence": "medium",
+      "warning": "가게명 문맥으로 밥버거 후보를 제안했습니다.",
+      "review_status": "needs-review"
+    },
+    {
+      "menu_id": "M030",
+      "store_id": "C007",
+      "store_name": "봉구스밥버거",
+      "menu_name": "봉구퀸",
+      "category": "도시락",
+      "tags": [
+        "혼밥",
+        "가볍게",
+        "시험기간",
+        "빠른식사",
+        "포장",
+        "배달"
+      ],
+      "current_food_character": null,
+      "suggested_food_character": "quick-snack",
+      "confidence": "medium",
+      "warning": "가게명 문맥으로 밥버거 후보를 제안했습니다.",
+      "review_status": "needs-review"
+    },
+    {
+      "menu_id": "M031",
+      "store_id": "C008",
+      "store_name": "미스사이공",
+      "menu_name": "소고기 쌀국수",
+      "category": "아시안",
+      "tags": [
+        "혼밥",
+        "가볍게",
+        "시험기간",
+        "빠른식사",
+        "데이트"
+      ],
+      "current_food_character": null,
+      "suggested_food_character": "noodle-special",
+      "confidence": "high",
+      "warning": "국물 유무와 관계없이 면 음식 확인: 쌀국수는 noodle-special 후보입니다.",
+      "review_status": "needs-review"
+    },
+    {
+      "menu_id": "M032",
+      "store_id": "C008",
+      "store_name": "미스사이공",
+      "menu_name": "닭고기 쌀국수",
+      "category": "아시안",
+      "tags": [
+        "혼밥",
+        "가볍게",
+        "시험기간",
+        "빠른식사",
+        "데이트"
+      ],
+      "current_food_character": null,
+      "suggested_food_character": "noodle-special",
+      "confidence": "high",
+      "warning": "국물 유무와 관계없이 면 음식 확인: 쌀국수는 noodle-special 후보입니다.",
+      "review_status": "needs-review"
+    },
+    {
+      "menu_id": "M033",
+      "store_id": "C008",
+      "store_name": "미스사이공",
+      "menu_name": "사이공 볶음밥",
+      "category": "아시안",
+      "tags": [
+        "혼밥",
+        "가볍게",
+        "시험기간",
+        "빠른식사",
+        "데이트"
+      ],
+      "current_food_character": null,
+      "suggested_food_character": "rice-meal",
+      "confidence": "high",
+      "warning": "",
+      "review_status": "needs-review"
+    },
+    {
+      "menu_id": "M034",
+      "store_id": "C009",
+      "store_name": "맘스터치",
+      "menu_name": "싸이버거 세트",
+      "category": "햄버거",
+      "tags": [
+        "혼밥",
+        "시험기간",
+        "포장",
+        "배달",
+        "단체",
+        "든든함"
+      ],
+      "current_food_character": null,
+      "suggested_food_character": "quick-snack",
+      "confidence": "high",
+      "warning": "",
+      "review_status": "needs-review"
+    },
+    {
+      "menu_id": "M035",
+      "store_id": "C009",
+      "store_name": "맘스터치",
+      "menu_name": "아라비아따치즈버거 세트",
+      "category": "햄버거",
+      "tags": [
+        "혼밥",
+        "시험기간",
+        "포장",
+        "배달",
+        "단체",
+        "든든함"
+      ],
+      "current_food_character": null,
+      "suggested_food_character": "quick-snack",
+      "confidence": "high",
+      "warning": "",
+      "review_status": "needs-review"
+    },
+    {
+      "menu_id": "M036",
+      "store_id": "C009",
+      "store_name": "맘스터치",
+      "menu_name": "화이트갈릭싸이버거 세트",
+      "category": "햄버거",
+      "tags": [
+        "혼밥",
+        "시험기간",
+        "포장",
+        "배달",
+        "단체",
+        "든든함"
+      ],
+      "current_food_character": null,
+      "suggested_food_character": "quick-snack",
+      "confidence": "high",
+      "warning": "",
+      "review_status": "needs-review"
+    },
+    {
+      "menu_id": "M037",
+      "store_id": "C010",
+      "store_name": "따뜻한밥상",
+      "menu_name": "김치찌개",
+      "category": "한식",
+      "tags": [
+        "혼밥",
+        "가볍게",
+        "시험기간",
+        "빠른식사",
+        "든든함",
+        "가성비",
+        "단체"
+      ],
+      "current_food_character": null,
+      "suggested_food_character": "hot-soup",
+      "confidence": "high",
+      "warning": "",
+      "review_status": "needs-review"
+    },
+    {
+      "menu_id": "M038",
+      "store_id": "C011",
+      "store_name": "소소소국수집",
+      "menu_name": "잔치국수",
+      "category": "분식",
+      "tags": [
+        "혼밥",
+        "단체",
+        "시험기간",
+        "든든함",
+        "빠른식사",
+        "해장",
+        "비오는날"
+      ],
+      "current_food_character": null,
+      "suggested_food_character": "noodle-special",
+      "confidence": "high",
+      "warning": "",
+      "review_status": "needs-review"
+    },
+    {
+      "menu_id": "M039",
+      "store_id": "C011",
+      "store_name": "소소소국수집",
+      "menu_name": "비빔국수",
+      "category": "분식",
+      "tags": [
+        "혼밥",
+        "단체",
+        "시험기간",
+        "든든함",
+        "빠른식사",
+        "해장",
+        "비오는날"
+      ],
+      "current_food_character": null,
+      "suggested_food_character": "noodle-special",
+      "confidence": "high",
+      "warning": "",
+      "review_status": "needs-review"
+    },
+    {
+      "menu_id": "M040",
+      "store_id": "C011",
+      "store_name": "소소소국수집",
+      "menu_name": "열무국수",
+      "category": "분식",
+      "tags": [
+        "혼밥",
+        "단체",
+        "시험기간",
+        "든든함",
+        "빠른식사",
+        "해장",
+        "비오는날"
+      ],
+      "current_food_character": null,
+      "suggested_food_character": "noodle-special",
+      "confidence": "high",
+      "warning": "",
+      "review_status": "needs-review"
+    },
+    {
+      "menu_id": "M041",
+      "store_id": "C012",
+      "store_name": "김밥천국",
+      "menu_name": "참치마요김밥",
+      "category": "분식",
+      "tags": [
+        "혼밥",
+        "시험기간",
+        "든든함",
+        "빠른식사",
+        "가성비",
+        "포장"
+      ],
+      "current_food_character": null,
+      "suggested_food_character": "quick-snack",
+      "confidence": "high",
+      "warning": "",
+      "review_status": "needs-review"
+    },
+    {
+      "menu_id": "M042",
+      "store_id": "C012",
+      "store_name": "김밥천국",
+      "menu_name": "순두부찌개",
+      "category": "분식",
+      "tags": [
+        "혼밥",
+        "시험기간",
+        "든든함",
+        "빠른식사",
+        "해장"
+      ],
+      "current_food_character": null,
+      "suggested_food_character": "hot-soup",
+      "confidence": "high",
+      "warning": "",
+      "review_status": "needs-review"
+    },
+    {
+      "menu_id": "M043",
+      "store_id": "C012",
+      "store_name": "김밥천국",
+      "menu_name": "돈까스",
+      "category": "분식",
+      "tags": [
+        "혼밥",
+        "시험기간",
+        "든든함",
+        "빠른식사"
+      ],
+      "current_food_character": null,
+      "suggested_food_character": "main-dish",
+      "confidence": "high",
+      "warning": "",
+      "review_status": "needs-review"
+    },
+    {
+      "menu_id": "M044",
+      "store_id": "C013",
+      "store_name": "쌈마이 닭쌈밥",
+      "menu_name": "쌈마이 닭쌈밥 백반도시락",
+      "category": "도시락",
+      "tags": [
+        "혼밥",
+        "시험기간",
+        "든든함",
+        "빠른식사",
+        "시험기간",
+        "데이트",
+        "포장",
+        "배달"
+      ],
+      "current_food_character": null,
+      "suggested_food_character": "rice-meal",
+      "confidence": "high",
+      "warning": "",
+      "review_status": "needs-review"
+    },
+    {
+      "menu_id": "M045",
+      "store_id": "C013",
+      "store_name": "쌈마이 닭쌈밥",
+      "menu_name": "양념닭쌈밥 백반도시락",
+      "category": "도시락",
+      "tags": [
+        "혼밥",
+        "시험기간",
+        "든든함",
+        "빠른식사",
+        "시험기간",
+        "데이트",
+        "포장",
+        "배달"
+      ],
+      "current_food_character": null,
+      "suggested_food_character": "rice-meal",
+      "confidence": "high",
+      "warning": "",
+      "review_status": "needs-review"
+    },
+    {
+      "menu_id": "M046",
+      "store_id": "C014",
+      "store_name": "창대 비빔밥 뷔페",
+      "menu_name": "비빔밥",
+      "category": "한식",
+      "tags": [
+        "혼밥",
+        "시험기간",
+        "든든함",
+        "빠른식사"
+      ],
+      "current_food_character": null,
+      "suggested_food_character": "rice-meal",
+      "confidence": "high",
+      "warning": "",
+      "review_status": "needs-review"
+    },
+    {
+      "menu_id": "M047",
+      "store_id": "C015",
+      "store_name": "알촌",
+      "menu_name": "순한알밥",
+      "category": "한식",
+      "tags": [
+        "혼밥",
+        "시험기간",
+        "든든함",
+        "빠른식사",
+        "포장",
+        "배달",
+        "가볍게"
+      ],
+      "current_food_character": null,
+      "suggested_food_character": "rice-meal",
+      "confidence": "high",
+      "warning": "",
+      "review_status": "needs-review"
+    },
+    {
+      "menu_id": "M048",
+      "store_id": "C015",
+      "store_name": "알촌",
+      "menu_name": "약매알밥",
+      "category": "한식",
+      "tags": [
+        "혼밥",
+        "시험기간",
+        "든든함",
+        "빠른식사",
+        "포장",
+        "배달",
+        "가볍게"
+      ],
+      "current_food_character": null,
+      "suggested_food_character": "rice-meal",
+      "confidence": "high",
+      "warning": "",
+      "review_status": "needs-review"
+    },
+    {
+      "menu_id": "M049",
+      "store_id": "C015",
+      "store_name": "알촌",
+      "menu_name": "매콤알밥",
+      "category": "한식",
+      "tags": [
+        "혼밥",
+        "시험기간",
+        "든든함",
+        "빠른식사",
+        "포장",
+        "배달",
+        "가볍게"
+      ],
+      "current_food_character": null,
+      "suggested_food_character": "rice-meal",
+      "confidence": "high",
+      "warning": "",
+      "review_status": "needs-review"
+    },
+    {
+      "menu_id": "M050",
+      "store_id": "C016",
+      "store_name": "롯데리아",
+      "menu_name": "모짜렐라 인 더 버거 베이컨 세트",
+      "category": "햄버거",
+      "tags": [
+        "혼밥",
+        "시험기간",
+        "단체",
+        "빠른식사",
+        "포장",
+        "배달"
+      ],
+      "current_food_character": null,
+      "suggested_food_character": "quick-snack",
+      "confidence": "high",
+      "warning": "",
+      "review_status": "needs-review"
+    },
+    {
+      "menu_id": "M051",
+      "store_id": "C016",
+      "store_name": "롯데리아",
+      "menu_name": "불고기버거",
+      "category": "햄버거",
+      "tags": [
+        "혼밥",
+        "시험기간",
+        "단체",
+        "빠른식사",
+        "포장",
+        "배달"
+      ],
+      "current_food_character": null,
+      "suggested_food_character": "quick-snack",
+      "confidence": "medium",
+      "warning": "복수 식사 형태 후보가 감지되었습니다: quick-snack, main-dish.",
+      "review_status": "needs-review"
+    },
+    {
+      "menu_id": "M052",
+      "store_id": "C016",
+      "store_name": "롯데리아",
+      "menu_name": "핫크리스피치킨버거 세트",
+      "category": "햄버거",
+      "tags": [
+        "혼밥",
+        "시험기간",
+        "단체",
+        "빠른식사",
+        "포장",
+        "배달"
+      ],
+      "current_food_character": null,
+      "suggested_food_character": "quick-snack",
+      "confidence": "high",
+      "warning": "",
+      "review_status": "needs-review"
+    },
+    {
+      "menu_id": "M053",
+      "store_id": "C017",
+      "store_name": "이삭토스트",
+      "menu_name": "햄스페셜 토스트",
+      "category": "햄버거",
+      "tags": [
+        "혼밥",
+        "시험기간",
+        "단체",
+        "빠른식사",
+        "포장",
+        "배달"
+      ],
+      "current_food_character": null,
+      "suggested_food_character": "quick-snack",
+      "confidence": "high",
+      "warning": "",
+      "review_status": "needs-review"
+    },
+    {
+      "menu_id": "M054",
+      "store_id": "C017",
+      "store_name": "이삭토스트",
+      "menu_name": "햄치즈 토스트",
+      "category": "햄버거",
+      "tags": [
+        "혼밥",
+        "시험기간",
+        "단체",
+        "빠른식사",
+        "포장",
+        "배달"
+      ],
+      "current_food_character": null,
+      "suggested_food_character": "quick-snack",
+      "confidence": "high",
+      "warning": "",
+      "review_status": "needs-review"
+    },
+    {
+      "menu_id": "M055",
+      "store_id": "C017",
+      "store_name": "이삭토스트",
+      "menu_name": "베이컨 포테이토 피자",
+      "category": "햄버거",
+      "tags": [
+        "혼밥",
+        "시험기간",
+        "단체",
+        "빠른식사",
+        "포장",
+        "배달"
+      ],
+      "current_food_character": null,
+      "suggested_food_character": "main-dish",
+      "confidence": "high",
+      "warning": "",
+      "review_status": "needs-review"
+    },
+    {
+      "menu_id": "M056",
+      "store_id": "C018",
+      "store_name": "뼈따구",
+      "menu_name": "뼈해장국",
+      "category": "찜/탕",
+      "tags": [
+        "혼밥",
+        "단체",
+        "시험기간",
+        "포장",
+        "해장",
+        "비오는날",
+        "든든함"
+      ],
+      "current_food_character": null,
+      "suggested_food_character": "hot-soup",
+      "confidence": "high",
+      "warning": "",
+      "review_status": "needs-review"
+    },
+    {
+      "menu_id": "M057",
+      "store_id": "C018",
+      "store_name": "뼈따구",
+      "menu_name": "콩나물해장국",
+      "category": "찜/탕",
+      "tags": [
+        "혼밥",
+        "단체",
+        "시험기간",
+        "포장",
+        "해장",
+        "비오는날",
+        "든든함"
+      ],
+      "current_food_character": null,
+      "suggested_food_character": "hot-soup",
+      "confidence": "high",
+      "warning": "",
+      "review_status": "needs-review"
+    },
+    {
+      "menu_id": "M058",
+      "store_id": "C019",
+      "store_name": "밀밭이야기",
+      "menu_name": "촌국수",
+      "category": "한식",
+      "tags": [
+        "혼밥",
+        "단체",
+        "든든함",
+        "비오는날"
+      ],
+      "current_food_character": null,
+      "suggested_food_character": "noodle-special",
+      "confidence": "high",
+      "warning": "",
+      "review_status": "needs-review"
+    },
+    {
+      "menu_id": "M059",
+      "store_id": "C019",
+      "store_name": "밀밭이야기",
+      "menu_name": "비빔국수",
+      "category": "한식",
+      "tags": [
+        "혼밥",
+        "단체",
+        "든든함",
+        "비오는날"
+      ],
+      "current_food_character": null,
+      "suggested_food_character": "noodle-special",
+      "confidence": "high",
+      "warning": "",
+      "review_status": "needs-review"
+    },
+    {
+      "menu_id": "M060",
+      "store_id": "C019",
+      "store_name": "밀밭이야기",
+      "menu_name": "양푼비빔밥",
+      "category": "한식",
+      "tags": [
+        "혼밥",
+        "단체",
+        "든든함",
+        "비오는날"
+      ],
+      "current_food_character": null,
+      "suggested_food_character": "rice-meal",
+      "confidence": "high",
+      "warning": "",
+      "review_status": "needs-review"
+    },
+    {
+      "menu_id": "M061",
+      "store_id": "C019",
+      "store_name": "밀밭이야기",
+      "menu_name": "해물전",
+      "category": "한식",
+      "tags": [
+        "혼밥",
+        "단체",
+        "든든함",
+        "비오는날"
+      ],
+      "current_food_character": null,
+      "suggested_food_character": "main-dish",
+      "confidence": "high",
+      "warning": "",
+      "review_status": "needs-review"
+    },
+    {
+      "menu_id": "M062",
+      "store_id": "C019",
+      "store_name": "밀밭이야기",
+      "menu_name": "수제비",
+      "category": "한식",
+      "tags": [
+        "혼밥",
+        "단체",
+        "든든함",
+        "비오는날"
+      ],
+      "current_food_character": null,
+      "suggested_food_character": "noodle-special",
+      "confidence": "high",
+      "warning": "",
+      "review_status": "needs-review"
+    },
+    {
+      "menu_id": "M063",
+      "store_id": "C019",
+      "store_name": "밀밭이야기",
+      "menu_name": "들깨칼국수",
+      "category": "한식",
+      "tags": [
+        "혼밥",
+        "단체",
+        "든든함",
+        "비오는날"
+      ],
+      "current_food_character": null,
+      "suggested_food_character": "noodle-special",
+      "confidence": "high",
+      "warning": "",
+      "review_status": "needs-review"
+    },
+    {
+      "menu_id": "M064",
+      "store_id": "C020",
+      "store_name": "김밥일번지",
+      "menu_name": "일번지김밥",
+      "category": "분식",
+      "tags": [
+        "혼밥",
+        "단체",
+        "든든함",
+        "비오는날",
+        "포장",
+        "시험기간"
+      ],
+      "current_food_character": null,
+      "suggested_food_character": "quick-snack",
+      "confidence": "high",
+      "warning": "",
+      "review_status": "needs-review"
+    },
+    {
+      "menu_id": "M065",
+      "store_id": "C020",
+      "store_name": "김밥일번지",
+      "menu_name": "콩나물비빔밥",
+      "category": "분식",
+      "tags": [
+        "혼밥",
+        "단체",
+        "든든함",
+        "비오는날",
+        "포장",
+        "시험기간"
+      ],
+      "current_food_character": null,
+      "suggested_food_character": "rice-meal",
+      "confidence": "high",
+      "warning": "",
+      "review_status": "needs-review"
+    },
+    {
+      "menu_id": "M066",
+      "store_id": "C020",
+      "store_name": "김밥일번지",
+      "menu_name": "일번지라면",
+      "category": "분식",
+      "tags": [
+        "혼밥",
+        "단체",
+        "든든함",
+        "비오는날",
+        "포장",
+        "시험기간"
+      ],
+      "current_food_character": null,
+      "suggested_food_character": "noodle-special",
+      "confidence": "high",
+      "warning": "",
+      "review_status": "needs-review"
+    },
+    {
+      "menu_id": "M067",
+      "store_id": "C020",
+      "store_name": "김밥일번지",
+      "menu_name": "엄마떡볶이",
+      "category": "분식",
+      "tags": [
+        "혼밥",
+        "단체",
+        "든든함",
+        "비오는날",
+        "포장",
+        "시험기간"
+      ],
+      "current_food_character": null,
+      "suggested_food_character": "quick-snack",
+      "confidence": "high",
+      "warning": "",
+      "review_status": "needs-review"
+    },
+    {
+      "menu_id": "M068",
+      "store_id": "C021",
+      "store_name": "팔팔마라탕",
+      "menu_name": "88마라탕",
+      "category": "찜/탕",
+      "tags": [
+        "혼밥",
+        "든든함",
+        "포장",
+        "배달",
+        "스트레스"
+      ],
+      "current_food_character": null,
+      "suggested_food_character": "hot-soup",
+      "confidence": "high",
+      "warning": "",
+      "review_status": "needs-review"
+    },
+    {
+      "menu_id": "M069",
+      "store_id": "C022",
+      "store_name": "차곡히",
+      "menu_name": "순두부 제육볶음세트",
+      "category": "한식",
+      "tags": [
+        "혼밥",
+        "든든함",
+        "단체",
+        "데이트",
+        "시험기간"
+      ],
+      "current_food_character": null,
+      "suggested_food_character": "hot-soup",
+      "confidence": "medium",
+      "warning": "복수 식사 형태 후보가 감지되었습니다: hot-soup, main-dish.",
+      "review_status": "needs-review"
+    },
+    {
+      "menu_id": "M070",
+      "store_id": "C022",
+      "store_name": "차곡히",
+      "menu_name": "된장찌개 제육볶음 세트",
+      "category": "한식",
+      "tags": [
+        "혼밥",
+        "든든함",
+        "단체",
+        "데이트",
+        "시험기간"
+      ],
+      "current_food_character": null,
+      "suggested_food_character": "hot-soup",
+      "confidence": "medium",
+      "warning": "복수 식사 형태 후보가 감지되었습니다: hot-soup, main-dish.",
+      "review_status": "needs-review"
+    },
+    {
+      "menu_id": "M071",
+      "store_id": "C023",
+      "store_name": "레빗테이블",
+      "menu_name": "수제등심 돈가스",
+      "category": "양식",
+      "tags": [
+        "든든함",
+        "데이트",
+        "스트레스"
+      ],
+      "current_food_character": null,
+      "suggested_food_character": "main-dish",
+      "confidence": "high",
+      "warning": "",
+      "review_status": "needs-review"
+    },
+    {
+      "menu_id": "M072",
+      "store_id": "C023",
+      "store_name": "레빗테이블",
+      "menu_name": "레빗크림 파스타",
+      "category": "양식",
+      "tags": [
+        "든든함",
+        "데이트",
+        "스트레스"
+      ],
+      "current_food_character": null,
+      "suggested_food_character": "noodle-special",
+      "confidence": "high",
+      "warning": "",
+      "review_status": "needs-review"
+    },
+    {
+      "menu_id": "M073",
+      "store_id": "C023",
+      "store_name": "레빗테이블",
+      "menu_name": "레빗로제 파스타",
+      "category": "양식",
+      "tags": [
+        "든든함",
+        "데이트",
+        "스트레스"
+      ],
+      "current_food_character": null,
+      "suggested_food_character": "noodle-special",
+      "confidence": "high",
+      "warning": "",
+      "review_status": "needs-review"
+    },
+    {
+      "menu_id": "M074",
+      "store_id": "C023",
+      "store_name": "레빗테이블",
+      "menu_name": "베이컨 크림 리조또",
+      "category": "양식",
+      "tags": [
+        "든든함",
+        "데이트",
+        "스트레스"
+      ],
+      "current_food_character": null,
+      "suggested_food_character": "rice-meal",
+      "confidence": "high",
+      "warning": "",
+      "review_status": "needs-review"
+    },
+    {
+      "menu_id": "M075",
+      "store_id": "C023",
+      "store_name": "레빗테이블",
+      "menu_name": "고르곤졸라피자",
+      "category": "양식",
+      "tags": [
+        "든든함",
+        "데이트",
+        "스트레스"
+      ],
+      "current_food_character": null,
+      "suggested_food_character": "main-dish",
+      "confidence": "high",
+      "warning": "",
+      "review_status": "needs-review"
+    },
+    {
+      "menu_id": "M076",
+      "store_id": "C024",
+      "store_name": "고가밀면",
+      "menu_name": "물밀면",
+      "category": "분식",
+      "tags": [
+        "혼밥",
+        "가볍게",
+        "빠른식사",
+        "해장",
+        "단체"
+      ],
+      "current_food_character": null,
+      "suggested_food_character": "noodle-special",
+      "confidence": "high",
+      "warning": "",
+      "review_status": "needs-review"
+    },
+    {
+      "menu_id": "M077",
+      "store_id": "C024",
+      "store_name": "고가밀면",
+      "menu_name": "비빔면",
+      "category": "분식",
+      "tags": [
+        "혼밥",
+        "가볍게",
+        "빠른식사",
+        "해장",
+        "단체"
+      ],
+      "current_food_character": null,
+      "suggested_food_character": "noodle-special",
+      "confidence": "high",
+      "warning": "",
+      "review_status": "needs-review"
+    },
+    {
+      "menu_id": "M078",
+      "store_id": "C024",
+      "store_name": "고가밀면",
+      "menu_name": "고가손만두",
+      "category": "분식",
+      "tags": [
+        "혼밥",
+        "가볍게",
+        "빠른식사",
+        "해장",
+        "단체"
+      ],
+      "current_food_character": null,
+      "suggested_food_character": "quick-snack",
+      "confidence": "high",
+      "warning": "",
+      "review_status": "needs-review"
+    },
+    {
+      "menu_id": "M079",
+      "store_id": "C025",
+      "store_name": "가야밀면",
+      "menu_name": "물밀면",
+      "category": "분식",
+      "tags": [
+        "혼밥",
+        "가볍게",
+        "빠른식사",
+        "해장",
+        "단체"
+      ],
+      "current_food_character": null,
+      "suggested_food_character": "noodle-special",
+      "confidence": "high",
+      "warning": "",
+      "review_status": "needs-review"
+    },
+    {
+      "menu_id": "M080",
+      "store_id": "C025",
+      "store_name": "가야밀면",
+      "menu_name": "비빔밀면",
+      "category": "분식",
+      "tags": [
+        "혼밥",
+        "가볍게",
+        "빠른식사",
+        "해장",
+        "단체"
+      ],
+      "current_food_character": null,
+      "suggested_food_character": "noodle-special",
+      "confidence": "high",
+      "warning": "",
+      "review_status": "needs-review"
+    },
+    {
+      "menu_id": "M081",
+      "store_id": "C025",
+      "store_name": "가야밀면",
+      "menu_name": "돈까스",
+      "category": "분식",
+      "tags": [
+        "혼밥",
+        "가볍게",
+        "빠른식사",
+        "해장",
+        "단체"
+      ],
+      "current_food_character": null,
+      "suggested_food_character": "main-dish",
+      "confidence": "high",
+      "warning": "",
+      "review_status": "needs-review"
+    },
+    {
+      "menu_id": "M082",
+      "store_id": "C026",
+      "store_name": "유가네닭갈비",
+      "menu_name": "유가네닭갈비",
+      "category": "한식",
+      "tags": [
+        "혼밥",
+        "단체",
+        "가볍게",
+        "든든함",
+        "데이트",
+        "포장",
+        "배달",
+        "시험기간"
+      ],
+      "current_food_character": null,
+      "suggested_food_character": "main-dish",
+      "confidence": "high",
+      "warning": "",
+      "review_status": "needs-review"
+    },
+    {
+      "menu_id": "M083",
+      "store_id": "C026",
+      "store_name": "유가네닭갈비",
+      "menu_name": "콘치즈닭갈비",
+      "category": "한식",
+      "tags": [
+        "혼밥",
+        "단체",
+        "가볍게",
+        "든든함",
+        "데이트",
+        "포장",
+        "배달",
+        "시험기간"
+      ],
+      "current_food_character": null,
+      "suggested_food_character": "main-dish",
+      "confidence": "high",
+      "warning": "",
+      "review_status": "needs-review"
+    },
+    {
+      "menu_id": "M084",
+      "store_id": "C026",
+      "store_name": "유가네닭갈비",
+      "menu_name": "닭갈비철판볶음밥",
+      "category": "한식",
+      "tags": [
+        "혼밥",
+        "단체",
+        "가볍게",
+        "든든함",
+        "데이트",
+        "포장",
+        "배달",
+        "시험기간"
+      ],
+      "current_food_character": null,
+      "suggested_food_character": "rice-meal",
+      "confidence": "medium",
+      "warning": "복수 식사 형태 후보가 감지되었습니다: rice-meal, main-dish.",
+      "review_status": "needs-review"
+    },
+    {
+      "menu_id": "M085",
+      "store_id": "C026",
+      "store_name": "유가네닭갈비",
+      "menu_name": "닭야채철판볶음밥",
+      "category": "한식",
+      "tags": [
+        "혼밥",
+        "단체",
+        "가볍게",
+        "든든함",
+        "데이트",
+        "포장",
+        "배달",
+        "시험기간"
+      ],
+      "current_food_character": null,
+      "suggested_food_character": "rice-meal",
+      "confidence": "high",
+      "warning": "",
+      "review_status": "needs-review"
+    },
+    {
+      "menu_id": "M086",
+      "store_id": "C026",
+      "store_name": "유가네닭갈비",
+      "menu_name": "미소허니닭갈비",
+      "category": "한식",
+      "tags": [
+        "혼밥",
+        "단체",
+        "가볍게",
+        "든든함",
+        "데이트",
+        "포장",
+        "배달",
+        "시험기간"
+      ],
+      "current_food_character": null,
+      "suggested_food_character": "main-dish",
+      "confidence": "high",
+      "warning": "",
+      "review_status": "needs-review"
+    },
+    {
+      "menu_id": "M087",
+      "store_id": "C026",
+      "store_name": "유가네닭갈비",
+      "menu_name": "치즈철판볶음밥",
+      "category": "한식",
+      "tags": [
+        "혼밥",
+        "단체",
+        "가볍게",
+        "든든함",
+        "데이트",
+        "포장",
+        "배달",
+        "시험기간"
+      ],
+      "current_food_character": null,
+      "suggested_food_character": "rice-meal",
+      "confidence": "high",
+      "warning": "",
+      "review_status": "needs-review"
+    },
+    {
+      "menu_id": "M088",
+      "store_id": "C027",
+      "store_name": "호호돼지국밥",
+      "menu_name": "짜글이",
+      "category": "한식",
+      "tags": [
+        "혼밥",
+        "단체",
+        "가볍게",
+        "든든함",
+        "가성비",
+        "시험기간",
+        "빠른식사"
+      ],
+      "current_food_character": null,
+      "suggested_food_character": "hot-soup",
+      "confidence": "high",
+      "warning": "",
+      "review_status": "needs-review"
+    },
+    {
+      "menu_id": "M089",
+      "store_id": "C027",
+      "store_name": "호호돼지국밥",
+      "menu_name": "돼지국밥",
+      "category": "한식",
+      "tags": [
+        "혼밥",
+        "단체",
+        "가볍게",
+        "든든함",
+        "가성비",
+        "시험기간",
+        "빠른식사"
+      ],
+      "current_food_character": null,
+      "suggested_food_character": "hot-soup",
+      "confidence": "high",
+      "warning": "",
+      "review_status": "needs-review"
+    },
+    {
+      "menu_id": "M090",
+      "store_id": "C027",
+      "store_name": "호호돼지국밥",
+      "menu_name": "순대국밥",
+      "category": "한식",
+      "tags": [
+        "혼밥",
+        "단체",
+        "가볍게",
+        "든든함",
+        "가성비",
+        "시험기간",
+        "빠른식사"
+      ],
+      "current_food_character": null,
+      "suggested_food_character": "hot-soup",
+      "confidence": "high",
+      "warning": "",
+      "review_status": "needs-review"
+    },
+    {
+      "menu_id": "M091",
+      "store_id": "C027",
+      "store_name": "호호돼지국밥",
+      "menu_name": "내장국밥",
+      "category": "한식",
+      "tags": [
+        "혼밥",
+        "단체",
+        "가볍게",
+        "든든함",
+        "가성비",
+        "시험기간",
+        "빠른식사"
+      ],
+      "current_food_character": null,
+      "suggested_food_character": "hot-soup",
+      "confidence": "high",
+      "warning": "",
+      "review_status": "needs-review"
+    },
+    {
+      "menu_id": "M092",
+      "store_id": "C027",
+      "store_name": "호호돼지국밥",
+      "menu_name": "섞어국밥",
+      "category": "한식",
+      "tags": [
+        "혼밥",
+        "단체",
+        "가볍게",
+        "든든함",
+        "가성비",
+        "시험기간",
+        "빠른식사"
+      ],
+      "current_food_character": null,
+      "suggested_food_character": "hot-soup",
+      "confidence": "high",
+      "warning": "",
+      "review_status": "needs-review"
+    },
+    {
+      "menu_id": "M093",
+      "store_id": "C028",
+      "store_name": "장독짜장",
+      "menu_name": "짜장면",
+      "category": "중식",
+      "tags": [
+        "혼밥",
+        "단체",
+        "가볍게",
+        "든든함",
+        "가성비",
+        "시험기간",
+        "빠른식사",
+        "데이트",
+        "포장",
+        "배달"
+      ],
+      "current_food_character": null,
+      "suggested_food_character": "noodle-special",
+      "confidence": "high",
+      "warning": "",
+      "review_status": "needs-review"
+    },
+    {
+      "menu_id": "M094",
+      "store_id": "C028",
+      "store_name": "장독짜장",
+      "menu_name": "짬뽕",
+      "category": "중식",
+      "tags": [
+        "혼밥",
+        "단체",
+        "가볍게",
+        "든든함",
+        "가성비",
+        "시험기간",
+        "빠른식사",
+        "데이트",
+        "포장",
+        "배달"
+      ],
+      "current_food_character": null,
+      "suggested_food_character": "noodle-special",
+      "confidence": "high",
+      "warning": "",
+      "review_status": "needs-review"
+    },
+    {
+      "menu_id": "M095",
+      "store_id": "C028",
+      "store_name": "장독짜장",
+      "menu_name": "볶음밥",
+      "category": "중식",
+      "tags": [
+        "혼밥",
+        "단체",
+        "가볍게",
+        "든든함",
+        "가성비",
+        "시험기간",
+        "빠른식사",
+        "데이트",
+        "포장",
+        "배달"
+      ],
+      "current_food_character": null,
+      "suggested_food_character": "rice-meal",
+      "confidence": "high",
+      "warning": "",
+      "review_status": "needs-review"
+    },
+    {
+      "menu_id": "M096",
+      "store_id": "C028",
+      "store_name": "장독짜장",
+      "menu_name": "간짜장",
+      "category": "중식",
+      "tags": [
+        "혼밥",
+        "단체",
+        "가볍게",
+        "든든함",
+        "가성비",
+        "시험기간",
+        "빠른식사",
+        "데이트",
+        "포장",
+        "배달"
+      ],
+      "current_food_character": null,
+      "suggested_food_character": "noodle-special",
+      "confidence": "high",
+      "warning": "",
+      "review_status": "needs-review"
+    },
+    {
+      "menu_id": "M097",
+      "store_id": "C028",
+      "store_name": "장독짜장",
+      "menu_name": "볶음짬뽕",
+      "category": "중식",
+      "tags": [
+        "혼밥",
+        "단체",
+        "가볍게",
+        "든든함",
+        "가성비",
+        "시험기간",
+        "빠른식사",
+        "데이트",
+        "포장",
+        "배달"
+      ],
+      "current_food_character": null,
+      "suggested_food_character": "noodle-special",
+      "confidence": "high",
+      "warning": "",
+      "review_status": "needs-review"
+    },
+    {
+      "menu_id": "M098",
+      "store_id": "C028",
+      "store_name": "장독짜장",
+      "menu_name": "미니탕수육",
+      "category": "중식",
+      "tags": [
+        "혼밥",
+        "단체",
+        "가볍게",
+        "든든함",
+        "가성비",
+        "시험기간",
+        "빠른식사",
+        "데이트",
+        "포장",
+        "배달"
+      ],
+      "current_food_character": null,
+      "suggested_food_character": "main-dish",
+      "confidence": "high",
+      "warning": "이름의 '탕' 오분류 방지 확인: 미니탕수육은 main-dish 후보입니다.",
+      "review_status": "needs-review"
+    },
+    {
+      "menu_id": "M099",
+      "store_id": "C028",
+      "store_name": "장독짜장",
+      "menu_name": "쟁반짜장",
+      "category": "중식",
+      "tags": [
+        "혼밥",
+        "단체",
+        "가볍게",
+        "든든함",
+        "가성비",
+        "시험기간",
+        "빠른식사",
+        "데이트",
+        "포장",
+        "배달"
+      ],
+      "current_food_character": null,
+      "suggested_food_character": "noodle-special",
+      "confidence": "high",
+      "warning": "",
+      "review_status": "needs-review"
+    },
+    {
+      "menu_id": "M100",
+      "store_id": "C029",
+      "store_name": "돌솥밥수",
+      "menu_name": "돌솥밥 정식",
+      "category": "한식",
+      "tags": [
+        "혼밥",
+        "단체",
+        "든든함",
+        "데이트",
+        "시험기간"
+      ],
+      "current_food_character": null,
+      "suggested_food_character": "rice-meal",
+      "confidence": "high",
+      "warning": "",
+      "review_status": "needs-review"
+    }
+  ]
+}

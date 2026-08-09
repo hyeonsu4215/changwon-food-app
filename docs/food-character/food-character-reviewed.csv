@@ -1,0 +1,101 @@
+menu_id,restaurant_id,restaurant_name,menu_name,category,suggested_food_character,reviewed_food_character,review_status,warning,review_note
+M001,C001,리코리코,닭고기 부리또,햄버거,quick-snack,quick-snack,reviewed,기존 tags 문자열 오분류 방지 확인: 부리또는 quick-snack 후보입니다.,부리또는 손에 들고 빠르게 먹는 간편식 형태입니다.
+M002,C001,리코리코,소고기 부리또,햄버거,quick-snack,quick-snack,reviewed,기존 tags 문자열 오분류 방지 확인: 부리또는 quick-snack 후보입니다.,부리또는 손에 들고 빠르게 먹는 간편식 형태입니다.
+M003,C001,리코리코,섞어 부리또,햄버거,quick-snack,quick-snack,reviewed,기존 tags 문자열 오분류 방지 확인: 부리또는 quick-snack 후보입니다.,부리또는 손에 들고 빠르게 먹는 간편식 형태입니다.
+M004,C001,리코리코,치킨텐더 부리또,햄버거,quick-snack,quick-snack,reviewed,기존 tags 문자열 오분류 방지 확인: 부리또는 quick-snack 후보입니다.,부리또는 손에 들고 빠르게 먹는 간편식 형태입니다.
+M005,C001,리코리코,제육 부리또,햄버거,quick-snack,quick-snack,reviewed,기존 tags 문자열 오분류 방지 확인: 부리또는 quick-snack 후보입니다.,부리또는 손에 들고 빠르게 먹는 간편식 형태입니다.
+M006,C002,달인의 찜닭,달인 순살 찜닭,찜/탕,main-dish,main-dish,reviewed,,찜닭 자체가 식사의 중심이 되는 메인 요리입니다.
+M007,C002,달인의 찜닭,달인 치즈순살 찜닭,찜/탕,main-dish,main-dish,reviewed,,치즈 찜닭 자체가 식사의 중심이 되는 메인 요리입니다.
+M008,C003,엄마손,두루치기,한식,main-dish,main-dish,reviewed,,두루치기는 고기 메인 요리가 중심인 식사입니다.
+M009,C003,엄마손,된장찌개,한식,hot-soup,hot-soup,reviewed,,된장찌개는 면이 아닌 찌개 국물이 중심인 식사입니다.
+M010,C003,엄마손,김치찌개,한식,hot-soup,hot-soup,reviewed,,김치찌개는 면이 아닌 찌개 국물이 중심인 식사입니다.
+M011,C003,엄마손,순두부찌개,한식,hot-soup,hot-soup,reviewed,,순두부찌개는 면이 아닌 찌개 국물이 중심인 식사입니다.
+M012,C003,엄마손,뚝배기불고기,한식,main-dish,main-dish,reviewed,,뚝배기 조리 방식보다 불고기 메인 요리 정체성을 우선했습니다.
+M013,C003,엄마손,돌솥비빔밥,한식,rice-meal,rice-meal,reviewed,,돌솥비빔밥은 밥을 중심으로 구성된 한 끼입니다.
+M014,C003,엄마손,육개장,한식,hot-soup,hot-soup,reviewed,,육개장은 면이 아닌 뜨거운 국물 자체가 중심인 식사입니다.
+M015,C004,한솥도시락,빅치킨마요,도시락,rice-meal,rice-meal,reviewed,메뉴명 규칙이 없어 category '도시락' 기준으로 제안했습니다.,치킨마요는 밥 위 토핑으로 구성되는 도시락형 한 끼입니다.
+M016,C004,한솥도시락,제육 많이 덮밥,도시락,rice-meal,rice-meal,reviewed,,메뉴명에 명시된 덮밥이 식사의 중심입니다.
+M017,C004,한솥도시락,돈까스 도련님 고기고기,도시락,main-dish,rice-meal,reviewed,,돈까스 단품보다 밥과 반찬을 함께 먹는 한솥 도시락 구성이 중심입니다.
+M018,C004,한솥도시락,왕카레돈까스 덮밥,도시락,rice-meal,rice-meal,reviewed,"복수 식사 형태 후보가 감지되었습니다: rice-meal, main-dish.",돈까스가 포함되어도 메뉴가 덮밥으로 구성되어 밥 중심입니다.
+M019,C005,경대컵밥,경대컵밥도시락,도시락,rice-meal,rice-meal,reviewed,,컵밥 도시락은 밥과 토핑이 중심인 한 끼입니다.
+M020,C005,경대컵밥,오리훈제컵밥도시락,도시락,rice-meal,rice-meal,reviewed,,오리훈제 토핑을 얹은 컵밥 도시락 형태입니다.
+M021,C005,경대컵밥,제육컵밥도시락,도시락,rice-meal,rice-meal,reviewed,,제육 토핑을 얹은 컵밥 도시락 형태입니다.
+M022,C005,경대컵밥,치즈컵밥도시락,도시락,rice-meal,rice-meal,reviewed,,치즈 토핑을 얹은 컵밥 도시락 형태입니다.
+M023,C006,쇼부라멘,소유라멘,일식/돈까스,noodle-special,noodle-special,reviewed,,소유라멘은 국물이 있어도 면 음식 정체성이 우선입니다.
+M024,C006,쇼부라멘,미소라멘,일식/돈까스,noodle-special,noodle-special,reviewed,,미소라멘은 국물이 있어도 면 음식 정체성이 우선입니다.
+M025,C006,쇼부라멘,돈코츠라멘,일식/돈까스,noodle-special,noodle-special,reviewed,,돈코츠라멘은 국물이 있어도 면 음식 정체성이 우선입니다.
+M026,C006,쇼부라멘,탄탄멘,일식/돈까스,noodle-special,noodle-special,reviewed,,탄탄멘은 국물이 있어도 면 음식 정체성이 우선입니다.
+M027,C007,봉구스밥버거,봉구스,도시락,quick-snack,quick-snack,reviewed,가게명 문맥으로 밥버거 후보를 제안했습니다.,밥버거는 밥이 들어가지만 빠르고 간편한 식사 형태입니다.
+M028,C007,봉구스밥버거,햄치즈,도시락,quick-snack,quick-snack,reviewed,가게명 문맥으로 밥버거 후보를 제안했습니다.,봉구스밥버거의 밥버거 메뉴로 빠르고 간편한 식사 형태입니다.
+M029,C007,봉구스밥버거,봉구킹,도시락,quick-snack,quick-snack,reviewed,가게명 문맥으로 밥버거 후보를 제안했습니다.,봉구스밥버거의 밥버거 메뉴로 빠르고 간편한 식사 형태입니다.
+M030,C007,봉구스밥버거,봉구퀸,도시락,quick-snack,quick-snack,reviewed,가게명 문맥으로 밥버거 후보를 제안했습니다.,봉구스밥버거의 밥버거 메뉴로 빠르고 간편한 식사 형태입니다.
+M031,C008,미스사이공,소고기 쌀국수,아시안,noodle-special,noodle-special,reviewed,국물 유무와 관계없이 면 음식 확인: 쌀국수는 noodle-special 후보입니다.,쌀국수는 국물이 있어도 면이 중심인 음식입니다.
+M032,C008,미스사이공,닭고기 쌀국수,아시안,noodle-special,noodle-special,reviewed,국물 유무와 관계없이 면 음식 확인: 쌀국수는 noodle-special 후보입니다.,쌀국수는 국물이 있어도 면이 중심인 음식입니다.
+M033,C008,미스사이공,사이공 볶음밥,아시안,rice-meal,rice-meal,reviewed,,볶음밥은 밥 조리물이 중심인 한 끼입니다.
+M034,C009,맘스터치,싸이버거 세트,햄버거,quick-snack,quick-snack,reviewed,,버거 세트는 패스트푸드형 간편 식사입니다.
+M035,C009,맘스터치,아라비아따치즈버거 세트,햄버거,quick-snack,quick-snack,reviewed,,버거 세트는 패스트푸드형 간편 식사입니다.
+M036,C009,맘스터치,화이트갈릭싸이버거 세트,햄버거,quick-snack,quick-snack,reviewed,,버거 세트는 패스트푸드형 간편 식사입니다.
+M037,C010,따뜻한밥상,김치찌개,한식,hot-soup,hot-soup,reviewed,,김치찌개는 면이 아닌 찌개 국물이 중심인 식사입니다.
+M038,C011,소소소국수집,잔치국수,분식,noodle-special,noodle-special,reviewed,,잔치국수는 국물이 있어도 면이 중심인 음식입니다.
+M039,C011,소소소국수집,비빔국수,분식,noodle-special,noodle-special,reviewed,,비빔국수는 국물 없이 양념한 면 음식입니다.
+M040,C011,소소소국수집,열무국수,분식,noodle-special,noodle-special,reviewed,,열무국수는 국수 면이 중심인 음식입니다.
+M041,C012,김밥천국,참치마요김밥,분식,quick-snack,quick-snack,reviewed,,김밥은 빠르고 간편하게 먹는 분식형 한 끼입니다.
+M042,C012,김밥천국,순두부찌개,분식,hot-soup,hot-soup,reviewed,,순두부찌개는 면이 아닌 찌개 국물이 중심인 식사입니다.
+M043,C012,김밥천국,돈까스,분식,main-dish,main-dish,reviewed,,돈까스 자체가 식사의 중심이 되는 메인 요리입니다.
+M044,C013,쌈마이 닭쌈밥,쌈마이 닭쌈밥 백반도시락,도시락,rice-meal,rice-meal,reviewed,,백반도시락은 밥과 반찬으로 구성된 한 끼입니다.
+M045,C013,쌈마이 닭쌈밥,양념닭쌈밥 백반도시락,도시락,rice-meal,rice-meal,reviewed,,백반도시락은 밥과 반찬으로 구성된 한 끼입니다.
+M046,C014,창대 비빔밥 뷔페,비빔밥,한식,rice-meal,rice-meal,reviewed,,비빔밥은 밥을 중심으로 구성된 한 끼입니다.
+M047,C015,알촌,순한알밥,한식,rice-meal,rice-meal,reviewed,,알밥은 밥을 중심으로 구성된 한 끼입니다.
+M048,C015,알촌,약매알밥,한식,rice-meal,rice-meal,reviewed,,알밥은 밥을 중심으로 구성된 한 끼입니다.
+M049,C015,알촌,매콤알밥,한식,rice-meal,rice-meal,reviewed,,알밥은 밥을 중심으로 구성된 한 끼입니다.
+M050,C016,롯데리아,모짜렐라 인 더 버거 베이컨 세트,햄버거,quick-snack,quick-snack,reviewed,,버거 세트는 패스트푸드형 간편 식사입니다.
+M051,C016,롯데리아,불고기버거,햄버거,quick-snack,quick-snack,reviewed,"복수 식사 형태 후보가 감지되었습니다: quick-snack, main-dish.",불고기 재료보다 버거라는 간편 식사 형태를 우선했습니다.
+M052,C016,롯데리아,핫크리스피치킨버거 세트,햄버거,quick-snack,quick-snack,reviewed,,버거 세트는 패스트푸드형 간편 식사입니다.
+M053,C017,이삭토스트,햄스페셜 토스트,햄버거,quick-snack,quick-snack,reviewed,,토스트는 빠르게 먹는 간편 식사입니다.
+M054,C017,이삭토스트,햄치즈 토스트,햄버거,quick-snack,quick-snack,reviewed,,토스트는 빠르게 먹는 간편 식사입니다.
+M055,C017,이삭토스트,베이컨 포테이토 피자,햄버거,main-dish,main-dish,reviewed,,피자는 독립적인 메인 요리 형태로 판단했습니다.
+M056,C018,뼈따구,뼈해장국,찜/탕,hot-soup,hot-soup,reviewed,,뼈해장국은 면이 아닌 국물 중심 식사입니다.
+M057,C018,뼈따구,콩나물해장국,찜/탕,hot-soup,hot-soup,reviewed,,콩나물해장국은 면이 아닌 국물 중심 식사입니다.
+M058,C019,밀밭이야기,촌국수,한식,noodle-special,noodle-special,reviewed,,촌국수는 국수 면이 중심인 음식입니다.
+M059,C019,밀밭이야기,비빔국수,한식,noodle-special,noodle-special,reviewed,,비빔국수는 국물 없이 양념한 면 음식입니다.
+M060,C019,밀밭이야기,양푼비빔밥,한식,rice-meal,rice-meal,reviewed,,양푼비빔밥은 밥이 중심인 한 끼입니다.
+M061,C019,밀밭이야기,해물전,한식,main-dish,main-dish,reviewed,,해물전은 전 자체를 먹는 메인 요리 형태입니다.
+M062,C019,밀밭이야기,수제비,한식,noodle-special,noodle-special,reviewed,,수제비는 반죽 면 조각이 중심인 면 음식 계열입니다.
+M063,C019,밀밭이야기,들깨칼국수,한식,noodle-special,noodle-special,reviewed,,들깨칼국수는 국물이 있어도 면이 중심인 음식입니다.
+M064,C020,김밥일번지,일번지김밥,분식,quick-snack,quick-snack,reviewed,,김밥은 빠르고 간편하게 먹는 분식형 한 끼입니다.
+M065,C020,김밥일번지,콩나물비빔밥,분식,rice-meal,rice-meal,reviewed,,콩나물비빔밥은 밥이 중심인 한 끼입니다.
+M066,C020,김밥일번지,일번지라면,분식,noodle-special,noodle-special,reviewed,,라면은 면이 중심인 음식입니다.
+M067,C020,김밥일번지,엄마떡볶이,분식,quick-snack,quick-snack,reviewed,,떡볶이는 빠르고 간편한 분식 형태입니다.
+M068,C021,팔팔마라탕,88마라탕,찜/탕,hot-soup,hot-soup,reviewed,,마라탕은 면보다 탕 국물과 재료 구성이 중심입니다.
+M069,C022,차곡히,순두부 제육볶음세트,한식,hot-soup,hot-soup,reviewed,"복수 식사 형태 후보가 감지되었습니다: hot-soup, main-dish.",순두부가 앞에 명시된 세트로 찌개 중심 식사 정체성을 우선했습니다.
+M070,C022,차곡히,된장찌개 제육볶음 세트,한식,hot-soup,hot-soup,reviewed,"복수 식사 형태 후보가 감지되었습니다: hot-soup, main-dish.",된장찌개가 앞에 명시된 세트로 찌개 중심 식사 정체성을 우선했습니다.
+M071,C023,레빗테이블,수제등심 돈가스,양식,main-dish,main-dish,reviewed,,등심 돈가스 자체가 중심인 메인 요리입니다.
+M072,C023,레빗테이블,레빗크림 파스타,양식,noodle-special,noodle-special,reviewed,,크림 파스타는 소스와 함께 먹는 면 음식입니다.
+M073,C023,레빗테이블,레빗로제 파스타,양식,noodle-special,noodle-special,reviewed,,로제 파스타는 소스와 함께 먹는 면 음식입니다.
+M074,C023,레빗테이블,베이컨 크림 리조또,양식,rice-meal,rice-meal,reviewed,,리조또는 쌀을 조리한 밥 중심 음식입니다.
+M075,C023,레빗테이블,고르곤졸라피자,양식,main-dish,main-dish,reviewed,,피자는 독립적인 메인 요리 형태로 판단했습니다.
+M076,C024,고가밀면,물밀면,분식,noodle-special,noodle-special,reviewed,,물밀면은 육수가 있어도 밀면이 중심인 음식입니다.
+M077,C024,고가밀면,비빔면,분식,noodle-special,noodle-special,reviewed,,비빔면은 국물 없이 양념한 면 음식입니다.
+M078,C024,고가밀면,고가손만두,분식,quick-snack,quick-snack,reviewed,,손만두는 빠르고 간편하게 먹는 메뉴 형태입니다.
+M079,C025,가야밀면,물밀면,분식,noodle-special,noodle-special,reviewed,,물밀면은 육수가 있어도 밀면이 중심인 음식입니다.
+M080,C025,가야밀면,비빔밀면,분식,noodle-special,noodle-special,reviewed,,비빔밀면은 국물 없이 양념한 면 음식입니다.
+M081,C025,가야밀면,돈까스,분식,main-dish,main-dish,reviewed,,돈까스 자체가 식사의 중심이 되는 메인 요리입니다.
+M082,C026,유가네닭갈비,유가네닭갈비,한식,main-dish,main-dish,reviewed,,닭갈비 자체가 식사의 중심이 되는 메인 요리입니다.
+M083,C026,유가네닭갈비,콘치즈닭갈비,한식,main-dish,main-dish,reviewed,,콘치즈 닭갈비 자체가 중심인 메인 요리입니다.
+M084,C026,유가네닭갈비,닭갈비철판볶음밥,한식,rice-meal,rice-meal,reviewed,"복수 식사 형태 후보가 감지되었습니다: rice-meal, main-dish.",닭갈비가 들어가도 완성 메뉴가 철판볶음밥이므로 밥 중심입니다.
+M085,C026,유가네닭갈비,닭야채철판볶음밥,한식,rice-meal,rice-meal,reviewed,,완성 메뉴가 철판볶음밥이므로 밥 중심입니다.
+M086,C026,유가네닭갈비,미소허니닭갈비,한식,main-dish,main-dish,reviewed,,미소허니 닭갈비 자체가 중심인 메인 요리입니다.
+M087,C026,유가네닭갈비,치즈철판볶음밥,한식,rice-meal,rice-meal,reviewed,,완성 메뉴가 철판볶음밥이므로 밥 중심입니다.
+M088,C027,호호돼지국밥,짜글이,한식,hot-soup,hot-soup,reviewed,,짜글이는 자작한 찌개 국물이 중심인 식사입니다.
+M089,C027,호호돼지국밥,돼지국밥,한식,hot-soup,hot-soup,reviewed,,돼지국밥은 이름에 밥이 있어도 국물이 식사 정체성의 중심입니다.
+M090,C027,호호돼지국밥,순대국밥,한식,hot-soup,hot-soup,reviewed,,순대국밥은 이름에 밥이 있어도 국물이 식사 정체성의 중심입니다.
+M091,C027,호호돼지국밥,내장국밥,한식,hot-soup,hot-soup,reviewed,,내장국밥은 이름에 밥이 있어도 국물이 식사 정체성의 중심입니다.
+M092,C027,호호돼지국밥,섞어국밥,한식,hot-soup,hot-soup,reviewed,,섞어국밥은 이름에 밥이 있어도 국물이 식사 정체성의 중심입니다.
+M093,C028,장독짜장,짜장면,중식,noodle-special,noodle-special,reviewed,,짜장면은 소스와 함께 먹는 면 음식입니다.
+M094,C028,장독짜장,짬뽕,중식,noodle-special,noodle-special,reviewed,,짬뽕은 국물이 있어도 면이 중심인 음식입니다.
+M095,C028,장독짜장,볶음밥,중식,rice-meal,rice-meal,reviewed,,볶음밥은 밥 조리물이 중심인 한 끼입니다.
+M096,C028,장독짜장,간짜장,중식,noodle-special,noodle-special,reviewed,,간짜장은 소스와 함께 먹는 면 음식입니다.
+M097,C028,장독짜장,볶음짬뽕,중식,noodle-special,noodle-special,reviewed,,볶음짬뽕은 국물 양과 관계없이 면이 중심인 음식입니다.
+M098,C028,장독짜장,미니탕수육,중식,main-dish,main-dish,reviewed,이름의 '탕' 오분류 방지 확인: 미니탕수육은 main-dish 후보입니다.,탕수육의 '탕'은 국물 의미가 아니며 독립적인 메인 요리입니다.
+M099,C028,장독짜장,쟁반짜장,중식,noodle-special,noodle-special,reviewed,,쟁반짜장은 소스와 함께 먹는 면 음식입니다.
+M100,C029,돌솥밥수,돌솥밥 정식,한식,rice-meal,rice-meal,reviewed,,돌솥밥 정식은 밥과 반찬이 중심인 한 끼입니다.
