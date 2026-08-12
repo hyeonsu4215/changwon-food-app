@@ -50,6 +50,17 @@ const state = {
   catalogSource: "supabase",
   selectedRestaurantId: null,
   selectedMenuId: null,
+  foodCharacterEditorGeneration: 0,
+  foodCharacterEditor: ADMIN_FOOD_CHARACTER?.createEditorState?.() || {
+    menuId: null,
+    menuName: "",
+    restaurantName: "",
+    originalValue: null,
+    nextValue: null,
+    saving: false,
+  },
+  foodCharacterMessage: "",
+  foodCharacterMessageType: "",
   reviewFilter: "all",
   reviewMode: "all",
   reviewRestaurantId: "all",
@@ -98,6 +109,18 @@ const els = {
   menuEditor: document.querySelector("#menuEditor"),
   restaurantForm: document.querySelector("#restaurantForm"),
   menuForm: document.querySelector("#menuForm"),
+  foodCharacterSelect: document.querySelector("#foodCharacterSelect"),
+  foodCharacterSourceBadge: document.querySelector("#foodCharacterSourceBadge"),
+  foodCharacterMenuName: document.querySelector("#foodCharacterMenuName"),
+  foodCharacterMenuMeta: document.querySelector("#foodCharacterMenuMeta"),
+  foodCharacterChangePreview: document.querySelector("#foodCharacterChangePreview"),
+  foodCharacterCurrentLabel: document.querySelector("#foodCharacterCurrentLabel"),
+  foodCharacterCurrentValue: document.querySelector("#foodCharacterCurrentValue"),
+  foodCharacterNextLabel: document.querySelector("#foodCharacterNextLabel"),
+  foodCharacterNextValue: document.querySelector("#foodCharacterNextValue"),
+  foodCharacterHelp: document.querySelector("#foodCharacterHelp"),
+  foodCharacterSaveStatus: document.querySelector("#foodCharacterSaveStatus"),
+  saveFoodCharacter: document.querySelector("#saveFoodCharacter"),
   seedCatalog: document.querySelector("#seedCatalog"),
   refreshCatalog: document.querySelector("#refreshCatalog"),
   refreshReviews: document.querySelector("#refreshReviews"),
@@ -142,20 +165,64 @@ function dateInputToIso(value) {
   return value ? `${value}T00:00:00` : null;
 }
 
-function renderFoodCharacterPreview() {
-  const field = els.menuForm?.elements.foodCharacterPreview;
-  const help = document.querySelector("#foodCharacterPreviewHelp");
-  if (!field || !ADMIN_FOOD_CHARACTER?.definitions) return;
+function foodCharacterMeta(value) {
+  return ADMIN_FOOD_CHARACTER?.definitionsByValue?.[value] || null;
+}
+
+function renderFoodCharacterEditor() {
+  const field = els.foodCharacterSelect;
+  if (!field || !ADMIN_FOOD_CHARACTER?.definitions || !ADMIN_FOOD_CHARACTER?.getEditorStatus) return;
   const options = ADMIN_FOOD_CHARACTER.definitions
-    .map((definition) => `<option value="${definition.value}">${definition.label} · ${definition.value}</option>`)
+    .map((definition) => `<option value="${definition.value}">${definition.label} — ${definition.value}</option>`)
     .join("");
-  field.innerHTML = `<option value="">미설정 · DB 저장 구조 준비 전</option>${options}`;
-  field.value = "";
-  field.disabled = true;
-  if (help) {
-    const labels = ADMIN_FOOD_CHARACTER.definitions.map((definition) => definition.label).join(" · ");
-    help.textContent = `DB 저장 구조 준비 전 단계입니다. 허용 예정: ${labels}. 실제 선택 및 저장은 FC-2 승인 후 활성화됩니다.`;
+  const editor = state.foodCharacterEditor;
+  const status = ADMIN_FOOD_CHARACTER.getEditorStatus(editor, state.catalogSource);
+  const currentMeta = foodCharacterMeta(editor.originalValue);
+  const nextMeta = foodCharacterMeta(editor.nextValue);
+
+  field.innerHTML = `<option value="">선택할 수 없음</option>${options}`;
+  field.value = status.nextValid ? editor.nextValue : "";
+  field.disabled = !status.selectEnabled;
+  field.setAttribute("aria-invalid", String(status.menuSelected && !status.originalValid));
+  els.saveFoodCharacter.disabled = !status.saveEnabled;
+  els.saveFoodCharacter.textContent = editor.saving ? "저장 중" : "Food Character 저장";
+  els.foodCharacterSourceBadge.textContent = state.catalogSource === "static"
+    ? "정적 data.js · 읽기 전용"
+    : "Supabase · 단건 편집";
+  els.foodCharacterMenuName.textContent = status.menuSelected ? editor.menuName || "이름 없는 메뉴" : "선택된 메뉴 없음";
+  els.foodCharacterMenuMeta.textContent = status.menuSelected
+    ? `${editor.menuId} · ${editor.restaurantName || "가게 정보 없음"}`
+    : "메뉴 ID와 가게명을 확인할 수 있습니다.";
+  els.foodCharacterChangePreview.hidden = !status.menuSelected;
+  els.foodCharacterCurrentLabel.textContent = currentMeta?.label || "유효하지 않은 현재값";
+  els.foodCharacterCurrentValue.textContent = editor.originalValue || "미설정";
+  els.foodCharacterNextLabel.textContent = nextMeta?.label || "선택 필요";
+  els.foodCharacterNextValue.textContent = status.nextValid ? editor.nextValue : "-";
+
+  if (state.catalogSource === "static") {
+    els.foodCharacterHelp.textContent = "정적 데이터는 읽기 전용입니다. Food Character를 저장할 수 없습니다.";
+  } else if (!status.menuSelected) {
+    els.foodCharacterHelp.textContent = "Supabase 메뉴 목록에서 수정 버튼을 눌러 현재 저장값을 불러오세요.";
+  } else if (!status.originalValid) {
+    els.foodCharacterHelp.textContent = "현재 DB 값이 Primary 5종에 포함되지 않아 저장을 차단했습니다. 데이터를 새로고침해 확인하세요.";
+  } else {
+    els.foodCharacterHelp.textContent = "이 전용 저장은 선택한 메뉴의 food_character 컬럼 하나만 변경합니다.";
   }
+
+  let message = state.foodCharacterMessage;
+  let messageType = state.foodCharacterMessageType;
+  if (!message) {
+    if (editor.saving) message = "Supabase 저장 후 값을 다시 확인하는 중입니다.";
+    else if (state.catalogSource === "static") message = "정적 원본에서는 저장할 수 없습니다.";
+    else if (!status.menuSelected) message = "메뉴를 선택해주세요.";
+    else if (!status.originalValid) {
+      message = "현재 Food Character가 유효하지 않습니다.";
+      messageType = "error";
+    } else if (status.dirty) message = "변경 내용을 확인한 뒤 저장하세요.";
+    else message = "변경 사항 없음";
+  }
+  els.foodCharacterSaveStatus.textContent = message;
+  els.foodCharacterSaveStatus.className = messageType ? `is-${messageType}` : "";
 }
 
 function sourceLabel(source) {
@@ -344,6 +411,7 @@ function dbMenuToApp(row) {
     source: row.source || "",
     lastChecked: row.last_checked || "",
     recommendNote: row.recommend_note || "",
+    foodCharacter: row.food_character ?? null,
   };
 }
 
@@ -540,6 +608,7 @@ async function signOut() {
 
 async function loadCatalog() {
   if (!els.catalogList) return;
+  resetCatalogEditingState();
   els.catalogList.innerHTML = `<div class="empty">Supabase 가게·메뉴 데이터를 불러오는 중...</div>`;
   let restaurantResult;
   let menuResult;
@@ -576,8 +645,6 @@ async function loadCatalog() {
   state.catalogConnection = { connected: true, error: null };
   refreshCatalogMaps();
   renderRestaurantFilterOptions();
-  clearRestaurantForm();
-  clearMenuForm();
   updateDataStatus(new Date().toISOString());
   renderCatalog();
 }
@@ -783,6 +850,7 @@ function renderCatalog() {
   els.catalogList.innerHTML = isRestaurantMode
     ? renderRestaurantRows(catalog.restaurants, catalog.editable)
     : renderMenuRows(catalog.menus, catalog.restaurantsById, catalog.editable);
+  renderFoodCharacterEditor();
 }
 
 function catalogSourceSummary(catalog, isRestaurantMode) {
@@ -894,11 +962,40 @@ function clearRestaurantForm() {
   els.restaurantForm.elements.active.checked = true;
 }
 
+function invalidateFoodCharacterEditorContext() {
+  state.foodCharacterEditorGeneration += 1;
+  return state.foodCharacterEditorGeneration;
+}
+
+function isCurrentFoodCharacterRequest(requestContext) {
+  return (
+    state.foodCharacterEditorGeneration === requestContext.generation &&
+    state.catalogSource === requestContext.source &&
+    state.selectedMenuId === requestContext.menuId &&
+    state.foodCharacterEditor.menuId === requestContext.menuId
+  );
+}
+
+function resetFoodCharacterEditingState() {
+  invalidateFoodCharacterEditorContext();
+  state.foodCharacterEditor = ADMIN_FOOD_CHARACTER?.createEditorState?.() || {
+    menuId: null,
+    menuName: "",
+    restaurantName: "",
+    originalValue: null,
+    nextValue: null,
+    saving: false,
+  };
+  state.foodCharacterMessage = "";
+  state.foodCharacterMessageType = "";
+  renderFoodCharacterEditor();
+}
+
 function clearMenuForm() {
+  resetFoodCharacterEditingState();
   if (!els.menuForm) return;
   state.selectedMenuId = null;
   els.menuForm.reset();
-  if (els.menuForm.elements.foodCharacterPreview) els.menuForm.elements.foodCharacterPreview.value = "";
   els.menuForm.elements.id.value = nextId("M", state.menus);
   els.menuForm.elements.price.value = 0;
   els.menuForm.elements.spicy.value = 2;
@@ -943,13 +1040,13 @@ function editRestaurant(id) {
 function editMenu(id) {
   const menu = state.menus.find((item) => item.id === id);
   if (!menu) return;
+  invalidateFoodCharacterEditorContext();
   state.selectedMenuId = id;
   const form = els.menuForm.elements;
   form.id.value = menu.id;
   form.restaurantId.value = menu.restaurantId;
   form.name.value = menu.name || "";
   form.category.value = menu.category || "";
-  if (form.foodCharacterPreview) form.foodCharacterPreview.value = "";
   form.price.value = menu.price || 0;
   form.spicy.value = menu.spicy || 0;
   form.salty.value = menu.salty || 0;
@@ -963,6 +1060,13 @@ function editMenu(id) {
   form.recommendNote.value = menu.recommendNote || "";
   form.signature.checked = Boolean(menu.signature);
   form.available.checked = menu.available !== false;
+  state.foodCharacterEditor = ADMIN_FOOD_CHARACTER.createEditorState({
+    ...menu,
+    restaurantName: restaurantsById.get(menu.restaurantId)?.name || menu.restaurantName || "",
+  });
+  state.foodCharacterMessage = "";
+  state.foodCharacterMessageType = "";
+  renderFoodCharacterEditor();
   els.menuEditor.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
@@ -983,6 +1087,106 @@ function switchCatalogSource(nextSource) {
 
 function canEditSupabaseCatalog() {
   return state.catalogSource === "supabase" && currentCatalogData().editable;
+}
+
+function handleFoodCharacterChange(nextValue) {
+  const currentStatus = ADMIN_FOOD_CHARACTER?.getEditorStatus?.(state.foodCharacterEditor, state.catalogSource);
+  if (!currentStatus?.selectEnabled) return false;
+  if (!ADMIN_FOOD_CHARACTER?.updateEditorValue || !ADMIN_FOOD_CHARACTER?.isAllowedFoodCharacter(nextValue)) {
+    state.foodCharacterMessage = "허용되지 않은 Food Character입니다.";
+    state.foodCharacterMessageType = "error";
+    renderFoodCharacterEditor();
+    return false;
+  }
+  state.foodCharacterEditor = ADMIN_FOOD_CHARACTER.updateEditorValue(state.foodCharacterEditor, nextValue);
+  state.foodCharacterMessage = "";
+  state.foodCharacterMessageType = "";
+  renderFoodCharacterEditor();
+  return true;
+}
+
+async function saveSelectedFoodCharacter() {
+  if (!canEditSupabaseCatalog()) {
+    state.foodCharacterMessage = state.catalogSource === "static"
+      ? "정적 데이터는 읽기 전용입니다."
+      : "Supabase 연결 상태를 확인한 뒤 다시 시도해주세요.";
+    state.foodCharacterMessageType = "error";
+    renderFoodCharacterEditor();
+    return false;
+  }
+
+  if (state.foodCharacterEditor.saving) return false;
+
+  const editor = state.foodCharacterEditor;
+  const status = ADMIN_FOOD_CHARACTER?.getEditorStatus?.(editor, state.catalogSource);
+  if (!status?.saveEnabled) {
+    state.foodCharacterMessage = !status?.menuSelected
+      ? "Food Character를 변경할 메뉴를 먼저 선택해주세요."
+      : !status?.originalValid
+        ? "현재 Food Character가 유효하지 않아 저장할 수 없습니다."
+        : !status?.nextValid
+          ? "허용되지 않은 Food Character입니다."
+          : "저장할 Food Character 변경 사항이 없습니다.";
+    state.foodCharacterMessageType = "error";
+    renderFoodCharacterEditor();
+    return false;
+  }
+
+  const confirmed = confirm(
+    `[${editor.menuName}]\n\nFood Character를\n\n${editor.originalValue}\n→\n${editor.nextValue}\n\n로 변경합니다.\n\n이 작업은 이 메뉴의 Food Character만 수정합니다.`,
+  );
+  if (!confirmed) return false;
+
+  const requestContext = Object.freeze({
+    generation: state.foodCharacterEditorGeneration,
+    source: state.catalogSource,
+    menuId: editor.menuId,
+    originalValue: editor.originalValue,
+    nextValue: editor.nextValue,
+  });
+  state.foodCharacterEditor = { ...editor, saving: true };
+  state.foodCharacterMessage = "";
+  state.foodCharacterMessageType = "";
+  renderFoodCharacterEditor();
+
+  try {
+    const result = await ADMIN_FOOD_CHARACTER.saveFoodCharacterChange({
+      supabase: state.supabase,
+      source: requestContext.source,
+      menuId: requestContext.menuId,
+      originalValue: requestContext.originalValue,
+      nextValue: requestContext.nextValue,
+    });
+    if (!isCurrentFoodCharacterRequest(requestContext)) return false;
+
+    let verifiedMenu = null;
+    state.menus = state.menus.map((menu) => {
+      if (menu.id !== result.menuId) return menu;
+      verifiedMenu = { ...menu, foodCharacter: result.foodCharacter };
+      return verifiedMenu;
+    });
+    if (!verifiedMenu) {
+      state.foodCharacterEditor = { ...editor, saving: false };
+      state.foodCharacterMessage = "저장 후 로컬 메뉴를 확인하지 못했습니다. 데이터를 새로고침해주세요.";
+      state.foodCharacterMessageType = "error";
+      renderFoodCharacterEditor();
+      return false;
+    }
+    refreshCatalogMaps();
+    state.foodCharacterEditor = ADMIN_FOOD_CHARACTER.createEditorState(verifiedMenu);
+    state.foodCharacterMessage = "Food Character가 저장되었습니다.";
+    state.foodCharacterMessageType = "success";
+    renderFoodCharacterEditor();
+    return true;
+  } catch (error) {
+    if (isCurrentFoodCharacterRequest(requestContext)) {
+      state.foodCharacterEditor = { ...editor, saving: false };
+      state.foodCharacterMessage = error?.message || "Food Character 저장에 실패했습니다.";
+      state.foodCharacterMessageType = "error";
+      renderFoodCharacterEditor();
+    }
+    return false;
+  }
 }
 
 async function saveRestaurant(event) {
@@ -1093,6 +1297,8 @@ function bindEvents() {
   els.seedCatalog?.addEventListener("click", seedCatalogFromStatic);
   els.restaurantForm?.addEventListener("submit", saveRestaurant);
   els.menuForm?.addEventListener("submit", saveMenu);
+  els.foodCharacterSelect?.addEventListener("change", (event) => handleFoodCharacterChange(event.target.value));
+  els.saveFoodCharacter?.addEventListener("click", saveSelectedFoodCharacter);
 
   document.body.addEventListener("click", (event) => {
     const tab = event.target.closest("[data-admin-tab]");
@@ -1166,6 +1372,6 @@ function bindEvents() {
 }
 
 renderRestaurantFilterOptions();
-renderFoodCharacterPreview();
+renderFoodCharacterEditor();
 bindEvents();
 initSupabase();

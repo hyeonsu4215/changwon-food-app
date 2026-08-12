@@ -185,13 +185,43 @@
               <label><span>가게</span><select name="restaurantId" required></select></label>
               <label><span>메뉴명</span><input name="name" required /></label>
               <label><span>카테고리</span><input name="category" required placeholder="한식" /></label>
-              <label class="wide food-character-preview">
-                <span>Primary Food Character <b>FC-1 PREVIEW</b></span>
-                <select id="foodCharacterPreview" name="foodCharacterPreview" disabled aria-describedby="foodCharacterPreviewHelp">
-                  <option value="">미설정 · DB 저장 구조 준비 전</option>
-                </select>
-                <small id="foodCharacterPreviewHelp">DB 저장 구조 준비 전 단계입니다. 실제 선택 및 저장은 FC-2 승인 후 활성화됩니다.</small>
-              </label>
+              <section class="wide food-character-editor" aria-labelledby="foodCharacterTitle">
+                <div class="food-character-heading">
+                  <div>
+                    <span id="foodCharacterTitle">Primary Food Character <b>FC-2</b></span>
+                    <small>카테고리나 태그가 아니라 사용자가 느끼는 한 끼의 형태입니다. Secondary Traits는 아직 지원하지 않습니다.</small>
+                  </div>
+                  <span id="foodCharacterSourceBadge" class="food-character-source">메뉴를 선택해주세요</span>
+                </div>
+                <label class="food-character-control">
+                  <span>Primary Food Character</span>
+                  <select id="foodCharacterSelect" name="foodCharacterSelect" disabled aria-describedby="foodCharacterHelp">
+                    <option value="">메뉴 선택 필요</option>
+                  </select>
+                </label>
+                <div class="food-character-context" aria-live="polite">
+                  <strong id="foodCharacterMenuName">선택된 메뉴 없음</strong>
+                  <span id="foodCharacterMenuMeta">메뉴 ID와 가게명을 확인할 수 있습니다.</span>
+                </div>
+                <div class="food-character-change" id="foodCharacterChangePreview">
+                  <div>
+                    <span>현재</span>
+                    <strong id="foodCharacterCurrentLabel">-</strong>
+                    <code id="foodCharacterCurrentValue">-</code>
+                  </div>
+                  <span class="food-character-arrow" aria-hidden="true">→</span>
+                  <div>
+                    <span>변경 후</span>
+                    <strong id="foodCharacterNextLabel">-</strong>
+                    <code id="foodCharacterNextValue">-</code>
+                  </div>
+                </div>
+                <p id="foodCharacterHelp" class="food-character-help">Supabase 원본에서 메뉴를 선택하면 현재 저장값을 확인하고 변경할 수 있습니다.</p>
+                <div class="food-character-actions">
+                  <button id="saveFoodCharacter" type="button" disabled>Food Character 저장</button>
+                  <span id="foodCharacterSaveStatus" role="status" aria-live="polite">변경 사항 없음</span>
+                </div>
+              </section>
               <label><span>가격</span><input name="price" type="number" min="0" required /></label>
               <label><span>맵기</span><input name="spicy" type="number" min="0" max="5" step="0.5" /></label>
               <label><span>짠맛</span><input name="salty" type="number" min="0" max="5" step="0.5" /></label>

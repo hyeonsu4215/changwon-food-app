@@ -108,11 +108,147 @@
     return allowedValues.includes(value);
   }
 
+  const saveErrorMessages = Object.freeze({
+    "missing-client": "Supabase 연결을 확인할 수 없습니다.",
+    "missing-menu": "Food Character를 변경할 메뉴를 먼저 선택해주세요.",
+    "static-source": "정적 데이터는 읽기 전용입니다.",
+    "invalid-original": "현재 Food Character가 유효하지 않아 저장할 수 없습니다.",
+    "invalid-value": "허용되지 않은 Food Character입니다.",
+    unchanged: "현재 Food Character와 변경할 값이 같습니다.",
+    stale: "다른 곳에서 값이 변경되었을 수 있습니다. 새로고침 후 다시 확인해주세요.",
+    authorization: "Food Character를 변경할 권한이 없습니다. 관리자 인증 상태를 확인해주세요.",
+    connection: "Supabase 연결 오류로 Food Character를 저장하지 못했습니다.",
+    "database-error": "Supabase가 Food Character 저장 요청을 처리하지 못했습니다.",
+    "invalid-response": "Supabase 저장 결과를 확인할 수 없습니다.",
+    "verification-missing": "저장 후 메뉴를 다시 확인하지 못했습니다.",
+    "verification-mismatch": "저장 후 확인한 Food Character가 요청한 값과 다릅니다.",
+  });
+
+  class FoodCharacterSaveError extends Error {
+    constructor(code, cause) {
+      super(saveErrorMessages[code] || "Food Character 저장에 실패했습니다.");
+      this.name = "FoodCharacterSaveError";
+      this.code = code;
+      if (cause) this.cause = cause;
+    }
+  }
+
+  function createEditorState(menu = null) {
+    const value = menu?.foodCharacter ?? null;
+    return {
+      menuId: menu?.id || null,
+      menuName: menu?.name || "",
+      restaurantName: menu?.restaurantName || "",
+      originalValue: value,
+      nextValue: value,
+      saving: false,
+    };
+  }
+
+  function updateEditorValue(editor, nextValue) {
+    return {
+      ...editor,
+      nextValue,
+    };
+  }
+
+  function getEditorStatus(editor, source) {
+    const menuSelected = Boolean(editor?.menuId);
+    const originalValid = isAllowedFoodCharacter(editor?.originalValue);
+    const nextValid = isAllowedFoodCharacter(editor?.nextValue);
+    const dirty = originalValid && nextValid && editor.originalValue !== editor.nextValue;
+    const supabaseSource = source === "supabase";
+    const saving = Boolean(editor?.saving);
+    return Object.freeze({
+      menuSelected,
+      originalValid,
+      nextValid,
+      dirty,
+      selectEnabled: supabaseSource && menuSelected && originalValid && !saving,
+      saveEnabled: supabaseSource && menuSelected && dirty && !saving,
+    });
+  }
+
+  function classifySupabaseError(error) {
+    const status = Number(error?.status || error?.statusCode || 0);
+    const code = String(error?.code || "").toLowerCase();
+    const message = String(error?.message || "").toLowerCase();
+    if (
+      status === 401 ||
+      status === 403 ||
+      code === "42501" ||
+      /permission|policy|jwt|not authorized|unauthorized|forbidden/.test(message)
+    ) {
+      return new FoodCharacterSaveError("authorization", error);
+    }
+    if (/failed to fetch|network|timeout|load failed/.test(message) || (!status && !code)) {
+      return new FoodCharacterSaveError("connection", error);
+    }
+    return new FoodCharacterSaveError("database-error", error);
+  }
+
+  async function saveFoodCharacterChange({ supabase, source, menuId, originalValue, nextValue }) {
+    if (source !== "supabase") throw new FoodCharacterSaveError("static-source");
+    if (!menuId) throw new FoodCharacterSaveError("missing-menu");
+    if (!isAllowedFoodCharacter(originalValue)) throw new FoodCharacterSaveError("invalid-original");
+    if (!isAllowedFoodCharacter(nextValue)) throw new FoodCharacterSaveError("invalid-value");
+    if (originalValue === nextValue) throw new FoodCharacterSaveError("unchanged");
+    if (!supabase?.from) throw new FoodCharacterSaveError("missing-client");
+
+    let updateResult;
+    try {
+      updateResult = await supabase
+        .from("menus")
+        .update({ food_character: nextValue })
+        .eq("id", menuId)
+        .eq("food_character", originalValue)
+        .select("id,food_character");
+    } catch (error) {
+      throw classifySupabaseError(error);
+    }
+
+    if (updateResult?.error) throw classifySupabaseError(updateResult.error);
+    if (!Array.isArray(updateResult?.data)) throw new FoodCharacterSaveError("invalid-response");
+    if (updateResult.data.length === 0) throw new FoodCharacterSaveError("stale");
+    if (updateResult.data.length !== 1 || updateResult.data[0]?.id !== menuId) {
+      throw new FoodCharacterSaveError("invalid-response");
+    }
+
+    let verificationResult;
+    try {
+      verificationResult = await supabase
+        .from("menus")
+        .select("id,food_character")
+        .eq("id", menuId)
+        .maybeSingle();
+    } catch (error) {
+      throw classifySupabaseError(error);
+    }
+
+    if (verificationResult?.error) throw classifySupabaseError(verificationResult.error);
+    if (!verificationResult?.data || verificationResult.data.id !== menuId) {
+      throw new FoodCharacterSaveError("verification-missing");
+    }
+    if (verificationResult.data.food_character !== nextValue) {
+      throw new FoodCharacterSaveError("verification-mismatch");
+    }
+
+    return Object.freeze({
+      menuId,
+      foodCharacter: verificationResult.data.food_character,
+    });
+  }
+
   return Object.freeze({
     definitions,
     definitionsByValue,
     allowedValues,
     isAllowedFoodCharacter,
     suggestFoodCharacterDraft,
+    FoodCharacterSaveError,
+    createEditorState,
+    updateEditorValue,
+    getEditorStatus,
+    saveFoodCharacterChange,
   });
 });

@@ -39,8 +39,9 @@ const withoutTags = draft("테스트 메뉴", "한식", []);
 const misleadingTags = draft("테스트 메뉴", "한식", ["밥", "탕", "국수", "혼밥"]);
 assert.deepEqual(misleadingTags, withoutTags, "tags는 자동 초안 판정에 영향을 주면 안 됩니다.");
 
-assert.match(adminHtml, /id="foodCharacterPreview"[^>]*disabled/);
-assert.match(adminHtml, /실제 선택 및 저장은 FC-2 승인 후 활성화/);
+assert.match(adminHtml, /id="foodCharacterSelect"[^>]*disabled/);
+assert.match(adminHtml, /Primary Food Character <b>FC-2<\/b>/);
+assert.match(adminHtml, /Secondary Traits는 아직 지원하지 않습니다/);
 assert.match(adminHtml, /data\.js[\s\S]*catalog-policy\.js[\s\S]*food-character-admin\.js[\s\S]*supabase-config\.js[\s\S]*admin\.js/);
 assert.doesNotMatch(catalogPolicySource, /CHANGWON_ADMIN_FOOD_CHARACTER|food-character-admin/);
 assert.doesNotMatch(foodCharacterSource, /CHANGWON_CATALOG_POLICY|catalog-policy/);
@@ -63,7 +64,7 @@ const editMenuSource = adminSource.slice(
 );
 assert.doesNotMatch(appMenuToDbSource, /food_?character/i);
 assert.doesNotMatch(saveMenuSource, /food_?character/i);
-assert.match(clearMenuFormSource, /foodCharacterPreview[^\n]*value = ""/);
-assert.match(editMenuSource, /foodCharacterPreview[^\n]*value = ""/);
+assert.match(clearMenuFormSource, /resetFoodCharacterEditingState\(\)/);
+assert.match(editMenuSource, /createEditorState\(\{/);
 
-console.log("food character foundation: definitions, disabled UI, and payload isolation passed");
+console.log("food character foundation: definitions, FC-2 UI, and full-menu payload isolation passed");
