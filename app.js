@@ -1,6 +1,6 @@
 const DATA = window.CHANGWON_FOOD_DATA;
 
-const FALLBACK_LOCATION = { label: "국립창원대학교 정문", lat: 35.24235, lng: 128.68965 };
+const FALLBACK_LOCATION = { label: "국립창원대학교 정문", lat: 35.2438, lng: 128.6916 };
 const DATA_UPDATED_AT = "2026.06.22";
 const FEEDBACK_FORM_URL = "https://forms.gle/BUYoZiSUXtFDE81J7";
 const VISIT_REVIEW_RADIUS_M = 50;
@@ -1054,8 +1054,6 @@ function discoveryScore(item) {
   if (Number.isFinite(item.distance)) score += Math.min(item.distance / 55, 28);
   else score += 18;
   score += item.openNow ? -4 : 3;
-  score -= item.value * 2.2;
-  score -= item.portion * 1.1;
   score -= item.signature ? 3 : 0;
   if (item.weatherBoost) score -= item.weatherBoost.score;
   if (!item.restaurant) score += 12;

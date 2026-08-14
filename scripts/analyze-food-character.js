@@ -10,6 +10,10 @@ const PRIMARY_VALUES = Object.freeze([
   "quick-snack",
   "main-dish",
 ]);
+const HISTORICAL_FALLBACK_LOCATION = Object.freeze({ lat: 35.24235, lng: 128.68965 });
+const DEFAULT_SEED_COUNT = 1000;
+const SESSION_COUNT = 100;
+const SETS_PER_SESSION = 10;
 
 function extractFunctionSource(source, name) {
   const start = source.indexOf(`function ${name}(`);
@@ -166,6 +170,16 @@ function loadApprovedCharacters(file = path.join(root, "docs", "food-character",
   return new Map(rows.map((row) => [row.id, row.food_character]));
 }
 
+function loadFallbackLocation(appSource = fs.readFileSync(path.join(root, "app.js"), "utf8")) {
+  const match = appSource.match(/const FALLBACK_LOCATION\s*=\s*(\{[^;]+\});/);
+  if (!match) throw new Error("app.js FALLBACK_LOCATION not found");
+  const location = new Function(`return (${match[1]});`)();
+  if (!Number.isFinite(location.lat) || !Number.isFinite(location.lng)) {
+    throw new Error("app.js FALLBACK_LOCATION is invalid");
+  }
+  return location;
+}
+
 function oldRuntimeFoodCharacter(item = {}) {
   const text = `${item.name || ""} ${item.category || ""} ${(item.tags || []).join(" ")}`;
   const normalized = text.replace(/\s+/g, "");
@@ -236,9 +250,13 @@ function average(values) {
 }
 
 function summarizeSeedResults(results) {
-  const rank = (index) => results.map((result) => result.picks[index].rank);
+  const rank = (index) => results.map((result) => result.picks[index]?.rank).filter(Number.isFinite);
   const rank2 = rank(1);
   const rank3 = rank(2);
+  const tailRisk = Object.fromEntries([10, 15, 20, 30, 40].map((threshold) => {
+    const count = rank3.filter((value) => value > threshold).length;
+    return [`rank3Over${threshold}`, { count, rate: count / results.length }];
+  }));
   return {
     averageRank1: average(rank(0)),
     averageRank2: average(rank2),
@@ -246,6 +264,8 @@ function summarizeSeedResults(results) {
     medianRank2: percentile(rank2, 0.5),
     medianRank3: percentile(rank3, 0.5),
     p90Rank3: percentile(rank3, 0.9),
+    p95Rank3: percentile(rank3, 0.95),
+    p99Rank3: percentile(rank3, 0.99),
     worstRank3: Math.max(...rank3),
     averageDistinctRestaurants: average(results.map((result) => result.distinctRestaurants)),
     averageDistinctCharacters: average(results.map((result) => result.distinctCharacters)),
@@ -253,68 +273,255 @@ function summarizeSeedResults(results) {
     threeDistinctRestaurantsRate: results.filter((result) => result.distinctRestaurants === 3).length / results.length,
     threeDistinctCharactersRate: results.filter((result) => result.distinctCharacters === 3).length / results.length,
     threeDistinctPrimaryCharactersRate: results.filter((result) => result.distinctPrimaryCharacters === 3).length / results.length,
+    averageSelectedDistance: average(results.flatMap((result) => result.picks.map((pick) => pick.distance))),
+    tailRisk,
+    errors: {
+      emptyRecommendation: results.filter((result) => result.errors.emptyRecommendation).length,
+      duplicateMenuId: results.filter((result) => result.errors.duplicateMenuId).length,
+      invalidMenu: results.filter((result) => result.errors.invalidMenu).length,
+      selectorFailure: results.filter((result) => result.errors.selectorFailure).length,
+    },
   };
 }
 
-function buildDiscoveryComparison({ seeds = 100 } = {}) {
+function createAnalysisContext() {
   const appSource = fs.readFileSync(path.join(root, "app.js"), "utf8");
   const data = loadFoodData();
   const approved = loadApprovedCharacters();
   const foodCharacterRuntime = loadFoodCharacterRuntime(appSource);
   const discoveryRuntime = loadDiscoveryRuntime(appSource);
   const restaurantsById = new Map(data.restaurants.map((restaurant) => [restaurant.id, restaurant]));
-  const location = { lat: 35.24235, lng: 128.68965 };
-  const modes = {
-    old: (menu) => oldRuntimeFoodCharacter(menu),
-    explicit: (menu) => approved.get(menu.id),
-    fallback: (menu) => foodCharacterRuntime.classifyFoodCharacterFallback(menu).value,
+  return { appSource, data, approved, foodCharacterRuntime, discoveryRuntime, restaurantsById };
+}
+
+function buildScoredCandidates(context, seed, location) {
+  const state = { discoverySeed: seed };
+  const seededNoise = context.discoveryRuntime.seededNoiseFactory(state);
+  const score = context.discoveryRuntime.discoveryScore(seededNoise);
+  return context.data.menus
+    .filter((menu) => menu.available)
+    .map((menu) => {
+      const restaurant = context.restaurantsById.get(menu.restaurantId);
+      const item = {
+        ...menu,
+        restaurant,
+        distance: restaurant ? context.discoveryRuntime.haversine(location, restaurant) : Infinity,
+        openNow: true,
+        weatherBoost: null,
+      };
+      return { ...item, discoveryScore: score(item) };
+    })
+    .sort((left, right) => left.discoveryScore - right.discoveryScore)
+    .map((item, index) => ({ ...item, originalRank: index + 1 }));
+}
+
+function resultForCandidates(context, seed, candidates, seenIds = new Set(), previousIds = new Set()) {
+  const selected = context.discoveryRuntime.selectDiscoveryRecommendations(candidates, { seenIds, previousIds });
+  const picks = selected.map((item) => ({
+    id: item.id,
+    name: item.name,
+    restaurantId: item.restaurantId,
+    restaurant: item.restaurantName || item.restaurant?.name || "",
+    character: item.discoveryCharacter,
+    rank: item.originalRank,
+    distance: item.distance,
+  }));
+  const expectedCount = Math.min(3, candidates.length);
+  const selectedIds = new Set(picks.map((item) => item.id));
+  const validIds = new Set(candidates.map((item) => item.id));
+  return {
+    seed,
+    picks,
+    topCandidates: candidates.slice(0, 15).map((item) => ({
+      rank: item.originalRank,
+      id: item.id,
+      name: item.name,
+      restaurantId: item.restaurantId,
+      restaurant: item.restaurantName || item.restaurant?.name || "",
+      character: item.discoveryCharacter,
+      selected: selectedIds.has(item.id),
+    })),
+    distinctRestaurants: new Set(picks.map((item) => item.restaurantId || item.restaurant)).size,
+    distinctCharacters: new Set(picks.map((item) => item.character)).size,
+    distinctPrimaryCharacters: new Set(
+      picks.map((item) => item.character).filter((character) => PRIMARY_VALUES.includes(character)),
+    ).size,
+    errors: {
+      emptyRecommendation: candidates.length > 0 && picks.length === 0,
+      duplicateMenuId: selectedIds.size !== picks.length,
+      invalidMenu: picks.some((item) => !validIds.has(item.id) || !Number.isFinite(item.rank)),
+      selectorFailure: picks.length !== expectedCount,
+    },
   };
+}
+
+function runIndependentModes(context, { seeds, location, modes }) {
   const results = Object.fromEntries(Object.keys(modes).map((mode) => [mode, []]));
 
   for (let seed = 1; seed <= seeds; seed += 1) {
-    const state = { discoverySeed: seed };
-    const seededNoise = discoveryRuntime.seededNoiseFactory(state);
-    const score = discoveryRuntime.discoveryScore(seededNoise);
-    const sorted = data.menus
-      .filter((menu) => menu.available)
-      .map((menu) => {
-        const restaurant = restaurantsById.get(menu.restaurantId);
-        const item = {
-          ...menu,
-          restaurant,
-          distance: restaurant ? discoveryRuntime.haversine(location, restaurant) : Infinity,
-          openNow: true,
-          weatherBoost: null,
-        };
-        return { ...item, discoveryScore: score(item) };
-      })
-      .sort((left, right) => left.discoveryScore - right.discoveryScore);
-    const rankById = new Map(sorted.map((item, index) => [item.id, index + 1]));
+    const sorted = buildScoredCandidates(context, seed, location);
 
     Object.entries(modes).forEach(([mode, getCharacter]) => {
       const candidates = sorted.map((item) => ({ ...item, discoveryCharacter: getCharacter(item) }));
-      const selected = discoveryRuntime.selectDiscoveryRecommendations(candidates);
-      const picks = selected.map((item) => ({
-        id: item.id,
-        name: item.name,
-        restaurant: item.restaurantName || item.restaurant?.name || "",
-        character: item.discoveryCharacter,
-        rank: rankById.get(item.id),
-      }));
-      results[mode].push({
-        seed,
-        picks,
-        distinctRestaurants: new Set(picks.map((item) => item.restaurant)).size,
-        distinctCharacters: new Set(picks.map((item) => item.character)).size,
-        distinctPrimaryCharacters: new Set(
-          picks.map((item) => item.character).filter((character) => PRIMARY_VALUES.includes(character)),
-        ).size,
-      });
+      results[mode].push(resultForCandidates(context, seed, candidates));
     });
   }
+  return results;
+}
+
+function countExposure(rows, getKey) {
+  const counts = new Map();
+  rows.forEach((row) => row.picks.forEach((pick) => {
+    const key = getKey(pick);
+    counts.set(key, (counts.get(key) || 0) + 1);
+  }));
+  return counts;
+}
+
+function summarizeExposure(rows, context) {
+  const menuCounts = countExposure(rows, (pick) => pick.id);
+  const restaurantCounts = countExposure(rows, (pick) => pick.restaurantId || pick.restaurant);
+  const characterCounts = countExposure(rows, (pick) => pick.character);
+  const totalSlots = rows.reduce((sum, row) => sum + row.picks.length, 0);
+  const menusById = new Map(context.data.menus.map((menu) => [menu.id, menu]));
+  const allMenus = context.data.menus.filter((menu) => menu.available).map((menu) => {
+    const restaurant = context.restaurantsById.get(menu.restaurantId);
+    return {
+      id: menu.id,
+      name: menu.name,
+      restaurant: menu.restaurantName || restaurant?.name || "",
+      character: context.approved.get(menu.id),
+      appearances: menuCounts.get(menu.id) || 0,
+    };
+  });
+  const allRestaurants = context.data.restaurants.map((restaurant) => ({
+    id: restaurant.id,
+    name: restaurant.name,
+    appearances: restaurantCounts.get(restaurant.id) || 0,
+  }));
+  const descending = (left, right) => right.appearances - left.appearances || left.id.localeCompare(right.id);
+  const ascending = (left, right) => left.appearances - right.appearances || left.id.localeCompare(right.id);
+  const characterExposure = Object.fromEntries(
+    [...new Set([...PRIMARY_VALUES, ...characterCounts.keys()])].map((character) => {
+      const count = characterCounts.get(character) || 0;
+      return [character, { count, rate: totalSlots ? count / totalSlots : 0 }];
+    }),
+  );
+  return {
+    totalSlots,
+    characterExposure,
+    menus: {
+      top10: [...allMenus].sort(descending).slice(0, 10),
+      bottom10: allMenus.filter((item) => item.appearances > 0).sort(ascending).slice(0, 10),
+      neverSelected: allMenus.filter((item) => item.appearances === 0),
+      coverageCount: allMenus.filter((item) => item.appearances > 0).length,
+      coverageRate: allMenus.filter((item) => item.appearances > 0).length / allMenus.length,
+    },
+    restaurants: {
+      top10: [...allRestaurants].sort(descending).slice(0, 10),
+      bottom10: allRestaurants.filter((item) => item.appearances > 0).sort(ascending).slice(0, 10),
+      neverSelected: allRestaurants.filter((item) => item.appearances === 0),
+      coverageCount: allRestaurants.filter((item) => item.appearances > 0).length,
+      coverageRate: allRestaurants.filter((item) => item.appearances > 0).length / allRestaurants.length,
+    },
+    menuCounts: Object.fromEntries([...menuCounts.entries()].filter(([id]) => menusById.has(id))),
+  };
+}
+
+function compareRank3(oldRows, explicitRows) {
+  const counts = { improved: 0, same: 0, worse: 0 };
+  const worseSeeds = [];
+  explicitRows.forEach((row, index) => {
+    const oldRow = oldRows[index];
+    const oldRank = oldRow.picks[2]?.rank;
+    const explicitRank = row.picks[2]?.rank;
+    if (explicitRank < oldRank) counts.improved += 1;
+    else if (explicitRank === oldRank) counts.same += 1;
+    else {
+      counts.worse += 1;
+      if (worseSeeds.length < 20) {
+        worseSeeds.push({ seed: row.seed, old: oldRow.picks, explicit: row.picks });
+      }
+    }
+  });
+  const total = explicitRows.length;
+  return {
+    ...counts,
+    improvedRate: counts.improved / total,
+    sameRate: counts.same / total,
+    worseRate: counts.worse / total,
+    worseSeeds,
+  };
+}
+
+function compareExplicitFallback(explicitRows, fallbackRows) {
+  const mismatches = [];
+  let mismatchCount = 0;
+  explicitRows.forEach((explicit, index) => {
+    const fallback = fallbackRows[index];
+    const explicitSignature = explicit.picks.map((pick) => [pick.id, pick.rank, pick.character]);
+    const fallbackSignature = fallback.picks.map((pick) => [pick.id, pick.rank, pick.character]);
+    if (JSON.stringify(explicitSignature) !== JSON.stringify(fallbackSignature)) {
+      mismatchCount += 1;
+      if (mismatches.length < 20) {
+        mismatches.push({ seed: explicit.seed, explicit: explicit.picks, fallback: fallback.picks });
+      }
+    }
+  });
+  return { matches: explicitRows.length - mismatchCount, mismatches: mismatchCount, details: mismatches };
+}
+
+function explainExtremeRows(rows) {
+  return [...rows]
+    .sort((left, right) => right.picks[2].rank - left.picks[2].rank || left.seed - right.seed)
+    .slice(0, 10)
+    .map((row) => {
+      const anchors = row.picks.slice(0, 2);
+      const thirdRank = row.picks[2].rank;
+      const reasonCounts = { restaurant: 0, character: 0, both: 0, other: 0 };
+      const top15 = row.topCandidates.map((candidate) => {
+        let reason = candidate.selected ? "selected" : "after-selection";
+        if (!candidate.selected && candidate.rank < thirdRank) {
+          const restaurantConflict = anchors.some(
+            (pick) => (pick.restaurantId || pick.restaurant) === (candidate.restaurantId || candidate.restaurant),
+          );
+          const characterConflict = anchors.some((pick) => pick.character === candidate.character);
+          reason = restaurantConflict && characterConflict
+            ? "both"
+            : restaurantConflict
+              ? "restaurant"
+              : characterConflict
+                ? "character"
+                : "other";
+          reasonCounts[reason] += 1;
+        }
+        return { ...candidate, reason };
+      });
+      return { seed: row.seed, rank3: thirdRank, picks: row.picks, reasonCounts, top15 };
+    });
+}
+
+function buildDiscoveryComparison({ seeds = DEFAULT_SEED_COUNT, location = loadFallbackLocation() } = {}) {
+  const context = createAnalysisContext();
+  const modes = {
+    old: (menu) => oldRuntimeFoodCharacter(menu),
+    explicit: (menu) => context.approved.get(menu.id),
+    fallback: (menu) => context.foodCharacterRuntime.classifyFoodCharacterFallback(menu).value,
+  };
+  const results = runIndependentModes(context, { seeds, location, modes });
 
   return {
+    seeds,
+    location,
     summaries: Object.fromEntries(Object.entries(results).map(([mode, rows]) => [mode, summarizeSeedResults(rows)])),
+    improvement: compareRank3(results.old, results.explicit),
+    explicitFallbackParity: compareExplicitFallback(results.explicit, results.fallback),
+    exposure: {
+      old: summarizeExposure(results.old, context),
+      explicit: summarizeExposure(results.explicit, context),
+      fallback: summarizeExposure(results.fallback, context),
+    },
+    extremeExplicitSeeds: explainExtremeRows(results.explicit),
     representativeSeeds: [1, 2, 3, 25, 50, 100]
       .filter((seed) => seed <= seeds)
       .map((seed) => ({
@@ -326,9 +533,126 @@ function buildDiscoveryComparison({ seeds = 100 } = {}) {
   };
 }
 
+function summarizeNumberSeries(values) {
+  return {
+    average: average(values),
+    median: percentile(values, 0.5),
+    min: Math.min(...values),
+    max: Math.max(...values),
+  };
+}
+
+function buildSessionAnalysis({ sessions = SESSION_COUNT, setsPerSession = SETS_PER_SESSION, location = loadFallbackLocation() } = {}) {
+  const context = createAnalysisContext();
+  const rows = [];
+  const sessionRows = [];
+  for (let session = 1; session <= sessions; session += 1) {
+    const sorted = buildScoredCandidates(context, session, location);
+    const candidates = sorted.map((item) => ({ ...item, discoveryCharacter: context.approved.get(item.id) }));
+    const seenIds = new Set();
+    let previousIds = new Set();
+    const sessionPicks = [];
+    for (let setIndex = 1; setIndex <= setsPerSession; setIndex += 1) {
+      const result = resultForCandidates(context, session, candidates, seenIds, previousIds);
+      const previousRestaurants = new Set(
+        rows.at(-1)?.session === session ? rows.at(-1).picks.map((pick) => pick.restaurantId || pick.restaurant) : [],
+      );
+      result.picks.forEach((pick) => seenIds.add(pick.id));
+      const previousMenuRepeats = result.picks.filter((pick) => previousIds.has(pick.id)).length;
+      const previousRestaurantRepeats = result.picks.filter(
+        (pick) => previousRestaurants.has(pick.restaurantId || pick.restaurant),
+      ).length;
+      previousIds = new Set(result.picks.map((pick) => pick.id));
+      sessionPicks.push(...result.picks);
+      rows.push({ ...result, session, setIndex, previousMenuRepeats, previousRestaurantRepeats });
+    }
+    sessionRows.push({
+      session,
+      uniqueMenus: new Set(sessionPicks.map((pick) => pick.id)).size,
+      uniqueRestaurants: new Set(sessionPicks.map((pick) => pick.restaurantId || pick.restaurant)).size,
+      primaryCharacterCoverage: new Set(sessionPicks.map((pick) => pick.character)).size,
+    });
+  }
+  return {
+    sessions,
+    setsPerSession,
+    totalSets: rows.length,
+    successfulSets: rows.filter((row) => !Object.values(row.errors).some(Boolean)).length,
+    failedSets: rows.filter((row) => Object.values(row.errors).some(Boolean)).length,
+    duplicateMenuIdErrors: rows.filter((row) => row.errors.duplicateMenuId).length,
+    averageDistinctRestaurants: average(rows.map((row) => row.distinctRestaurants)),
+    threeDistinctRestaurantsRate: rows.filter((row) => row.distinctRestaurants === 3).length / rows.length,
+    averageDistinctPrimaryCharacters: average(rows.map((row) => row.distinctPrimaryCharacters)),
+    threeDistinctPrimaryCharactersRate: rows.filter((row) => row.distinctPrimaryCharacters === 3).length / rows.length,
+    previousSetMenuRepeats: rows.reduce((sum, row) => sum + row.previousMenuRepeats, 0),
+    previousSetRestaurantRepeats: rows.reduce((sum, row) => sum + row.previousRestaurantRepeats, 0),
+    averagePreviousSetMenuRepeats: average(rows.map((row) => row.previousMenuRepeats)),
+    averagePreviousSetRestaurantRepeats: average(rows.map((row) => row.previousRestaurantRepeats)),
+    sessionUniqueMenus: summarizeNumberSeries(sessionRows.map((row) => row.uniqueMenus)),
+    sessionUniqueRestaurants: summarizeNumberSeries(sessionRows.map((row) => row.uniqueRestaurants)),
+    sessionPrimaryCharacterCoverage: summarizeNumberSeries(sessionRows.map((row) => row.primaryCharacterCoverage)),
+    exposure: summarizeExposure(rows, context),
+  };
+}
+
+function sameSet(left, right, getKey) {
+  return [...left.picks.map(getKey)].sort().join("|") === [...right.picks.map(getKey)].sort().join("|");
+}
+
+function buildGateImpact({ seeds = DEFAULT_SEED_COUNT } = {}) {
+  const context = createAnalysisContext();
+  const newLocation = loadFallbackLocation(context.appSource);
+  const modes = { explicit: (menu) => context.approved.get(menu.id) };
+  const oldRows = runIndependentModes(context, {
+    seeds,
+    location: HISTORICAL_FALLBACK_LOCATION,
+    modes,
+  }).explicit;
+  const newRows = runIndependentModes(context, { seeds, location: newLocation, modes }).explicit;
+  const menuChangedCount = newRows.filter((row, index) => !sameSet(row, oldRows[index], (pick) => pick.id)).length;
+  const restaurantChangedCount = newRows.filter(
+    (row, index) => !sameSet(row, oldRows[index], (pick) => pick.restaurantId || pick.restaurant),
+  ).length;
+  const orderedPickChangedCount = newRows.filter((row, index) => (
+    row.picks.map((pick) => pick.id).join("|") !== oldRows[index].picks.map((pick) => pick.id).join("|")
+  )).length;
+  const restaurantIndexes = [0, 4, 9, 19, 28].filter((index) => index < context.data.restaurants.length);
+  const distanceExamples = restaurantIndexes.map((index) => {
+    const restaurant = context.data.restaurants[index];
+    const oldDistance = context.discoveryRuntime.haversine(HISTORICAL_FALLBACK_LOCATION, restaurant);
+    const newDistance = context.discoveryRuntime.haversine(newLocation, restaurant);
+    return {
+      id: restaurant.id,
+      name: restaurant.name,
+      oldDistance,
+      newDistance,
+      delta: newDistance - oldDistance,
+    };
+  });
+  return {
+    seeds,
+    oldLocation: HISTORICAL_FALLBACK_LOCATION,
+    newLocation,
+    gateDistance: context.discoveryRuntime.haversine(HISTORICAL_FALLBACK_LOCATION, newLocation),
+    oldSummary: summarizeSeedResults(oldRows),
+    newSummary: summarizeSeedResults(newRows),
+    menuChangedCount,
+    menuChangedRate: menuChangedCount / seeds,
+    restaurantChangedCount,
+    restaurantChangedRate: restaurantChangedCount / seeds,
+    orderedPickChangedCount,
+    orderedPickChangedRate: orderedPickChangedCount / seeds,
+    oldTopMenus: summarizeExposure(oldRows, context).menus.top10,
+    newTopMenus: summarizeExposure(newRows, context).menus.top10,
+    distanceExamples,
+  };
+}
+
 function printAnalysis() {
   const audit = buildClassificationAudit();
   const discovery = buildDiscoveryComparison();
+  const sessions = buildSessionAnalysis();
+  const gateImpact = buildGateImpact();
   console.log("CLASSIFICATION_STATS");
   console.log(JSON.stringify(audit.stats, null, 2));
   console.log("CLASSIFICATION_ITEMS");
@@ -352,23 +676,32 @@ function printAnalysis() {
   audit.items.filter((item) => !item.fallbackMatchesExplicit).forEach((item) => {
     console.log([item.id, item.name, item.category, item.explicit, item.fallbackCharacter, item.matchedRule, item.fallbackSource].join("\t"));
   });
-  console.log("DISCOVERY_SUMMARIES");
-  console.log(JSON.stringify(discovery.summaries, null, 2));
-  console.log("REPRESENTATIVE_SEEDS");
-  console.log(JSON.stringify(discovery.representativeSeeds, null, 2));
+  console.log("DISCOVERY_ANALYSIS");
+  console.log(JSON.stringify(discovery, null, 2));
+  console.log("SESSION_ANALYSIS");
+  console.log(JSON.stringify(sessions, null, 2));
+  console.log("GATE_IMPACT");
+  console.log(JSON.stringify(gateImpact, null, 2));
 }
 
 if (require.main === module) printAnalysis();
 
 module.exports = Object.freeze({
   PRIMARY_VALUES,
+  HISTORICAL_FALLBACK_LOCATION,
+  DEFAULT_SEED_COUNT,
+  SESSION_COUNT,
+  SETS_PER_SESSION,
   extractFunctionSource,
   loadFoodCharacterRuntime,
   loadDbMenuToApp,
   loadDiscoveryRuntime,
   loadFoodData,
   loadApprovedCharacters,
+  loadFallbackLocation,
   oldRuntimeFoodCharacter,
   buildClassificationAudit,
   buildDiscoveryComparison,
+  buildSessionAnalysis,
+  buildGateImpact,
 });
