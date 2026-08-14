@@ -1,6 +1,6 @@
 const DATA = window.CHANGWON_FOOD_DATA;
 
-const FALLBACK_LOCATION = { label: "국립창원대학교 정문", lat: 35.24235, lng: 128.68965 };
+const FALLBACK_LOCATION = { label: "국립창원대학교 정문", lat: 35.2438, lng: 128.6916 };
 const DATA_UPDATED_AT = "2026.06.22";
 const FEEDBACK_FORM_URL = "https://forms.gle/BUYoZiSUXtFDE81J7";
 const VISIT_REVIEW_RADIUS_M = 50;
@@ -363,6 +363,7 @@ function dbMenuToApp(row, restaurantMap = restaurantsById) {
     source: row.source || "",
     lastChecked: row.last_checked || "",
     recommendNote: row.recommend_note || "",
+    foodCharacter: row.food_character ?? null,
   };
 }
 
@@ -946,16 +947,106 @@ function seededNoise(value, salt = 0) {
   return x - Math.floor(x);
 }
 
+const PRIMARY_FOOD_CHARACTERS = new Set([
+  "rice-meal",
+  "noodle-special",
+  "hot-soup",
+  "quick-snack",
+  "main-dish",
+]);
+
+const FOOD_CHARACTER_NAME_RULES = Object.freeze([
+  Object.freeze({
+    value: "quick-snack",
+    keywords: Object.freeze([
+      "부리또", "밥버거", "햄버거", "버거", "김밥", "토스트", "떡볶이", "만두",
+      "샌드위치", "핫도그", "봉구", "햄치즈",
+    ]),
+  }),
+  Object.freeze({
+    value: "noodle-special",
+    keywords: Object.freeze([
+      "쌀국수", "칼국수", "잔치국수", "비빔국수", "열무국수", "촌국수", "국수", "볶음짬뽕",
+      "짬뽕", "간짜장", "쟁반짜장", "짜장면", "짜장", "라멘", "탄탄멘", "비빔면", "라면",
+      "파스타", "비빔밀면", "물밀면", "밀면", "냉면", "우동", "소바", "모밀", "수제비",
+    ]),
+  }),
+  Object.freeze({
+    value: "hot-soup",
+    keywords: Object.freeze([
+      "김치찌개", "된장찌개", "순두부찌개", "순두부", "찌개", "돼지국밥", "순대국밥",
+      "내장국밥", "섞어국밥", "국밥", "육개장", "뼈해장국", "콩나물해장국", "해장국",
+      "마라탕", "짜글이",
+    ]),
+  }),
+  Object.freeze({
+    value: "rice-meal",
+    keywords: Object.freeze(["덮밥", "도시락", "비빔밥", "볶음밥", "알밥", "리조또", "정식", "백반", "컵밥", "치킨마요"]),
+  }),
+]);
+
+const FOOD_CHARACTER_CONTEXT_RULES = Object.freeze([
+  Object.freeze({
+    value: "rice-meal",
+    category: "도시락",
+    keywords: Object.freeze(["돈까스", "돈가스"]),
+  }),
+]);
+
+const FOOD_CHARACTER_MAIN_DISH_KEYWORDS = Object.freeze([
+  "돈까스", "돈가스", "탕수육", "닭갈비", "찜닭", "두루치기", "불고기", "피자",
+  "스테이크", "해물전", "제육볶음",
+]);
+
+const FOOD_CHARACTER_CATEGORY_FALLBACKS = Object.freeze({
+  도시락: "rice-meal",
+  햄버거: "quick-snack",
+  분식: "quick-snack",
+  "일식/돈까스": "main-dish",
+});
+
+const DEFAULT_PRIMARY_FOOD_CHARACTER = "main-dish";
+
+function normalizeFoodCharacterText(value) {
+  return String(value || "").replace(/\s+/g, "").toLowerCase();
+}
+
+function classifyFoodCharacterFallback(item = {}) {
+  const name = normalizeFoodCharacterText(item.name);
+  const category = String(item.category || "").trim();
+
+  for (const rule of FOOD_CHARACTER_NAME_RULES) {
+    const keyword = rule.keywords.find((candidate) => name.includes(normalizeFoodCharacterText(candidate)));
+    if (keyword) {
+      return { value: rule.value, matchedRule: keyword, source: "name" };
+    }
+  }
+
+  for (const rule of FOOD_CHARACTER_CONTEXT_RULES) {
+    const keyword = rule.keywords.find((candidate) => name.includes(normalizeFoodCharacterText(candidate)));
+    if (category === rule.category && keyword) {
+      return { value: rule.value, matchedRule: `${rule.category}:${keyword}`, source: "name-category" };
+    }
+  }
+
+  const mainDishKeyword = FOOD_CHARACTER_MAIN_DISH_KEYWORDS.find(
+    (candidate) => name.includes(normalizeFoodCharacterText(candidate)),
+  );
+  if (mainDishKeyword) {
+    return { value: "main-dish", matchedRule: mainDishKeyword, source: "name" };
+  }
+
+  const categoryValue = FOOD_CHARACTER_CATEGORY_FALLBACKS[category];
+  if (categoryValue) {
+    return { value: categoryValue, matchedRule: category, source: "category" };
+  }
+
+  return { value: DEFAULT_PRIMARY_FOOD_CHARACTER, matchedRule: "default", source: "default" };
+}
+
 function foodCharacter(item) {
-  const text = `${item.name || ""} ${item.category || ""} ${(item.tags || []).join(" ")}`;
-  const normalized = text.replace(/\s+/g, "");
-  const has = (words) => words.some((word) => normalized.includes(word.replace(/\s+/g, "")));
-  if (has(["냉면", "밀면", "냉국수", "메밀국수", "열무국수", "샐러드", "콩국수", "소바", "모밀"])) return "cool-light";
-  if (has(["순두부", "김치찌개", "육개장", "찌개", "국밥", "탕", "해장", "마라", "라멘", "우동", "칼국수", "찜"])) return "hot-soup";
-  if (has(["덮밥", "볶음밥", "비빔밥", "정식", "백반", "컵밥", "도시락", "밥"])) return "rice-meal";
-  if (has(["김밥", "떡볶이", "튀김", "분식", "핫도그", "햄버거", "버거", "샌드위치"])) return "quick-snack";
-  if (has(["면", "국수", "파스타", "쌀국수", "짜장", "짬뽕", "라면"])) return "noodle-special";
-  return item.category || "other";
+  if (PRIMARY_FOOD_CHARACTERS.has(item?.foodCharacter)) return item.foodCharacter;
+  return classifyFoodCharacterFallback(item).value;
 }
 
 function discoveryScore(item) {
@@ -963,8 +1054,6 @@ function discoveryScore(item) {
   if (Number.isFinite(item.distance)) score += Math.min(item.distance / 55, 28);
   else score += 18;
   score += item.openNow ? -4 : 3;
-  score -= item.value * 2.2;
-  score -= item.portion * 1.1;
   score -= item.signature ? 3 : 0;
   if (item.weatherBoost) score -= item.weatherBoost.score;
   if (!item.restaurant) score += 12;

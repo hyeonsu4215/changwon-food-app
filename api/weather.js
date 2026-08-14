@@ -1,6 +1,6 @@
 const CACHE_ID = "changwon_univ";
 const CACHE_TTL_MS = 60 * 60 * 1000;
-const CHANGWON_UNIV = { lat: 35.24235, lon: 128.68965, label: "창원대 앞" };
+const CHANGWON_UNIV = { lat: 35.2438, lon: 128.6916, label: "창원대 앞" };
 
 let memoryCache = null;
 
