@@ -2978,6 +2978,17 @@ textarea {
   filter: brightness(1.04);
 }
 
+button.map-action-unavailable,
+.card-actions button.map-action-unavailable,
+.quick-actions button.map-action-unavailable,
+.quick-alt-actions button.map-action-unavailable,
+.store-map-button.map-action-unavailable {
+  border: 1px dashed #aab4bf;
+  background: #e9eef1;
+  color: #526170;
+  cursor: help;
+}
+
 .top-tool,
 .secondary-action,
 .return-discovery-link,
@@ -3635,7 +3646,9 @@ h3,
   }
 
   .quick-actions a,
-  .quick-alt-actions a {
+  .quick-alt-actions a,
+  .quick-actions [data-map-unavailable],
+  .quick-alt-actions [data-map-unavailable] {
     grid-area: map;
   }
 
