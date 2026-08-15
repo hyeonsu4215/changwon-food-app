@@ -339,6 +339,8 @@ function dbRestaurantToApp(row) {
     source: row.source || "",
     lastChecked: row.last_checked || "",
     memo: row.memo || "",
+    mapSearchKeyword: typeof row.map_search_keyword === "string" ? row.map_search_keyword.trim() || null : null,
+    mapSearchDisabled: row.map_search_disabled === true,
   };
 }
 
@@ -1231,9 +1233,31 @@ function refreshQuickItemDerivedValues({ applyWeather = state.quickAppliedWeathe
   state.quickLocationBase = { ...locationBase };
 }
 
+function mapSearchConfig(item) {
+  const restaurant = item?.restaurant || restaurantsById.get(item?.restaurantId) || item;
+  const restaurantName = restaurant?.name || item?.restaurantName || "";
+  const keyword = typeof restaurant?.mapSearchKeyword === "string" ? restaurant.mapSearchKeyword.trim() : "";
+  return {
+    disabled: restaurant?.mapSearchDisabled === true,
+    query: keyword || `창원대 ${restaurantName}`,
+  };
+}
+
 function mapUrl(item) {
-  const restaurantName = item.restaurant?.name || item.restaurantName;
-  return `https://map.naver.com/p/search/${encodeURIComponent(`창원대 ${restaurantName}`)}`;
+  const config = mapSearchConfig(item);
+  if (config.disabled) return null;
+  return `https://map.naver.com/p/search/${encodeURIComponent(config.query)}`;
+}
+
+function mapActionHtml(item, { label = "네이버 지도", content = "", className = "" } = {}) {
+  const url = mapUrl(item);
+  const body = content || escapeHtml(label);
+  const classAttribute = className ? ` class="${escapeHtml(className)}"` : "";
+  if (!url) {
+    const unavailableClass = [className, "map-action-unavailable"].filter(Boolean).join(" ");
+    return `<button type="button" class="${escapeHtml(unavailableClass)}" data-map-unavailable title="현재 네이버 지도에 등록된 가게 정보가 없어요.">${body}</button>`;
+  }
+  return `<a${classAttribute} href="${url}" target="_blank" rel="noreferrer">${body}</a>`;
 }
 
 function tags(item) {
@@ -1322,7 +1346,7 @@ function cardHtml(item, rank, context = "custom") {
     <div class="card-actions">
       <button data-detail="${item.id}" data-detail-context="${context}">상세 보기</button>
       <button data-ate="${item.id}">먹음 기록</button>
-      <a href="${mapUrl(item)}" target="_blank" rel="noreferrer">네이버 지도</a>
+      ${mapActionHtml(item)}
     </div>
   `;
 }
@@ -1381,7 +1405,7 @@ function quickHeroHtml(item) {
       </div>
       <div class="card-actions quick-actions">
         <button data-ate="${item.id}" aria-label="${escapeHtml(item.name)} 먹음 기록">먹음 기록</button>
-        <a href="${mapUrl(item)}" target="_blank" rel="noreferrer"><span class="quick-map-label-desktop">네이버 지도</span><span class="quick-map-label-mobile">지도</span></a>
+        ${mapActionHtml(item, { content: '<span class="quick-map-label-desktop">네이버 지도</span><span class="quick-map-label-mobile">지도</span>' })}
       </div>
     </article>
   `;
@@ -1411,7 +1435,7 @@ function quickAlternativeHtml(item, rank) {
       <p class="recommend-copy">${quickReasonText(item)}</p>
       <div class="card-actions quick-alt-actions">
         <button data-ate="${item.id}" aria-label="${escapeHtml(item.name)} 먹음 기록">먹음 기록</button>
-        <a href="${mapUrl(item)}" target="_blank" rel="noreferrer"><span class="quick-map-label-desktop">지도</span><span class="quick-map-label-mobile">지도</span></a>
+        ${mapActionHtml(item, { content: '<span class="quick-map-label-desktop">지도</span><span class="quick-map-label-mobile">지도</span>' })}
       </div>
     </article>
   `;
@@ -1534,7 +1558,7 @@ function renderStoreSearch() {
                   <p class="store-line">${restaurant.category || "음식점"} · ${meters(haversine(currentBase(), restaurant))}</p>
                   <p class="review-line">${statLine}</p>
                 </div>
-                <a class="store-map-button" href="${mapUrl({ restaurant, restaurantName: restaurant.name })}" target="_blank" rel="noreferrer">지도</a>
+                ${mapActionHtml({ restaurant, restaurantName: restaurant.name }, { label: "지도", className: "store-map-button" })}
               </div>
               ${searchHint}
               <div class="store-menu-list">
@@ -2449,7 +2473,7 @@ function showDetail(id, context = "custom") {
     <div class="card-actions">
       <button data-wish="${item.id}">${wished ? "찜 해제" : "찜하기"}</button>
       <button data-ate="${item.id}">먹음 기록</button>
-      <a href="${mapUrl(item)}" target="_blank" rel="noreferrer">네이버 지도에서 보기</a>
+      ${mapActionHtml(item, { label: "네이버 지도에서 보기" })}
     </div>
     <div class="info-footer">
       <span>정보 기준일 ${DATA_UPDATED_AT}</span>
@@ -3204,7 +3228,7 @@ function renderWorldcup() {
         <div class="card-actions">
           <button data-detail="${item.id}">상세 보기</button>
           <button data-ate="${item.id}">먹음 기록</button>
-          <a href="${mapUrl(item)}" target="_blank" rel="noreferrer">네이버 지도</a>
+          ${mapActionHtml(item)}
         </div>
       </div>
       <button id="restartWorldcup" class="wide-button">다시하기</button>
@@ -4023,6 +4047,12 @@ function bindEvents() {
   });
   document.body.addEventListener("click", (event) => {
     rememberExternalLinkClick(event);
+    const unavailableMapButton = event.target.closest("[data-map-unavailable]");
+    if (unavailableMapButton) {
+      event.preventDefault();
+      toast("현재 네이버 지도에 등록된 가게 정보가 없어요.");
+      return;
+    }
     const weatherToggle = event.target.closest("[data-weather-toggle]");
     if (weatherToggle) {
       toggleWeatherReference();

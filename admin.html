@@ -164,6 +164,15 @@
               <label><span>출처</span><input name="source" /></label>
               <label><span>확인일</span><input name="lastChecked" type="date" /></label>
               <label class="wide"><span>메모</span><input name="memo" /></label>
+              <label class="wide map-search-keyword-field">
+                <span>네이버 지도 검색 키워드</span>
+                <input name="mapSearchKeyword" aria-describedby="mapSearchKeywordHelp" />
+                <small id="mapSearchKeywordHelp">비워두면 기본 검색어를 사용합니다.</small>
+              </label>
+              <div class="map-search-option wide">
+                <label><input name="mapSearchDisabled" type="checkbox" /> 네이버 지도 검색 사용 안 함</label>
+                <small>네이버 지도에 등록되지 않은 가게 등에 사용합니다.</small>
+              </div>
               <div class="check-grid wide">
                 <label><input name="takeout" type="checkbox" /> 포장</label>
                 <label><input name="delivery" type="checkbox" /> 배달</label>

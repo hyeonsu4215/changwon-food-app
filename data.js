@@ -64,7 +64,9 @@ window.CHANGWON_FOOD_DATA = {
       "reviewCount": 176,
       "source": "네이버지도",
       "lastChecked": "2026-06-16T00:00:00",
-      "memo": ""
+      "memo": "",
+      "mapSearchKeyword": "엄마손분식",
+      "mapSearchDisabled": false
     },
     {
       "id": "C004",
@@ -108,7 +110,9 @@ window.CHANGWON_FOOD_DATA = {
       "reviewCount": 37,
       "source": "기타",
       "lastChecked": "2026-06-16T00:00:00",
-      "memo": ""
+      "memo": "",
+      "mapSearchKeyword": null,
+      "mapSearchDisabled": true
     },
     {
       "id": "C006",
@@ -218,7 +222,9 @@ window.CHANGWON_FOOD_DATA = {
       "reviewCount": 107,
       "source": "네이버지도",
       "lastChecked": "2026-06-20T00:00:00",
-      "memo": ""
+      "memo": "",
+      "mapSearchKeyword": "창원 따뜻한밥상",
+      "mapSearchDisabled": false
     },
     {
       "id": "C011",
@@ -240,7 +246,9 @@ window.CHANGWON_FOOD_DATA = {
       "reviewCount": 65,
       "source": "네이버지도",
       "lastChecked": "2026-06-21T00:00:00",
-      "memo": ""
+      "memo": "",
+      "mapSearchKeyword": "소소소국수집",
+      "mapSearchDisabled": false
     },
     {
       "id": "C012",
@@ -306,7 +314,9 @@ window.CHANGWON_FOOD_DATA = {
       "reviewCount": 85,
       "source": "네이버지도",
       "lastChecked": "2026-06-24T00:00:00",
-      "memo": ""
+      "memo": "",
+      "mapSearchKeyword": "창대 비빔밥 뷔페",
+      "mapSearchDisabled": false
     },
     {
       "id": "C015",
@@ -394,7 +404,9 @@ window.CHANGWON_FOOD_DATA = {
       "reviewCount": 0,
       "source": "지인 제보",
       "lastChecked": "2026-06-28T00:00:00",
-      "memo": ""
+      "memo": "",
+      "mapSearchKeyword": "뼈따구",
+      "mapSearchDisabled": false
     },
     {
       "id": "C019",

@@ -651,6 +651,35 @@ button:disabled {
   color: var(--ink);
 }
 
+.map-search-keyword-field small,
+.map-search-option small {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.map-search-option {
+  display: grid;
+  gap: 5px;
+  padding: 8px 0;
+}
+
+.map-search-option label {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.map-search-option input {
+  width: auto;
+  min-height: auto;
+}
+
+.map-search-keyword-field input:disabled {
+  cursor: not-allowed;
+  background: #e9eef1;
+}
+
 .check-grid {
   display: flex;
   flex-wrap: wrap;

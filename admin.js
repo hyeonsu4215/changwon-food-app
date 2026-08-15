@@ -386,6 +386,8 @@ function dbRestaurantToApp(row) {
     source: row.source || "",
     lastChecked: row.last_checked || "",
     memo: row.memo || "",
+    mapSearchKeyword: typeof row.map_search_keyword === "string" ? row.map_search_keyword.trim() || null : null,
+    mapSearchDisabled: row.map_search_disabled === true,
     active: row.active !== false,
   };
 }
@@ -415,7 +417,17 @@ function dbMenuToApp(row) {
   };
 }
 
+function normalizeMapSearchSettings(keyword, disabled) {
+  const mapSearchDisabled = disabled === true;
+  const normalizedKeyword = typeof keyword === "string" ? keyword.trim() : "";
+  return {
+    mapSearchKeyword: mapSearchDisabled || !normalizedKeyword ? null : normalizedKeyword,
+    mapSearchDisabled,
+  };
+}
+
 function appRestaurantToDb(restaurant) {
+  const mapSearch = normalizeMapSearchSettings(restaurant.mapSearchKeyword, restaurant.mapSearchDisabled);
   return {
     id: restaurant.id,
     name: restaurant.name,
@@ -437,6 +449,8 @@ function appRestaurantToDb(restaurant) {
     source: restaurant.source || "",
     last_checked: restaurant.lastChecked || null,
     memo: restaurant.memo || "",
+    map_search_keyword: mapSearch.mapSearchKeyword,
+    map_search_disabled: mapSearch.mapSearchDisabled,
     active: restaurant.active !== false,
   };
 }
@@ -959,7 +973,17 @@ function clearRestaurantForm() {
   els.restaurantForm.elements.delivery.checked = false;
   els.restaurantForm.elements.alone.checked = true;
   els.restaurantForm.elements.group.checked = true;
+  els.restaurantForm.elements.mapSearchDisabled.checked = false;
   els.restaurantForm.elements.active.checked = true;
+  syncMapSearchFormState();
+}
+
+function syncMapSearchFormState() {
+  if (!els.restaurantForm) return;
+  const form = els.restaurantForm.elements;
+  const disabled = form.mapSearchDisabled.checked;
+  form.mapSearchKeyword.disabled = disabled;
+  if (disabled) form.mapSearchKeyword.value = "";
 }
 
 function invalidateFoodCharacterEditorContext() {
@@ -1029,11 +1053,14 @@ function editRestaurant(id) {
   form.source.value = restaurant.source || "";
   form.lastChecked.value = toDateInput(restaurant.lastChecked);
   form.memo.value = restaurant.memo || "";
+  form.mapSearchKeyword.value = restaurant.mapSearchKeyword || "";
+  form.mapSearchDisabled.checked = restaurant.mapSearchDisabled === true;
   form.takeout.checked = Boolean(restaurant.takeout);
   form.delivery.checked = Boolean(restaurant.delivery);
   form.alone.checked = Boolean(restaurant.alone);
   form.group.checked = Boolean(restaurant.group);
   form.active.checked = restaurant.active !== false;
+  syncMapSearchFormState();
   els.restaurantEditor.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
@@ -1213,6 +1240,8 @@ async function saveRestaurant(event) {
     source: form.source.value.trim(),
     lastChecked: dateInputToIso(form.lastChecked.value),
     memo: form.memo.value.trim(),
+    mapSearchKeyword: form.mapSearchKeyword.value,
+    mapSearchDisabled: form.mapSearchDisabled.checked,
     takeout: form.takeout.checked,
     delivery: form.delivery.checked,
     alone: form.alone.checked,
@@ -1296,6 +1325,7 @@ function bindEvents() {
   els.refreshDataStatus?.addEventListener("click", loadCatalog);
   els.seedCatalog?.addEventListener("click", seedCatalogFromStatic);
   els.restaurantForm?.addEventListener("submit", saveRestaurant);
+  els.restaurantForm?.elements.mapSearchDisabled?.addEventListener("change", syncMapSearchFormState);
   els.menuForm?.addEventListener("submit", saveMenu);
   els.foodCharacterSelect?.addEventListener("change", (event) => handleFoodCharacterChange(event.target.value));
   els.saveFoodCharacter?.addEventListener("click", saveSelectedFoodCharacter);
