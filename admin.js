@@ -1,6 +1,7 @@
 const DATA = window.CHANGWON_FOOD_DATA;
 const catalogPolicy = window.CHANGWON_CATALOG_POLICY;
 const ADMIN_FOOD_CHARACTER = window.CHANGWON_ADMIN_FOOD_CHARACTER;
+const ADMIN_WEEKLY_HOURS = window.CHANGWON_ADMIN_WEEKLY_HOURS;
 const CATALOG_SEED_LOCKED = true;
 
 function cloneStaticValue(value) {
@@ -37,6 +38,7 @@ const staticCatalog = readStaticCatalog(DATA);
 const state = {
   supabase: null,
   user: null,
+  adminAuthorized: false,
   reviews: [],
   reports: [],
   restaurants: [],
@@ -50,6 +52,24 @@ const state = {
   catalogSource: "supabase",
   selectedRestaurantId: null,
   selectedMenuId: null,
+  weeklyHoursGeneration: 0,
+  weeklyHoursEditor: {
+    generation: null,
+    restaurantId: null,
+    restaurantName: "",
+    loading: false,
+    error: "",
+    originalRows: [],
+    draftRows: [],
+    localDraft: false,
+    undoRows: null,
+    showDiff: false,
+    verificationConfirmed: false,
+    bulkMessage: "",
+    saving: false,
+    saveMessage: "",
+    saveMessageType: "",
+  },
   foodCharacterEditorGeneration: 0,
   foodCharacterEditor: ADMIN_FOOD_CHARACTER?.createEditorState?.() || {
     menuId: null,
@@ -108,6 +128,8 @@ const els = {
   restaurantEditor: document.querySelector("#restaurantEditor"),
   menuEditor: document.querySelector("#menuEditor"),
   restaurantForm: document.querySelector("#restaurantForm"),
+  weeklyHoursEditor: document.querySelector("#weeklyHoursEditor"),
+  weeklyHoursContent: document.querySelector("#weeklyHoursContent"),
   menuForm: document.querySelector("#menuForm"),
   foodCharacterSelect: document.querySelector("#foodCharacterSelect"),
   foodCharacterSourceBadge: document.querySelector("#foodCharacterSourceBadge"),
@@ -163,6 +185,471 @@ function toDateInput(value) {
 
 function dateInputToIso(value) {
   return value ? `${value}T00:00:00` : null;
+}
+
+function createWeeklyHoursEditorState(overrides = {}) {
+  return {
+    generation: null,
+    restaurantId: null,
+    restaurantName: "",
+    loading: false,
+    error: "",
+    originalRows: [],
+    draftRows: [],
+    localDraft: false,
+    undoRows: null,
+    showDiff: false,
+    verificationConfirmed: false,
+    bulkMessage: "",
+    saving: false,
+    saveMessage: "",
+    saveMessageType: "",
+    ...overrides,
+  };
+}
+
+function invalidateWeeklyHoursContext() {
+  state.weeklyHoursGeneration += 1;
+  return state.weeklyHoursGeneration;
+}
+
+function resetWeeklyHoursEditingState({ render = true } = {}) {
+  invalidateWeeklyHoursContext();
+  state.weeklyHoursEditor = createWeeklyHoursEditorState();
+  if (render) renderWeeklyHoursEditor();
+}
+
+function isCurrentWeeklyHoursRequest(requestContext) {
+  return ADMIN_WEEKLY_HOURS?.isRequestCurrent?.(
+    {
+      generation: state.weeklyHoursGeneration,
+      source: state.catalogSource,
+      restaurantId: state.selectedRestaurantId,
+    },
+    requestContext,
+  );
+}
+
+function weeklyLegacyValue(value) {
+  if (value == null || value === "" || value === "X") return "정보 미확인";
+  return String(value);
+}
+
+function renderWeeklyLegacyReference(restaurant) {
+  if (!restaurant) return "";
+  const open = weeklyLegacyValue(restaurant.openTime);
+  const close = weeklyLegacyValue(restaurant.closeTime);
+  const hours = open === "정보 미확인" || close === "정보 미확인" ? "정보 미확인" : `${open} ~ ${close}`;
+  const hasSpecialClosure = ADMIN_WEEKLY_HOURS?.hasSpecialClosureRule?.(restaurant.closedDays);
+  return `
+    <section class="weekly-legacy-reference" aria-labelledby="weeklyLegacyReferenceTitle">
+      <div>
+        <span>현재 사용자 앱에서 사용 중</span>
+        <strong id="weeklyLegacyReferenceTitle">기존 영업정보 참고</strong>
+      </div>
+      <dl>
+        <div><dt>영업</dt><dd>${escapeHtml(hours)}</dd></div>
+        <div><dt>브레이크</dt><dd>${escapeHtml(weeklyLegacyValue(restaurant.breakTime))}</dd></div>
+        <div><dt>휴무</dt><dd>${escapeHtml(weeklyLegacyValue(restaurant.closedDays))}</dd></div>
+      </dl>
+      ${hasSpecialClosure ? `
+        <p class="weekly-special-closure" role="status">
+          <strong>특수 휴무 규칙 확인 필요</strong>
+          <span>기존 정보: ${escapeHtml(restaurant.closedDays)}. 요일별 정기휴무로 자동 변환하지 않습니다.</span>
+        </p>
+      ` : ""}
+    </section>
+  `;
+}
+
+function weeklyStatusClass(kind) {
+  if (kind === "verified") return "is-complete";
+  if (kind === "incomplete") return "is-error";
+  if (kind === "legacy") return "is-legacy";
+  return "is-warning";
+}
+
+function weeklySourceLabel(rows) {
+  const sources = [...new Set(rows.map((row) => row.source).filter(Boolean))];
+  if (sources.length === 1 && sources[0] === "legacy_migration") return "기존 데이터 이관";
+  if (sources.length === 1) return sources[0];
+  if (sources.length > 1) return "여러 출처";
+  return "임시 편집 · 미저장";
+}
+
+function weeklyVerifiedLabel(rows) {
+  const verified = rows.filter((row) => row.last_verified_at);
+  if (!verified.length) return "아직 확인되지 않음";
+  if (verified.length !== rows.length) return `${verified.length}/7일 확인됨`;
+  return "월~일 확인됨";
+}
+
+function weeklyDayOptions(selected) {
+  return [
+    ["open", "영업"],
+    ["closed", "정기휴무"],
+    ["unknown", "정보 미확인"],
+  ].map(([value, label]) => `<option value="${value}"${selected === value ? " selected" : ""}>${label}</option>`).join("");
+}
+
+function weeklyBreakOptions(selected) {
+  return [
+    ["scheduled", "브레이크 있음"],
+    ["none", "브레이크 없음"],
+    ["unknown", "정보 미확인"],
+  ].map(([value, label]) => `<option value="${value}"${selected === value ? " selected" : ""}>${label}</option>`).join("");
+}
+
+function renderWeeklyTimePart(id, label, part, value, options, disabled) {
+  const listboxId = `${id}-${part}-options`;
+  const disabledAttribute = disabled ? " disabled" : "";
+  return `
+    <div class="weekly-time-part" data-weekly-time-combobox>
+      <label for="${id}-${part}">${part === "hour" ? "시" : "분"}</label>
+      <div class="weekly-time-input-row">
+        <input id="${id}-${part}" type="text" inputmode="numeric" maxlength="2" autocomplete="off" value="${escapeHtml(value)}" role="combobox" aria-autocomplete="none" aria-haspopup="listbox" aria-expanded="false" aria-controls="${listboxId}" aria-label="${label} ${part === "hour" ? "시" : "분"}" data-weekly-time-part="${part}"${disabledAttribute} />
+        <button type="button" class="weekly-time-toggle" data-weekly-time-toggle aria-label="${label} ${part === "hour" ? "시" : "분"} 전체 목록 열기" aria-expanded="false" aria-controls="${listboxId}" title="전체 목록"${disabledAttribute}>▼</button>
+      </div>
+      <div id="${listboxId}" class="weekly-time-options" role="listbox" aria-label="${label} ${part === "hour" ? "시" : "분"} 선택" hidden>
+        ${options.map((option) => `<button type="button" role="option" tabindex="-1" data-weekly-time-option="${option}" aria-selected="${option === value}">${option}</button>`).join("")}
+      </div>
+    </div>
+  `;
+}
+
+function renderWeeklyTimeControl(row, field, label, { disabled = false, allow24 = false } = {}) {
+  const value = ADMIN_WEEKLY_HOURS.formatAdminTimeInput(row[field], {
+    allow24,
+    closesNextDay: row.closes_next_day,
+  });
+  const id = `weeklyDay${row.iso_weekday}${field.replaceAll("_", "-")}`;
+  const hourOptions = ADMIN_WEEKLY_HOURS.adminTimeOptions("hour", { allow24 });
+  const minuteOptions = ADMIN_WEEKLY_HOURS.adminTimeOptions("minute");
+  return `
+    <fieldset class="weekly-time-control" data-weekly-time-control data-weekly-day="${row.iso_weekday}" data-weekly-time-field="${field}">
+      <legend>${label}</legend>
+      <div class="weekly-time-parts">
+        ${renderWeeklyTimePart(id, label, "hour", value.hour, hourOptions, disabled)}
+        <span aria-hidden="true">:</span>
+        ${renderWeeklyTimePart(id, label, "minute", value.minute, minuteOptions, disabled)}
+      </div>
+    </fieldset>
+  `;
+}
+
+function weeklyCardSummary(row) {
+  if (row.day_status === "closed") return "시간 입력 없음";
+  if (row.day_status === "unknown") return "영업시간 확인 필요";
+  return ADMIN_WEEKLY_HOURS.formatWeeklySummary(row);
+}
+
+function renderWeeklyDayCard(row, openDays) {
+  const weekday = ADMIN_WEEKLY_HOURS.WEEKDAYS.find((item) => item.isoWeekday === row.iso_weekday);
+  const isOpen = row.day_status === "open";
+  const hasScheduledBreak = isOpen && row.break_status === "scheduled";
+  const idPrefix = `weeklyDay${row.iso_weekday}`;
+  const openAttribute = openDays.has(row.iso_weekday) ? " open" : "";
+  return `
+    <details class="weekly-day-card status-${escapeHtml(row.day_status)}" data-weekly-day-card="${row.iso_weekday}"${openAttribute}>
+      <summary>
+        <span class="weekly-day-name">${weekday.label}</span>
+        <span class="weekly-day-state status-${escapeHtml(row.day_status)}">${escapeHtml(ADMIN_WEEKLY_HOURS.dayStatusLabel(row.day_status))}</span>
+        <span class="weekly-day-summary">${escapeHtml(weeklyCardSummary(row))}</span>
+        <span class="weekly-expand-label">편집</span>
+      </summary>
+      <div class="weekly-day-controls">
+        <label>
+          <span>요일 상태</span>
+          <select id="${idPrefix}Status" data-weekly-day="${row.iso_weekday}" data-weekly-field="day_status">
+            ${weeklyDayOptions(row.day_status)}
+          </select>
+        </label>
+        <div class="weekly-time-row">
+          ${renderWeeklyTimeControl(row, "open_time", "오픈", { disabled: !isOpen })}
+          <span aria-hidden="true">~</span>
+          ${renderWeeklyTimeControl(row, "close_time", "마감", { disabled: !isOpen, allow24: true })}
+        </div>
+        <div class="weekly-overnight">
+          <label class="weekly-checkbox">
+            <input type="checkbox" data-weekly-day="${row.iso_weekday}" data-weekly-field="closes_next_day"${row.closes_next_day ? " checked" : ""}${isOpen ? "" : " disabled"} />
+            <span>자정을 넘어 영업해요</span>
+          </label>
+          <small>예: 18:00 ~ 다음 날 02:00</small>
+        </div>
+        <label>
+          <span>브레이크</span>
+          <select data-weekly-day="${row.iso_weekday}" data-weekly-field="break_status"${isOpen ? "" : " disabled"}>
+            ${weeklyBreakOptions(row.break_status)}
+          </select>
+        </label>
+        <div class="weekly-time-row">
+          ${renderWeeklyTimeControl(row, "break_start", "브레이크 시작", { disabled: !hasScheduledBreak })}
+          <span aria-hidden="true">~</span>
+          ${renderWeeklyTimeControl(row, "break_end", "브레이크 종료", { disabled: !hasScheduledBreak })}
+        </div>
+        <label class="weekly-note-field">
+          <span>메모</span>
+          <input value="${escapeHtml(row.note || "")}" placeholder="필요한 경우만 입력" data-weekly-day="${row.iso_weekday}" data-weekly-field="note" />
+        </label>
+      </div>
+    </details>
+  `;
+}
+
+function weeklyDiffValue(value) {
+  if (value == null || value === "") return "없음";
+  if (value === true) return "예";
+  if (value === false) return "아니오";
+  const labels = {
+    open: "영업",
+    closed: "정기휴무",
+    unknown: "정보 미확인",
+    scheduled: "브레이크 있음",
+    none: "브레이크 없음",
+    legacy_migration: "기존 데이터 이관",
+  };
+  return labels[value] || String(value);
+}
+
+function renderWeeklyDiff(diff) {
+  if (!diff.length) return `<p class="weekly-no-diff">변경된 요일이 없습니다.</p>`;
+  const fieldLabels = {
+    day_status: "요일 상태",
+    open_time: "오픈",
+    close_time: "마감",
+    closes_next_day: "자정을 넘어 영업",
+    break_status: "브레이크",
+    break_start: "브레이크 시작",
+    break_end: "브레이크 종료",
+    note: "메모",
+    source: "출처",
+    last_verified_at: "마지막 확인",
+  };
+  return `<div class="weekly-diff-list">${diff.map((day) => `
+    <section>
+      <strong>${day.label}</strong>
+      <ul>${day.changes.map((change) => `<li><span>${fieldLabels[change.field] || change.field}</span><b>${escapeHtml(weeklyDiffValue(change.previousValue))}</b><i aria-hidden="true">→</i><b>${escapeHtml(weeklyDiffValue(change.nextValue))}</b></li>`).join("")}</ul>
+    </section>
+  `).join("")}</div>`;
+}
+
+function weeklySaveAssessment(restaurant, editor, { verifiedAt = null } = {}) {
+  return ADMIN_WEEKLY_HOURS.assessWeeklySave({
+    source: state.catalogSource,
+    adminAuthorized: state.adminAuthorized,
+    catalogEditable: canEditSupabaseCatalog(),
+    restaurantExists: Boolean(restaurant && restaurant.id === editor.restaurantId),
+    restaurantId: editor.restaurantId,
+    selectedRestaurantId: state.selectedRestaurantId,
+    generation: editor.generation,
+    currentGeneration: state.weeklyHoursGeneration,
+    saving: editor.saving,
+    hasSpecialClosure: Boolean(
+      restaurant?.id === "C024" || ADMIN_WEEKLY_HOURS.hasSpecialClosureRule(restaurant?.closedDays),
+    ),
+    originalRows: editor.originalRows,
+    draftRows: editor.draftRows,
+    verificationConfirmed: editor.verificationConfirmed,
+    verifiedAt: editor.verificationConfirmed ? verifiedAt || new Date().toISOString() : null,
+  });
+}
+
+function renderWeeklySavePreview(restaurant, editor, diff, assessment) {
+  const changedCount = assessment.plan?.changedRows.length || 0;
+  const modeLabel = assessment.plan?.mode === "insert" ? "신규 7일 시간표 생성" : "변경 요일만 수정";
+  return `
+    <section class="weekly-save-preview" aria-label="영업시간 저장 확인">
+      <div class="weekly-save-preview-head">
+        <div><span>저장 대상</span><strong>${escapeHtml(restaurant?.name || editor.restaurantName)} (${escapeHtml(editor.restaurantId)})</strong></div>
+        <div><span>저장 후보</span><strong>${changedCount}일 · ${escapeHtml(modeLabel)}</strong></div>
+      </div>
+      ${renderWeeklyDiff(diff)}
+      ${editor.verificationConfirmed ? `<p class="weekly-save-metadata">월~일 7일에 같은 확인 시각과 <strong>admin_manual</strong> 출처를 적용하는 후보입니다.</p>` : ""}
+      <div class="weekly-save-preview-actions">
+        <button type="button" data-weekly-preview>취소</button>
+        <button type="button" class="weekly-save-button" data-weekly-save${assessment.canSave ? "" : " disabled"}>영업시간 저장</button>
+      </div>
+    </section>
+  `;
+}
+
+function renderWeeklyDraft(restaurant, editor, openDays) {
+  const rows = editor.draftRows;
+  const summary = ADMIN_WEEKLY_HOURS.summarizeWeeklyStatus(rows);
+  const diff = ADMIN_WEEKLY_HOURS.diffWeeklyHours(editor.originalRows, rows);
+  const validation = ADMIN_WEEKLY_HOURS.validateWeeklyDraft(rows);
+  const assessment = weeklySaveAssessment(restaurant, editor);
+  const saveCandidateCount = assessment.plan?.changedRows.length || 0;
+  const validationContent = validation.valid
+    ? `<p class="weekly-validation-ok">월~일 초안 구조가 올바릅니다. 저장 전 변경 내용을 확인해주세요.</p>`
+    : `<ul class="weekly-validation-errors">${validation.errors.map((error) => {
+        const day = ADMIN_WEEKLY_HOURS.WEEKDAYS.find((item) => item.isoWeekday === error.isoWeekday);
+        return `<li>${day ? `${day.shortLabel}요일 · ` : ""}${escapeHtml(error.message)}</li>`;
+      }).join("")}</ul>`;
+  return `
+    <div class="weekly-summary-row">
+      <span class="weekly-status ${weeklyStatusClass(summary.kind)}">${escapeHtml(summary.label)}</span>
+      <strong>${editor.localDraft ? "아직 저장되지 않은 임시 편집입니다." : `불러온 행 ${summary.rowCount}/7`}</strong>
+    </div>
+    ${renderWeeklyLegacyReference(restaurant)}
+    <div class="weekly-metadata">
+      <span>데이터 출처 <strong>${escapeHtml(weeklySourceLabel(rows))}</strong></span>
+      <span>마지막 확인 <strong>${escapeHtml(weeklyVerifiedLabel(rows))}</strong></span>
+    </div>
+    <section class="weekly-bulk-tools" aria-labelledby="weeklyBulkTitle">
+      <div>
+        <strong id="weeklyBulkTitle">일괄 적용</strong>
+        <span>선택한 요일 설정을 현재 임시 편집에만 복사합니다.</span>
+      </div>
+      <label><span>기준 요일</span><select id="weeklyBulkSource">${ADMIN_WEEKLY_HOURS.WEEKDAYS.map((day) => `<option value="${day.isoWeekday}">${day.label}</option>`).join("")}</select></label>
+      <div class="weekly-target-days" aria-label="적용 대상 요일">
+        ${ADMIN_WEEKLY_HOURS.WEEKDAYS.map((day) => `<label><input type="checkbox" data-weekly-target="${day.isoWeekday}" /> ${day.shortLabel}</label>`).join("")}
+      </div>
+      <div class="weekly-bulk-actions">
+        <button type="button" data-weekly-bulk="weekdays">월~금 적용</button>
+        <button type="button" data-weekly-bulk="all">모든 요일 적용</button>
+        <button type="button" data-weekly-bulk="selected">선택 요일 적용</button>
+        <button type="button" data-weekly-undo${editor.undoRows ? "" : " disabled"}>일괄 변경 되돌리기</button>
+      </div>
+      <p class="weekly-bulk-message" role="status">${escapeHtml(editor.bulkMessage || "일괄 적용은 DB 저장을 실행하지 않습니다.")}</p>
+    </section>
+    <div class="weekly-day-list">
+      ${rows.map((row) => renderWeeklyDayCard(row, openDays)).join("")}
+    </div>
+    <section class="weekly-verification-draft">
+      <label>
+        <input type="checkbox" data-weekly-verification${editor.verificationConfirmed ? " checked" : ""} />
+        <span>영업시간 확인 완료</span>
+      </label>
+      <small>네이버 지도·가게 공지·전화 등으로 월~일 영업시간을 확인했다면 체크하세요. 현재는 저장 전 임시 상태입니다.</small>
+    </section>
+    <section class="weekly-validation" aria-label="영업시간 초안 검사">${validationContent}</section>
+    <div class="weekly-draft-actions">
+      <strong>저장 후보 ${saveCandidateCount}일</strong>
+      <button type="button" data-weekly-preview>${editor.showDiff ? "미리보기 닫기" : "변경 미리보기"}</button>
+      <button type="button" data-weekly-reset>변경 취소</button>
+      <button type="button" class="weekly-save-button" data-weekly-save${assessment.canSave ? "" : " disabled"}>영업시간 저장</button>
+    </div>
+    <p class="weekly-save-help">${escapeHtml(assessment.message)}</p>
+    ${editor.saveMessage ? `<p class="weekly-save-status ${escapeHtml(editor.saveMessageType || "info")}" role="status">${escapeHtml(editor.saveMessage)}</p>` : ""}
+    ${editor.showDiff ? renderWeeklySavePreview(restaurant, editor, diff, assessment) : ""}
+  `;
+}
+
+function renderWeeklyHoursEditor({ preserveOpen = false } = {}) {
+  if (!els.weeklyHoursContent) return;
+  if (!ADMIN_WEEKLY_HOURS) {
+    els.weeklyHoursContent.innerHTML = `<p class="weekly-hours-error">요일별 영업시간 편집 모듈을 불러오지 못했습니다. 페이지를 새로고침한 뒤 다시 확인해주세요.</p>`;
+    return;
+  }
+  const previousOpenDays = preserveOpen
+    ? new Set([...els.weeklyHoursContent.querySelectorAll("details[open][data-weekly-day-card]")].map((item) => Number(item.dataset.weeklyDayCard)))
+    : new Set([1]);
+  if (state.catalogSource !== "supabase") {
+    els.weeklyHoursContent.innerHTML = `<p class="weekly-hours-empty">요일별 영업시간은 Supabase 원본에서 관리합니다. 정적 기준 데이터에서는 임시 편집과 저장 기능을 사용할 수 없습니다.</p>`;
+    return;
+  }
+  const editor = state.weeklyHoursEditor;
+  if (!editor.restaurantId) {
+    els.weeklyHoursContent.innerHTML = `<p class="weekly-hours-empty">Supabase 가게를 선택하면 월요일부터 일요일까지 영업시간을 확인할 수 있습니다.</p>`;
+    return;
+  }
+  const restaurant = restaurantsById.get(editor.restaurantId);
+  if (editor.loading) {
+    els.weeklyHoursContent.innerHTML = `<p class="weekly-hours-empty">${escapeHtml(editor.restaurantName)}의 요일별 영업시간을 불러오는 중입니다.</p>`;
+    return;
+  }
+  if (editor.error) {
+    els.weeklyHoursContent.innerHTML = `
+      <div class="weekly-summary-row"><span class="weekly-status is-error">조회 오류</span><strong>${escapeHtml(editor.restaurantName)}</strong></div>
+      ${renderWeeklyLegacyReference(restaurant)}
+      <p class="weekly-hours-error">요일별 영업시간을 불러오지 못했습니다. 다른 관리자 기능은 계속 사용할 수 있습니다.</p>
+    `;
+    return;
+  }
+  if (editor.draftRows.length === 0) {
+    els.weeklyHoursContent.innerHTML = `
+      <div class="weekly-summary-row"><span class="weekly-status is-legacy">새 시간표 미등록 · 기존 영업정보 사용 중</span><strong>${escapeHtml(editor.restaurantName)}</strong></div>
+      ${renderWeeklyLegacyReference(restaurant)}
+      <p class="weekly-hours-empty compact">DB 행을 자동 생성하지 않습니다. 저장되지 않는 임시 편집으로 화면 구성을 먼저 검토할 수 있습니다.</p>
+      <button type="button" data-weekly-start-draft>요일별 시간표 작성 시작</button>
+    `;
+    return;
+  }
+  const summary = ADMIN_WEEKLY_HOURS.summarizeWeeklyStatus(editor.draftRows);
+  if (summary.kind === "incomplete") {
+    els.weeklyHoursContent.innerHTML = `
+      <div class="weekly-summary-row"><span class="weekly-status is-error">${escapeHtml(summary.label)}</span><strong>${escapeHtml(editor.restaurantName)}</strong></div>
+      ${renderWeeklyLegacyReference(restaurant)}
+      <p class="weekly-hours-error">행을 자동 추가하거나 삭제하지 않았습니다. DB 데이터를 확인한 뒤 별도 승인된 절차로 정리해야 합니다.</p>
+      <button type="button" class="weekly-save-button" disabled>영업시간 저장</button>
+      <p class="weekly-save-help">영업시간 데이터가 7일 기준과 맞지 않아 저장할 수 없습니다. 데이터를 먼저 확인해주세요.</p>
+    `;
+    return;
+  }
+  els.weeklyHoursContent.innerHTML = renderWeeklyDraft(restaurant, editor, previousOpenDays);
+}
+
+async function loadWeeklyHoursForRestaurant(restaurantId) {
+  if (!ADMIN_WEEKLY_HOURS) {
+    renderWeeklyHoursEditor();
+    return false;
+  }
+  invalidateWeeklyHoursContext();
+  const restaurant = restaurantsById.get(restaurantId);
+  const requestContext = Object.freeze({
+    generation: state.weeklyHoursGeneration,
+    source: state.catalogSource,
+    restaurantId,
+  });
+  state.weeklyHoursEditor = createWeeklyHoursEditorState({
+    generation: requestContext.generation,
+    restaurantId,
+    restaurantName: restaurant?.name || restaurantId,
+    loading: true,
+  });
+  renderWeeklyHoursEditor();
+  if (state.catalogSource !== "supabase" || !state.supabase || !restaurant) return false;
+  try {
+    const { data, error } = await state.supabase
+      .from("restaurant_weekly_hours")
+      .select("restaurant_id,iso_weekday,day_status,open_time,close_time,closes_next_day,break_status,break_start,break_end,note,source,last_verified_at,updated_at")
+      .eq("restaurant_id", restaurantId)
+      .order("iso_weekday", { ascending: true });
+    if (!isCurrentWeeklyHoursRequest(requestContext)) return false;
+    if (error) {
+      console.warn("weekly hours load failed", error);
+      state.weeklyHoursEditor = createWeeklyHoursEditorState({
+        generation: requestContext.generation,
+        restaurantId,
+        restaurantName: restaurant.name,
+        error: "load-failed",
+      });
+      renderWeeklyHoursEditor();
+      return false;
+    }
+    const originalRows = ADMIN_WEEKLY_HOURS.normalizeWeeklyRows(data, restaurantId);
+    state.weeklyHoursEditor = createWeeklyHoursEditorState({
+      generation: requestContext.generation,
+      restaurantId,
+      restaurantName: restaurant.name,
+      originalRows: ADMIN_WEEKLY_HOURS.cloneRows(originalRows),
+      draftRows: ADMIN_WEEKLY_HOURS.cloneRows(originalRows),
+    });
+    renderWeeklyHoursEditor();
+    return true;
+  } catch (error) {
+    if (!isCurrentWeeklyHoursRequest(requestContext)) return false;
+    console.warn("weekly hours load failed", error);
+    state.weeklyHoursEditor = createWeeklyHoursEditorState({
+      generation: requestContext.generation,
+      restaurantId,
+      restaurantName: restaurant?.name || restaurantId,
+      error: "load-failed",
+    });
+    renderWeeklyHoursEditor();
+    return false;
+  }
 }
 
 function foodCharacterMeta(value) {
@@ -580,12 +1067,14 @@ async function isAdminUser() {
 async function enterAdmin() {
   const allowed = await isAdminUser();
   if (!allowed) {
+    state.adminAuthorized = false;
     els.adminStatus.textContent = "관리자 권한이 없는 계정입니다.";
     els.loginPanel.hidden = false;
     els.adminPanel.hidden = true;
     els.signOutButton.hidden = false;
     return;
   }
+  state.adminAuthorized = true;
   els.adminStatus.textContent = `${state.user.email || "관리자"} 로그인 중`;
   els.loginPanel.hidden = true;
   els.adminPanel.hidden = false;
@@ -611,7 +1100,9 @@ async function handleLogin(event) {
 
 async function signOut() {
   await state.supabase.auth.signOut();
+  resetWeeklyHoursEditingState();
   state.user = null;
+  state.adminAuthorized = false;
   state.reviews = [];
   state.reports = [];
   els.adminStatus.textContent = "로그인이 필요합니다.";
@@ -622,6 +1113,15 @@ async function signOut() {
 
 async function loadCatalog() {
   if (!els.catalogList) return;
+  if (state.weeklyHoursEditor?.saving) {
+    state.weeklyHoursEditor = {
+      ...state.weeklyHoursEditor,
+      saveMessage: "저장 중에는 카탈로그를 새로고침할 수 없습니다.",
+      saveMessageType: "error",
+    };
+    renderWeeklyHoursEditor({ preserveOpen: true });
+    return false;
+  }
   resetCatalogEditingState();
   els.catalogList.innerHTML = `<div class="empty">Supabase 가게·메뉴 데이터를 불러오는 중...</div>`;
   let restaurantResult;
@@ -849,6 +1349,7 @@ function renderCatalog() {
   const catalog = currentCatalogData();
   const isRestaurantMode = state.catalogMode === "restaurants";
   els.restaurantEditor.hidden = !catalog.editable || !isRestaurantMode;
+  els.weeklyHoursEditor.hidden = !isRestaurantMode;
   els.menuEditor.hidden = !catalog.editable || isRestaurantMode;
   els.newCatalogButton.disabled = !catalog.editable;
   els.catalogCount.textContent = isRestaurantMode ? `가게 ${catalog.restaurants.length}곳` : `메뉴 ${catalog.menus.length}개`;
@@ -865,6 +1366,7 @@ function renderCatalog() {
     ? renderRestaurantRows(catalog.restaurants, catalog.editable)
     : renderMenuRows(catalog.menus, catalog.restaurantsById, catalog.editable);
   renderFoodCharacterEditor();
+  renderWeeklyHoursEditor();
 }
 
 function catalogSourceSummary(catalog, isRestaurantMode) {
@@ -966,6 +1468,7 @@ function renderMenuRows(menus, restaurantMap, editable) {
 function clearRestaurantForm() {
   if (!els.restaurantForm) return;
   state.selectedRestaurantId = null;
+  resetWeeklyHoursEditingState();
   els.restaurantForm.reset();
   els.restaurantForm.elements.id.value = nextId("C", state.restaurants);
   els.restaurantForm.elements.area.value = "정문";
@@ -1033,6 +1536,15 @@ function clearMenuForm() {
 }
 
 function editRestaurant(id) {
+  if (state.weeklyHoursEditor?.saving) {
+    state.weeklyHoursEditor = {
+      ...state.weeklyHoursEditor,
+      saveMessage: "저장 중에는 다른 가게로 이동할 수 없습니다.",
+      saveMessageType: "error",
+    };
+    renderWeeklyHoursEditor({ preserveOpen: true });
+    return false;
+  }
   const restaurant = state.restaurants.find((item) => item.id === id);
   if (!restaurant) return;
   state.selectedRestaurantId = id;
@@ -1061,6 +1573,7 @@ function editRestaurant(id) {
   form.group.checked = Boolean(restaurant.group);
   form.active.checked = restaurant.active !== false;
   syncMapSearchFormState();
+  loadWeeklyHoursForRestaurant(id);
   els.restaurantEditor.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
@@ -1106,6 +1619,15 @@ function resetCatalogEditingState() {
 
 function switchCatalogSource(nextSource) {
   if (!["supabase", "static"].includes(nextSource) || nextSource === state.catalogSource) return false;
+  if (state.weeklyHoursEditor?.saving) {
+    state.weeklyHoursEditor = {
+      ...state.weeklyHoursEditor,
+      saveMessage: "저장 중에는 데이터 원본을 전환할 수 없습니다.",
+      saveMessageType: "error",
+    };
+    renderWeeklyHoursEditor({ preserveOpen: true });
+    return false;
+  }
   state.catalogSource = nextSource;
   resetCatalogEditingState();
   renderCatalog();
@@ -1114,6 +1636,370 @@ function switchCatalogSource(nextSource) {
 
 function canEditSupabaseCatalog() {
   return state.catalogSource === "supabase" && currentCatalogData().editable;
+}
+
+function canEditWeeklyDraft() {
+  const editor = state.weeklyHoursEditor;
+  return Boolean(
+    ADMIN_WEEKLY_HOURS &&
+    canEditSupabaseCatalog() &&
+    editor.restaurantId &&
+    editor.restaurantId === state.selectedRestaurantId &&
+    !editor.loading &&
+    !editor.error &&
+    !editor.saving &&
+    editor.draftRows.length === 7 &&
+    ADMIN_WEEKLY_HOURS.summarizeWeeklyStatus(editor.draftRows).kind !== "incomplete",
+  );
+}
+
+function startWeeklyHoursLocalDraft() {
+  const editor = state.weeklyHoursEditor;
+  if (!ADMIN_WEEKLY_HOURS || !canEditSupabaseCatalog() || !editor.restaurantId || editor.originalRows.length !== 0) return false;
+  state.weeklyHoursEditor = {
+    ...editor,
+    draftRows: ADMIN_WEEKLY_HOURS.createUnknownDraft(editor.restaurantId),
+    localDraft: true,
+    undoRows: null,
+    showDiff: false,
+    verificationConfirmed: false,
+    bulkMessage: "7일짜리 임시 초안을 만들었습니다. DB에는 저장되지 않았습니다.",
+    saveMessage: "",
+    saveMessageType: "",
+  };
+  renderWeeklyHoursEditor();
+  return true;
+}
+
+function updateWeeklyHoursDraft(event) {
+  const field = event.target.dataset.weeklyField;
+  const isoWeekday = Number(event.target.dataset.weeklyDay);
+  if (!field || !isoWeekday || !canEditWeeklyDraft()) return false;
+  const value = event.target.type === "checkbox" ? event.target.checked : event.target.value;
+  state.weeklyHoursEditor = {
+    ...state.weeklyHoursEditor,
+    draftRows: ADMIN_WEEKLY_HOURS.updateDayField(state.weeklyHoursEditor.draftRows, isoWeekday, field, value),
+    undoRows: null,
+    showDiff: false,
+    bulkMessage: "",
+    saveMessage: "",
+    saveMessageType: "",
+  };
+  renderWeeklyHoursEditor({ preserveOpen: true });
+  return true;
+}
+
+function updateWeeklyHoursTimeInput(target, { render = true } = {}) {
+  if (!target?.matches?.("[data-weekly-time-part]") || !canEditWeeklyDraft()) return false;
+  const control = target.closest("[data-weekly-time-control]");
+  const field = control?.dataset.weeklyTimeField;
+  const isoWeekday = Number(control?.dataset.weeklyDay);
+  if (!field || !isoWeekday) return false;
+  const hour = control.querySelector('[data-weekly-time-part="hour"]')?.value ?? "";
+  const minute = control.querySelector('[data-weekly-time-part="minute"]')?.value ?? "";
+  state.weeklyHoursEditor = {
+    ...state.weeklyHoursEditor,
+    draftRows: ADMIN_WEEKLY_HOURS.updateAdminTimeField(
+      state.weeklyHoursEditor.draftRows,
+      isoWeekday,
+      field,
+      hour,
+      minute,
+    ),
+    undoRows: null,
+    showDiff: false,
+    bulkMessage: "",
+    saveMessage: "",
+    saveMessageType: "",
+  };
+  if (render) renderWeeklyHoursEditor({ preserveOpen: true });
+  return true;
+}
+
+function closeWeeklyTimeCombobox(combobox) {
+  if (!combobox) return false;
+  const listbox = combobox.querySelector('[role="listbox"]');
+  const input = combobox.querySelector('[role="combobox"]');
+  const toggle = combobox.querySelector("[data-weekly-time-toggle]");
+  if (listbox) listbox.hidden = true;
+  combobox.classList.remove("is-open");
+  input?.setAttribute("aria-expanded", "false");
+  toggle?.setAttribute("aria-expanded", "false");
+  const dayCard = combobox.closest("[data-weekly-day-card]");
+  if (dayCard && !dayCard.querySelector("[data-weekly-time-combobox].is-open")) {
+    dayCard.classList.remove("has-open-time-list");
+  }
+  return true;
+}
+
+function closeOtherWeeklyTimeComboboxes(current) {
+  els.weeklyHoursContent.querySelectorAll("[data-weekly-time-combobox]").forEach((combobox) => {
+    if (combobox !== current) closeWeeklyTimeCombobox(combobox);
+  });
+}
+
+function openWeeklyTimeCombobox(combobox) {
+  const input = combobox?.querySelector('[role="combobox"]');
+  const listbox = combobox?.querySelector('[role="listbox"]');
+  const toggle = combobox?.querySelector("[data-weekly-time-toggle]");
+  if (!input || input.disabled || !listbox) return false;
+  closeOtherWeeklyTimeComboboxes(combobox);
+  listbox.hidden = false;
+  combobox.classList.add("is-open");
+  combobox.closest("[data-weekly-day-card]")?.classList.add("has-open-time-list");
+  input.setAttribute("aria-expanded", "true");
+  toggle?.setAttribute("aria-expanded", "true");
+  const selectedOption = listbox.querySelector('[data-weekly-time-option][aria-selected="true"]');
+  if (selectedOption) {
+    listbox.scrollTop = Math.max(0, selectedOption.offsetTop - ((listbox.clientHeight - selectedOption.offsetHeight) / 2));
+  } else {
+    listbox.scrollTop = 0;
+  }
+  return true;
+}
+
+function selectWeeklyTimeOption(option) {
+  const combobox = option?.closest?.("[data-weekly-time-combobox]");
+  const input = combobox?.querySelector("[data-weekly-time-part]");
+  if (!input || input.disabled) return false;
+  input.value = option.dataset.weeklyTimeOption;
+  return updateWeeklyHoursTimeInput(input);
+}
+
+function handleWeeklyTimeComboboxKeydown(event) {
+  const input = event.target.closest?.('[role="combobox"][data-weekly-time-part]');
+  const option = event.target.closest?.("[data-weekly-time-option]");
+  const combobox = (input || option)?.closest?.("[data-weekly-time-combobox]");
+  if (!combobox) return false;
+  const options = [...combobox.querySelectorAll("[data-weekly-time-option]")];
+  if (input && ["ArrowDown", "ArrowUp"].includes(event.key)) {
+    event.preventDefault();
+    openWeeklyTimeCombobox(combobox);
+    const selectedIndex = options.findIndex((item) => item.getAttribute("aria-selected") === "true");
+    const fallbackIndex = event.key === "ArrowUp" ? options.length - 1 : 0;
+    options[selectedIndex >= 0 ? selectedIndex : fallbackIndex]?.focus();
+    return true;
+  }
+  if (event.key === "Escape") {
+    event.preventDefault();
+    closeWeeklyTimeCombobox(combobox);
+    combobox.querySelector('[role="combobox"]')?.focus();
+    return true;
+  }
+  if (!option) return false;
+  const index = options.indexOf(option);
+  if (["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) {
+    event.preventDefault();
+    const nextIndex = event.key === "Home"
+      ? 0
+      : event.key === "End"
+        ? options.length - 1
+        : (index + (event.key === "ArrowDown" ? 1 : -1) + options.length) % options.length;
+    options[nextIndex]?.focus();
+    return true;
+  }
+  if (["Enter", " "].includes(event.key)) {
+    event.preventDefault();
+    return selectWeeklyTimeOption(option);
+  }
+  return false;
+}
+
+function selectedWeeklyBulkTargets(mode, sourceIsoWeekday) {
+  if (mode === "weekdays") return [1, 2, 3, 4, 5].filter((day) => day !== sourceIsoWeekday);
+  if (mode === "all") return [1, 2, 3, 4, 5, 6, 7].filter((day) => day !== sourceIsoWeekday);
+  return [...els.weeklyHoursContent.querySelectorAll("[data-weekly-target]:checked")]
+    .map((input) => Number(input.dataset.weeklyTarget))
+    .filter((day) => day !== sourceIsoWeekday);
+}
+
+function applyWeeklyHoursBulk(mode) {
+  if (!canEditWeeklyDraft() || !["weekdays", "all", "selected"].includes(mode)) return false;
+  const sourceIsoWeekday = Number(els.weeklyHoursContent.querySelector("#weeklyBulkSource")?.value || 1);
+  const targets = selectedWeeklyBulkTargets(mode, sourceIsoWeekday);
+  if (!targets.length) return false;
+  const weekday = ADMIN_WEEKLY_HOURS.WEEKDAYS.find((day) => day.isoWeekday === sourceIsoWeekday);
+  const targetLabels = targets.map((target) => ADMIN_WEEKLY_HOURS.WEEKDAYS.find((day) => day.isoWeekday === target)?.shortLabel).filter(Boolean);
+  const before = ADMIN_WEEKLY_HOURS.cloneRows(state.weeklyHoursEditor.draftRows);
+  state.weeklyHoursEditor = {
+    ...state.weeklyHoursEditor,
+    draftRows: ADMIN_WEEKLY_HOURS.applyDayToTargets(before, sourceIsoWeekday, targets),
+    undoRows: before,
+    showDiff: false,
+    bulkMessage: `${weekday.label} 설정을 ${targetLabels.join("·")}요일에 적용했습니다. 아직 저장되지 않았습니다.`,
+    saveMessage: "",
+    saveMessageType: "",
+  };
+  renderWeeklyHoursEditor({ preserveOpen: true });
+  return true;
+}
+
+function undoWeeklyHoursBulk() {
+  if (!canEditWeeklyDraft() || !state.weeklyHoursEditor.undoRows) return false;
+  state.weeklyHoursEditor = {
+    ...state.weeklyHoursEditor,
+    draftRows: ADMIN_WEEKLY_HOURS.cloneRows(state.weeklyHoursEditor.undoRows),
+    undoRows: null,
+    showDiff: false,
+    bulkMessage: "직전 일괄 변경을 되돌렸습니다. DB에는 변화가 없습니다.",
+    saveMessage: "",
+    saveMessageType: "",
+  };
+  renderWeeklyHoursEditor({ preserveOpen: true });
+  return true;
+}
+
+function resetWeeklyHoursDraft() {
+  if (!canEditWeeklyDraft()) return false;
+  const editor = state.weeklyHoursEditor;
+  state.weeklyHoursEditor = editor.localDraft
+    ? createWeeklyHoursEditorState({ restaurantId: editor.restaurantId, restaurantName: editor.restaurantName })
+    : {
+        ...editor,
+        draftRows: ADMIN_WEEKLY_HOURS.cloneRows(editor.originalRows),
+        undoRows: null,
+        showDiff: false,
+        verificationConfirmed: false,
+        bulkMessage: "불러온 원본 상태로 되돌렸습니다. DB에는 변화가 없습니다.",
+        saveMessage: "",
+        saveMessageType: "",
+      };
+  renderWeeklyHoursEditor();
+  return true;
+}
+
+function toggleWeeklyHoursDiff() {
+  if (!canEditWeeklyDraft()) return false;
+  state.weeklyHoursEditor = {
+    ...state.weeklyHoursEditor,
+    showDiff: !state.weeklyHoursEditor.showDiff,
+  };
+  renderWeeklyHoursEditor({ preserveOpen: true });
+  return true;
+}
+
+function updateWeeklyVerificationDraft(checked) {
+  if (!canEditWeeklyDraft()) return false;
+  state.weeklyHoursEditor = {
+    ...state.weeklyHoursEditor,
+    verificationConfirmed: checked === true,
+    saveMessage: "",
+    saveMessageType: "",
+  };
+  renderWeeklyHoursEditor({ preserveOpen: true });
+  return true;
+}
+
+function weeklySaveFailureMessage(error) {
+  const message = String(error?.message || "");
+  if (error?.status === 403 || error?.code === "42501" || /row-level security|permission denied/i.test(message)) {
+    return "영업시간을 수정할 관리자 권한이 없습니다.";
+  }
+  return message || "영업시간 저장에 실패했습니다.";
+}
+
+async function saveWeeklyHours() {
+  const editor = state.weeklyHoursEditor;
+  if (editor.saving) return false;
+  const restaurant = restaurantsById.get(editor.restaurantId);
+  const verifiedAt = editor.verificationConfirmed ? new Date().toISOString() : null;
+  const assessment = weeklySaveAssessment(restaurant, editor, { verifiedAt });
+  if (!assessment.canSave) {
+    state.weeklyHoursEditor = {
+      ...editor,
+      saveMessage: assessment.message,
+      saveMessageType: "error",
+    };
+    renderWeeklyHoursEditor({ preserveOpen: true });
+    return false;
+  }
+
+  const confirmed = confirm(
+    `${restaurant?.name || editor.restaurantName} (${editor.restaurantId})\n\n변경된 요일: ${assessment.plan.changedRows.length}일\n저장 방식: ${assessment.plan.mode === "insert" ? "7일 신규 생성" : "변경 요일 수정"}\n\n요일별 영업시간을 저장할까요?`,
+  );
+  if (!confirmed) return false;
+
+  const requestContext = Object.freeze({
+    generation: state.weeklyHoursGeneration,
+    source: state.catalogSource,
+    restaurantId: editor.restaurantId,
+  });
+  state.weeklyHoursEditor = {
+    ...editor,
+    saving: true,
+    saveMessage: "관리자 권한과 최신 영업시간을 확인하고 있습니다.",
+    saveMessageType: "info",
+  };
+  renderWeeklyHoursEditor({ preserveOpen: true });
+
+  try {
+    const adminStillAuthorized = await isAdminUser();
+    if (!isCurrentWeeklyHoursRequest(requestContext)) return false;
+    if (!adminStillAuthorized) {
+      state.adminAuthorized = false;
+      state.weeklyHoursEditor = {
+        ...editor,
+        saving: false,
+        saveMessage: "영업시간을 수정할 관리자 권한이 없습니다.",
+        saveMessageType: "error",
+      };
+      renderWeeklyHoursEditor({ preserveOpen: true });
+      return false;
+    }
+    state.adminAuthorized = true;
+    const currentRestaurant = restaurantsById.get(state.weeklyHoursEditor.restaurantId);
+    const finalAssessment = weeklySaveAssessment(
+      currentRestaurant,
+      { ...state.weeklyHoursEditor, saving: false },
+      { verifiedAt },
+    );
+    if (!finalAssessment.canSave) {
+      state.weeklyHoursEditor = {
+        ...editor,
+        saving: false,
+        saveMessage: finalAssessment.message,
+        saveMessageType: "error",
+      };
+      renderWeeklyHoursEditor({ preserveOpen: true });
+      return false;
+    }
+    state.weeklyHoursEditor = {
+      ...state.weeklyHoursEditor,
+      saveMessage: "영업시간 저장 전 최신 데이터를 확인하고 있습니다.",
+    };
+    renderWeeklyHoursEditor({ preserveOpen: true });
+
+    const persistence = ADMIN_WEEKLY_HOURS.createWeeklyHoursPersistence(state.supabase);
+    const readBackRows = await ADMIN_WEEKLY_HOURS.executeWeeklyHoursSave({
+      permissionGranted: finalAssessment.canSave,
+      persistence,
+      plan: finalAssessment.plan,
+      isCurrent: () => isCurrentWeeklyHoursRequest(requestContext),
+    });
+    if (!isCurrentWeeklyHoursRequest(requestContext)) return false;
+    state.weeklyHoursEditor = createWeeklyHoursEditorState({
+      generation: requestContext.generation,
+      restaurantId: editor.restaurantId,
+      restaurantName: editor.restaurantName,
+      originalRows: ADMIN_WEEKLY_HOURS.cloneRows(readBackRows),
+      draftRows: ADMIN_WEEKLY_HOURS.cloneRows(readBackRows),
+      saveMessage: "영업시간이 저장되었습니다.",
+      saveMessageType: "success",
+    });
+    renderWeeklyHoursEditor({ preserveOpen: true });
+    return true;
+  } catch (error) {
+    if (isCurrentWeeklyHoursRequest(requestContext)) {
+      state.weeklyHoursEditor = {
+        ...editor,
+        saving: false,
+        saveMessage: weeklySaveFailureMessage(error),
+        saveMessageType: "error",
+      };
+      renderWeeklyHoursEditor({ preserveOpen: true });
+    }
+    return false;
+  }
 }
 
 function handleFoodCharacterChange(nextValue) {
@@ -1329,6 +2215,63 @@ function bindEvents() {
   els.menuForm?.addEventListener("submit", saveMenu);
   els.foodCharacterSelect?.addEventListener("change", (event) => handleFoodCharacterChange(event.target.value));
   els.saveFoodCharacter?.addEventListener("click", saveSelectedFoodCharacter);
+  els.weeklyHoursContent?.addEventListener("change", (event) => {
+    if (event.target.matches("[data-weekly-verification]")) {
+      updateWeeklyVerificationDraft(event.target.checked);
+      return;
+    }
+    if (event.target.matches("[data-weekly-time-part]")) {
+      updateWeeklyHoursTimeInput(event.target, { render: false });
+      return;
+    }
+    updateWeeklyHoursDraft(event);
+  });
+  els.weeklyHoursContent?.addEventListener("focusin", (event) => {
+    if (event.target.matches('[role="combobox"][data-weekly-time-part]')) {
+      openWeeklyTimeCombobox(event.target.closest("[data-weekly-time-combobox]"));
+    }
+  });
+  els.weeklyHoursContent?.addEventListener("focusout", (event) => {
+    const combobox = event.target.closest?.("[data-weekly-time-combobox]");
+    const dayCard = event.target.closest?.("[data-weekly-day-card]");
+    const wasTimeInput = event.target.matches?.("[data-weekly-time-part]");
+    setTimeout(() => {
+      if (combobox?.isConnected && !combobox.contains(document.activeElement)) closeWeeklyTimeCombobox(combobox);
+      if (wasTimeInput && dayCard?.isConnected && !dayCard.contains(document.activeElement)) {
+        renderWeeklyHoursEditor({ preserveOpen: true });
+      }
+    }, 0);
+  });
+  els.weeklyHoursContent?.addEventListener("keydown", handleWeeklyTimeComboboxKeydown);
+  els.weeklyHoursContent?.addEventListener("click", (event) => {
+    if (event.target.closest("[data-weekly-save]")) {
+      saveWeeklyHours();
+      return;
+    }
+    const timeOption = event.target.closest("[data-weekly-time-option]");
+    if (timeOption) {
+      selectWeeklyTimeOption(timeOption);
+      return;
+    }
+    const timeToggle = event.target.closest("[data-weekly-time-toggle]");
+    if (timeToggle) {
+      const combobox = timeToggle.closest("[data-weekly-time-combobox]");
+      const listbox = combobox?.querySelector('[role="listbox"]');
+      if (listbox?.hidden) openWeeklyTimeCombobox(combobox);
+      else closeWeeklyTimeCombobox(combobox);
+      return;
+    }
+    if (event.target.matches('[role="combobox"][data-weekly-time-part]')) {
+      openWeeklyTimeCombobox(event.target.closest("[data-weekly-time-combobox]"));
+      return;
+    }
+    if (event.target.closest("[data-weekly-start-draft]")) startWeeklyHoursLocalDraft();
+    const bulkButton = event.target.closest("[data-weekly-bulk]");
+    if (bulkButton) applyWeeklyHoursBulk(bulkButton.dataset.weeklyBulk);
+    if (event.target.closest("[data-weekly-undo]")) undoWeeklyHoursBulk();
+    if (event.target.closest("[data-weekly-preview]")) toggleWeeklyHoursDiff();
+    if (event.target.closest("[data-weekly-reset]")) resetWeeklyHoursDraft();
+  });
 
   document.body.addEventListener("click", (event) => {
     const tab = event.target.closest("[data-admin-tab]");
@@ -1371,7 +2314,10 @@ function bindEvents() {
     if (reportStatus) updateReportStatus(reportStatus.dataset.reportStatus, reportStatus.dataset.status);
     const catalogMode = event.target.closest("[data-catalog-mode]");
     if (catalogMode) {
-      state.catalogMode = catalogMode.dataset.catalogMode;
+      if (state.catalogMode !== catalogMode.dataset.catalogMode) {
+        state.catalogMode = catalogMode.dataset.catalogMode;
+        resetCatalogEditingState();
+      }
       document.querySelectorAll("[data-catalog-mode]").forEach((button) => button.classList.toggle("is-active", button === catalogMode));
       renderCatalog();
     }
@@ -1403,5 +2349,6 @@ function bindEvents() {
 
 renderRestaurantFilterOptions();
 renderFoodCharacterEditor();
+renderWeeklyHoursEditor();
 bindEvents();
 initSupabase();
