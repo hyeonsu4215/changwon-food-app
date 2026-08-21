@@ -155,10 +155,18 @@
               <label><span>위도</span><input name="lat" type="number" step="0.000001" /></label>
               <label><span>경도</span><input name="lng" type="number" step="0.000001" /></label>
               <label><span>전화번호</span><input name="phone" /></label>
-              <label><span>오픈</span><input name="openTime" placeholder="10:00:00" /></label>
-              <label><span>마감</span><input name="closeTime" placeholder="21:00:00" /></label>
-              <label><span>브레이크</span><input name="breakTime" /></label>
-              <label><span>휴무</span><input name="closedDays" /></label>
+              <section class="legacy-hours-group wide" aria-labelledby="legacyHoursTitle">
+                <div class="legacy-hours-heading">
+                  <strong id="legacyHoursTitle">이전 등록 영업정보</strong>
+                  <span>현재 사용자 앱에서 사용 중</span>
+                </div>
+                <div class="legacy-hours-grid">
+                  <label><span>오픈</span><input name="openTime" placeholder="10:00:00" /></label>
+                  <label><span>마감</span><input name="closeTime" placeholder="21:00:00" /></label>
+                  <label><span>브레이크</span><input name="breakTime" /></label>
+                  <label><span>휴무</span><input name="closedDays" /></label>
+                </div>
+              </section>
               <label><span>좌석</span><input name="seats" type="number" min="0" /></label>
               <label><span>리뷰수</span><input name="reviewCount" type="number" min="0" /></label>
               <label><span>출처</span><input name="source" /></label>
@@ -185,6 +193,19 @@
                 <button type="button" data-clear-restaurant>초기화</button>
               </div>
             </form>
+          </section>
+
+          <section id="weeklyHoursEditor" class="weekly-hours-editor" aria-labelledby="weeklyHoursTitle">
+            <div class="weekly-hours-heading">
+              <div>
+                <span class="section-kicker">SUPABASE 조회 · 임시 편집</span>
+                <h3 id="weeklyHoursTitle">요일별 영업시간</h3>
+              </div>
+              <span class="weekly-hours-phase">Supabase 관리자 전용</span>
+            </div>
+            <div id="weeklyHoursContent" aria-live="polite">
+              <p class="weekly-hours-empty">Supabase 가게를 선택하면 월요일부터 일요일까지 영업시간을 확인할 수 있습니다.</p>
+            </div>
           </section>
 
           <section id="menuEditor" class="catalog-editor" hidden>
@@ -260,6 +281,7 @@
     <script src="./data.js"></script>
     <script src="./catalog-policy.js"></script>
     <script src="./food-character-admin.js"></script>
+    <script src="./weekly-hours-admin.js"></script>
     <script src="./supabase-config.js"></script>
     <script src="./admin.js"></script>
   </body>

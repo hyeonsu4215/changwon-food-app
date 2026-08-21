@@ -1,5 +1,5 @@
 const CACHE_PREFIX = "changwon-food-app-";
-const CACHE_NAME = `${CACHE_PREFIX}v51`;
+const CACHE_NAME = `${CACHE_PREFIX}v53`;
 const CORE_ASSETS = [
   "./",
   "./index.html",
@@ -22,6 +22,7 @@ const STATIC_ASSETS = [
   "./admin.css",
   "./admin.js",
   "./food-character-admin.js",
+  "./weekly-hours-admin.js",
   "./supabase-config.js",
   "./assets/icons/apple-touch-icon-180.png",
   "./assets/icons/favicon-32.png",
