@@ -248,7 +248,7 @@ const analyticsClient = typeof window.MukjjiAnalytics?.createAnalyticsClient ===
       sessionStorage: getAnalyticsSessionStorage(),
       crypto: window.crypto,
       getSupabaseClient: async () => {
-        if (!state.supabase) await ensureSupabaseClient();
+        if (!state.supabase) await initSupabase();
         return state.supabase;
       },
     })

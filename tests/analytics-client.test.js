@@ -100,6 +100,11 @@ async function run() {
     "recommendation_error",
   ]);
   assert.ok(indexSource.indexOf("analytics-client.js") < indexSource.indexOf("app.js"));
+  assert.doesNotMatch(appSource, /\bensureSupabaseClient\s*\(/);
+  assert.match(
+    appSource,
+    /getSupabaseClient:\s*async\s*\(\)\s*=>\s*\{\s*if\s*\(!state\.supabase\)\s*await\s+initSupabase\(\);\s*return\s+state\.supabase;/,
+  );
   const fallbackUuid = secureUuid({
     getRandomValues(bytes) {
       bytes.fill(0xab);
@@ -239,6 +244,73 @@ async function run() {
   }), true);
   assert.equal(retryCalls.length, 2, "one failure produces at most one retry");
   assert.deepEqual(retryCalls[0], retryCalls[1], "retry must reuse event_id and occurred_at");
+
+  let duplicateRpcCalls = 0;
+  const duplicateClient = createAnalyticsClient({
+    enabled: true,
+    sessionStorage: retryStorage,
+    crypto: deterministicCrypto(),
+    now: () => currentTime,
+    getSupabaseClient: async () => ({
+      rpc() {
+        duplicateRpcCalls += 1;
+        return { data: false, error: null };
+      },
+    }),
+  });
+  assert.equal(await duplicateClient.recordRecommendationError({
+    sourceContext: "discovery",
+    errorCode: ERROR_CODES.UNKNOWN,
+    itemCount: 0,
+  }), false, "an idempotent RPC false result must remain false");
+  assert.equal(duplicateRpcCalls, 1, "an idempotent false result must not be retried");
+
+  let lookupAttempts = 0;
+  const lookupFailureClient = createAnalyticsClient({
+    enabled: true,
+    sessionStorage: retryStorage,
+    crypto: deterministicCrypto(),
+    now: () => currentTime,
+    getSupabaseClient: async () => {
+      lookupAttempts += 1;
+      throw new ReferenceError("client lookup failed");
+    },
+  });
+  assert.equal(await lookupFailureClient.recordRecommendationError({
+    sourceContext: "discovery",
+    errorCode: ERROR_CODES.UNKNOWN,
+    itemCount: 0,
+  }), false, "client lookup failures must stay isolated from callers");
+  assert.equal(lookupAttempts, 2, "a client lookup failure receives only one retry");
+
+  let timeoutRpcCalls = 0;
+  let timeoutTimerCalls = 0;
+  const timeoutClient = createAnalyticsClient({
+    enabled: true,
+    sessionStorage: retryStorage,
+    crypto: deterministicCrypto(),
+    now: () => currentTime,
+    requestTimeoutMs: 1,
+    setTimeout(callback) {
+      timeoutTimerCalls += 1;
+      queueMicrotask(callback);
+      return timeoutTimerCalls;
+    },
+    clearTimeout() {},
+    getSupabaseClient: async () => ({
+      rpc() {
+        timeoutRpcCalls += 1;
+        return new Promise(() => {});
+      },
+    }),
+  });
+  assert.equal(await timeoutClient.recordRecommendationError({
+    sourceContext: "discovery",
+    errorCode: ERROR_CODES.UNKNOWN,
+    itemCount: 0,
+  }), false, "timed-out analytics calls must stay isolated from callers");
+  assert.equal(timeoutRpcCalls, 2, "a timeout receives only one retry");
+  assert.equal(timeoutTimerCalls, 2, "each timed-out attempt uses one timer");
 
   const failedClient = createAnalyticsClient({
     enabled: true,

@@ -155,7 +155,10 @@
       if (!client || typeof client.rpc !== "function") throw new Error("analytics_client_unavailable");
       const result = await withTimeout(Promise.resolve(client.rpc(RPC_FUNCTION_NAME, params)));
       if (result?.error) throw result.error;
-      return result?.data === true || result?.data === false;
+      if (result?.data !== true && result?.data !== false) {
+        throw new Error("analytics_invalid_response");
+      }
+      return result.data;
     }
 
     function dispatch(event) {
