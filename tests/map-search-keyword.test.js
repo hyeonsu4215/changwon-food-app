@@ -20,6 +20,9 @@ const restaurantsById = new Map(catalog.restaurants.map((restaurant) => [restaur
 const mapRuntime = new Function(
   "restaurantsById",
   `${extractFunctionSource(appSource, "escapeHtml")}
+   const state = { sharedPickStatus: "none" };
+   ${extractFunctionSource(appSource, "getAnalyticsSourceContext")}
+   ${extractFunctionSource(appSource, "analyticsMapAttributes")}
    ${extractFunctionSource(appSource, "mapSearchConfig")}
    ${extractFunctionSource(appSource, "mapUrl")}
    ${extractFunctionSource(appSource, "mapActionHtml")}
@@ -71,6 +74,7 @@ expectedExceptions.forEach((expected, id) => {
 
 const unavailableHtml = mapRuntime.mapActionHtml({ restaurant: restaurantsById.get("C005") }, { label: "지도" });
 assert.match(unavailableHtml, /data-map-unavailable/);
+assert.doesNotMatch(unavailableHtml, /data-analytics-map/);
 assert.match(unavailableHtml, /<button type="button"/);
 assert.doesNotMatch(unavailableHtml, /href=/);
 assert.match(appSource, /data-map-unavailable[\s\S]*현재 네이버 지도에 등록된 가게 정보가 없어요/);

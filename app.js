@@ -179,6 +179,7 @@ const state = {
   quickLocationBase: { ...FALLBACK_LOCATION },
   discoverySeed: discoverySeedValue,
   detailContext: "custom",
+  detailAnalyticsContext: null,
   alternativesExpanded: false,
   wishlist: JSON.parse(localStorage.getItem("changwonFoodWishlist") || "[]"),
   history: JSON.parse(localStorage.getItem("changwonFoodHistory") || "[]"),
@@ -232,6 +233,75 @@ const state = {
 };
 
 appliedRecommendationPreferences = recommendationPreferencesSnapshot();
+
+function getAnalyticsSessionStorage() {
+  try {
+    return window.sessionStorage;
+  } catch {
+    return null;
+  }
+}
+
+const analyticsClient =
+  typeof window.MukjjiAnalytics?.createAnalyticsClient === "function" &&
+  typeof window.MukjjiAnalytics?.isAnalyticsRuntimeEnabled === "function"
+  ? window.MukjjiAnalytics.createAnalyticsClient({
+      enabled: window.MukjjiAnalytics.isAnalyticsRuntimeEnabled(),
+      sessionStorage: getAnalyticsSessionStorage(),
+      crypto: window.crypto,
+      getSupabaseClient: async () => {
+        if (!state.supabase) await initSupabase();
+        return state.supabase;
+      },
+    })
+  : null;
+
+function getAnalyticsSourceContext(context) {
+  if (context === "search") return "search";
+  if (state.sharedPickStatus === "valid") return "shared_pick";
+  if (context === "personalized" || context === "custom") return "personalized";
+  if (context === "discovery") return "discovery";
+  return null;
+}
+
+function setAnalyticsRecommendationState() {
+  if (!analyticsClient) return;
+  const sourceContext = getAnalyticsSourceContext(state.quickMode);
+  const menuIds = state.quickItems.map((item) => String(item.id));
+  const validItems =
+    state.quickItems.length === 3 &&
+    new Set(menuIds).size === 3 &&
+    state.quickItems.every((item) => item.id && (item.restaurantId || item.restaurant?.id));
+  if (validItems && sourceContext && sourceContext !== "search") {
+    analyticsClient.startRecommendation(state.quickItems, sourceContext);
+    return;
+  }
+  analyticsClient.clearRecommendation();
+  if (!new Set(["discovery", "personalized"]).has(sourceContext)) return;
+  const errorCode = !Array.isArray(DATA.menus) || DATA.menus.length === 0
+    ? window.MukjjiAnalytics.ERROR_CODES.DATA_UNAVAILABLE
+    : state.quickItems.length === 3
+      ? window.MukjjiAnalytics.ERROR_CODES.INVALID_RESULT
+      : window.MukjjiAnalytics.ERROR_CODES.INSUFFICIENT_CANDIDATES;
+  analyticsClient.recordRecommendationError({
+    sourceContext,
+    errorCode,
+    itemCount: Math.min(3, state.quickItems.length),
+  });
+}
+
+function clearAnalyticsRecommendationState() {
+  analyticsClient?.clearRecommendation();
+}
+
+function analyticsMapAttributes(item, context) {
+  const sourceContext = getAnalyticsSourceContext(context);
+  const restaurantId = item?.restaurant?.id || item?.restaurantId || item?.id || "";
+  const menuId = item?.restaurant || item?.restaurantId ? item?.id || "" : "";
+  if (!sourceContext || !restaurantId) return "";
+  if (sourceContext !== "search" && !menuId) return "";
+  return ` data-analytics-map data-analytics-context="${escapeHtml(sourceContext)}" data-analytics-restaurant-id="${escapeHtml(restaurantId)}"${menuId ? ` data-analytics-menu-id="${escapeHtml(menuId)}"` : ""}`;
+}
 
 const els = {
   locationButton: document.querySelector("#locationButton"),
@@ -503,12 +573,15 @@ function setSharedPickState(parsed, locationBase = FALLBACK_LOCATION) {
   state.sharedPickIds = parsed.valid ? [...parsed.ids] : [];
   state.quickItems = parsed.valid ? resolveSharedPickItems(parsed.ids, locationBase) : [];
   state.page = 0;
+  if (parsed.valid) setAnalyticsRecommendationState();
+  else clearAnalyticsRecommendationState();
 }
 
 function clearSharedPickState({ pushHistory = false } = {}) {
   if (state.sharedPickStatus === "none") return;
   state.sharedPickStatus = "none";
   state.sharedPickIds = [];
+  clearAnalyticsRecommendationState();
   if (pushHistory && history.pushState) {
     history.pushState({ changwonFoodApp: true, screen: "recommendTab" }, "", cleanAppUrl());
   }
@@ -1214,6 +1287,7 @@ function updateQuickRecommendations({ reroll = false, applyWeather = true, locat
   }
   state.alternativesExpanded = false;
   state.page = 0;
+  setAnalyticsRecommendationState();
 }
 
 function refreshQuickItemDerivedValues({ applyWeather = state.quickAppliedWeather, locationBase = currentBase() } = {}) {
@@ -1249,7 +1323,7 @@ function mapUrl(item) {
   return `https://map.naver.com/p/search/${encodeURIComponent(config.query)}`;
 }
 
-function mapActionHtml(item, { label = "네이버 지도", content = "", className = "" } = {}) {
+function mapActionHtml(item, { label = "네이버 지도", content = "", className = "", analyticsContext = null } = {}) {
   const url = mapUrl(item);
   const body = content || escapeHtml(label);
   const classAttribute = className ? ` class="${escapeHtml(className)}"` : "";
@@ -1257,7 +1331,7 @@ function mapActionHtml(item, { label = "네이버 지도", content = "", classNa
     const unavailableClass = [className, "map-action-unavailable"].filter(Boolean).join(" ");
     return `<button type="button" class="${escapeHtml(unavailableClass)}" data-map-unavailable title="현재 네이버 지도에 등록된 가게 정보가 없어요.">${body}</button>`;
   }
-  return `<a${classAttribute} href="${url}" target="_blank" rel="noreferrer">${body}</a>`;
+  return `<a${classAttribute}${analyticsMapAttributes(item, analyticsContext)} href="${url}" target="_blank" rel="noreferrer">${body}</a>`;
 }
 
 function tags(item) {
@@ -1344,7 +1418,7 @@ function cardHtml(item, rank, context = "custom") {
     <div class="reason-list">${reasonTags.map((reason) => `<span>${reason}</span>`).join("")}</div>
     <div class="meta-tags">${metaTags.map((tag) => `<span>${tag}</span>`).join("")}</div>
     <div class="card-actions">
-      <button data-detail="${item.id}" data-detail-context="${context}">상세 보기</button>
+      <button data-detail="${item.id}">상세 보기</button>
       <button data-ate="${item.id}">먹음 기록</button>
       ${mapActionHtml(item)}
     </div>
@@ -1405,7 +1479,7 @@ function quickHeroHtml(item) {
       </div>
       <div class="card-actions quick-actions">
         <button data-ate="${item.id}" aria-label="${escapeHtml(item.name)} 먹음 기록">먹음 기록</button>
-        ${mapActionHtml(item, { content: '<span class="quick-map-label-desktop">네이버 지도</span><span class="quick-map-label-mobile">지도</span>' })}
+        ${mapActionHtml(item, { content: '<span class="quick-map-label-desktop">네이버 지도</span><span class="quick-map-label-mobile">지도</span>', analyticsContext: state.quickMode })}
       </div>
     </article>
   `;
@@ -1435,7 +1509,7 @@ function quickAlternativeHtml(item, rank) {
       <p class="recommend-copy">${quickReasonText(item)}</p>
       <div class="card-actions quick-alt-actions">
         <button data-ate="${item.id}" aria-label="${escapeHtml(item.name)} 먹음 기록">먹음 기록</button>
-        ${mapActionHtml(item, { content: '<span class="quick-map-label-desktop">지도</span><span class="quick-map-label-mobile">지도</span>' })}
+        ${mapActionHtml(item, { content: '<span class="quick-map-label-desktop">지도</span><span class="quick-map-label-mobile">지도</span>', analyticsContext: state.quickMode })}
       </div>
     </article>
   `;
@@ -1558,12 +1632,12 @@ function renderStoreSearch() {
                   <p class="store-line">${restaurant.category || "음식점"} · ${meters(haversine(currentBase(), restaurant))}</p>
                   <p class="review-line">${statLine}</p>
                 </div>
-                ${mapActionHtml({ restaurant, restaurantName: restaurant.name }, { label: "지도", className: "store-map-button" })}
+                ${mapActionHtml({ restaurant, restaurantName: restaurant.name }, { label: "지도", className: "store-map-button", analyticsContext: "search" })}
               </div>
               ${searchHint}
               <div class="store-menu-list">
                 ${visibleMenus
-                  .map((menu) => `<button data-detail="${menu.id}"><span>${escapeHtml(menu.name)}</span><strong>${money(menu.price)}</strong></button>`)
+                  .map((menu) => `<button data-detail="${menu.id}" data-detail-context="search"><span>${escapeHtml(menu.name)}</span><strong>${money(menu.price)}</strong></button>`)
                   .join("")}
               </div>
               ${toggleButton}
@@ -1614,6 +1688,7 @@ function renderRecommendations() {
     : state.quickItems.length
       ? quickRecommendationsHtml(state.quickItems)
       : `<div class="empty-state">조건에 맞는 메뉴가 없어요. 예산이나 조건을 조금 풀어보세요.</div>`;
+  if (!sharedError && state.quickItems.length === 3) analyticsClient?.recordRecommendationShown();
   const nudgeVisible = Boolean(!sharedView && state.quickItems.length && shouldShowDiscoveryNudge());
   const rerollAvailable = sharedView || all.length > 3;
   if (els.recommendActionDock) els.recommendActionDock.hidden = !hasResults || (!rerollAvailable && !nudgeVisible);
@@ -2035,6 +2110,7 @@ function resetFilters() {
     state.hasSearched = false;
     state.quickItems = [];
     state.quickSeenIds = new Set();
+    clearAnalyticsRecommendationState();
   }
   state.rerollCount = 0;
   state.rerollPromptVisible = false;
@@ -2099,6 +2175,7 @@ function searchMenus() {
   setActiveRecommendationMode("personalized");
   state.quickItems = [];
   state.quickSeenIds = new Set();
+  clearAnalyticsRecommendationState();
   state.rerollPromptVisible = false;
   state.rerollCount = 0;
   finishRecommendation(900, { collapseConditions: true });
@@ -2107,6 +2184,7 @@ function searchMenus() {
 function quickRecommend() {
   clearSharedPickState({ pushHistory: true });
   setActiveRecommendationMode("discovery");
+  clearAnalyticsRecommendationState();
   state.rerollPromptVisible = false;
   state.rerollCount = 0;
   finishRecommendation(600, {
@@ -2116,6 +2194,7 @@ function quickRecommend() {
 }
 
 function rerollQuickRecommendations() {
+  analyticsClient?.recordRecommendationRefresh();
   if (state.sharedPickStatus !== "none") {
     clearSharedPickState({ pushHistory: true });
     state.hasSearched = false;
@@ -2186,6 +2265,7 @@ function restoreDiscoveryModeAfterPageShow() {
   state.alternativesExpanded = false;
   state.page = 0;
   state.hasSearched = false;
+  clearAnalyticsRecommendationState();
   render();
 }
 
@@ -2350,8 +2430,13 @@ function handleLocationAfterSplash() {
 }
 
 function showDetail(id, context = "custom") {
+  const detailWasOpen = els.detailDialog.open;
+  const analyticsSourceContext = detailWasOpen
+    ? state.detailAnalyticsContext
+    : getAnalyticsSourceContext(context);
   const detailContext = context === "discovery" ? "discovery" : "custom";
   state.detailContext = detailContext;
+  if (!detailWasOpen) state.detailAnalyticsContext = analyticsSourceContext;
   const scoreOptions = detailContext === "discovery"
     ? { applyBudget: false, applyTaste: false, applyMoods: false }
     : { conditions: appliedRecommendationConditions() };
@@ -2473,7 +2558,7 @@ function showDetail(id, context = "custom") {
     <div class="card-actions">
       <button data-wish="${item.id}">${wished ? "찜 해제" : "찜하기"}</button>
       <button data-ate="${item.id}">먹음 기록</button>
-      ${mapActionHtml(item, { label: "네이버 지도에서 보기" })}
+      ${mapActionHtml(item, { label: "네이버 지도에서 보기", analyticsContext: state.detailAnalyticsContext })}
     </div>
     <div class="info-footer">
       <span>정보 기준일 ${DATA_UPDATED_AT}</span>
@@ -2481,6 +2566,13 @@ function showDetail(id, context = "custom") {
     </div>
   `;
   if (!els.detailDialog.open) els.detailDialog.showModal();
+  if (!detailWasOpen && analyticsSourceContext) {
+    analyticsClient?.recordMenuCardOpen({
+      menuId: item.id,
+      restaurantId: item.restaurant?.id || item.restaurantId,
+      sourceContext: analyticsSourceContext,
+    });
+  }
   pushAppState("detail");
 }
 
@@ -3076,12 +3168,14 @@ async function shareCurrentPick() {
     if (navigator.share) {
       try {
         await navigator.share(shareData);
+        analyticsClient?.recordShareSuccess("web_share");
         return;
       } catch (error) {
         if (error?.name === "AbortError") return;
       }
     }
     const copied = await copyTextToClipboard(sharedUrl);
+    if (copied) analyticsClient?.recordShareSuccess("clipboard");
     toast(copied ? "추천 메뉴 3개 링크를 복사했어요." : "링크를 복사하지 못했어요. 다시 시도해 주세요.");
   } finally {
     state.sharePickPending = false;
@@ -4047,6 +4141,14 @@ function bindEvents() {
   });
   document.body.addEventListener("click", (event) => {
     rememberExternalLinkClick(event);
+    const analyticsMapLink = event.target.closest("[data-analytics-map]");
+    if (analyticsMapLink) {
+      analyticsClient?.recordMapOpen({
+        menuId: analyticsMapLink.dataset.analyticsMenuId || null,
+        restaurantId: analyticsMapLink.dataset.analyticsRestaurantId,
+        sourceContext: analyticsMapLink.dataset.analyticsContext,
+      });
+    }
     const unavailableMapButton = event.target.closest("[data-map-unavailable]");
     if (unavailableMapButton) {
       event.preventDefault();
@@ -4086,7 +4188,7 @@ function bindEvents() {
     const locationChoice = event.target.closest("[data-location-choice]");
     if (locationChoice) chooseLocationPreference(locationChoice.dataset.locationChoice);
     const detail = event.target.closest("[data-detail]");
-    if (detail) showDetail(detail.dataset.detail, detail.dataset.detailContext || "custom");
+    if (detail) showDetail(detail.dataset.detail, detail.dataset.detailContext || "other");
     const wish = event.target.closest("[data-wish]");
     if (wish) toggleWishlist(wish.dataset.wish);
     const ate = event.target.closest("[data-ate]");
@@ -4174,7 +4276,10 @@ function bindEvents() {
   document.querySelectorAll(".bottom-nav button").forEach((button) => {
     button.addEventListener("click", () => switchTab(button.dataset.tab));
   });
-  els.closeDialog.addEventListener("click", () => els.detailDialog.close());
+  els.closeDialog.addEventListener("click", () => {
+    els.detailDialog.close();
+    state.detailAnalyticsContext = null;
+  });
   els.closeReportDialog?.addEventListener("click", () => els.reportDialog.close());
   els.reportForm?.addEventListener("submit", submitInfoReport);
   window.addEventListener("popstate", handlePopNavigation);
@@ -4203,6 +4308,7 @@ function finishSplash() {
 
 renderChips();
 bindEvents();
+analyticsClient?.initialize();
 initializeSharedPickFromUrl();
 if (history.replaceState && history.pushState) {
   history.replaceState({ changwonFoodApp: true, screen: "entry" }, "", window.location.href);
