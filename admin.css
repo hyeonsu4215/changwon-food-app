@@ -1624,6 +1624,170 @@ button:disabled {
   font-weight: 900;
 }
 
+.analytics-status {
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 14px !important;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+}
+
+.analytics-status[hidden] {
+  display: none;
+}
+
+.analytics-content {
+  margin-top: 14px;
+}
+
+.analytics-section {
+  padding: 18px 0;
+  border-top: 1px solid var(--line);
+}
+
+.analytics-section:first-child {
+  padding-top: 4px;
+  border-top: 0;
+}
+
+.analytics-section h3 {
+  margin: 0 0 12px;
+  font-size: 16px;
+}
+
+.analytics-section-heading {
+  display: flex;
+  min-width: 0;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.analytics-section-heading span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.analytics-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1px;
+  margin: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--line);
+}
+
+.analytics-kpi-grid > div {
+  min-width: 0;
+  min-height: 92px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px;
+  background: #fff;
+}
+
+.analytics-kpi-grid dt {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.analytics-kpi-grid dd {
+  margin: 0;
+  color: var(--ink);
+  font-size: 25px;
+  font-weight: 950;
+  line-height: 1;
+}
+
+.analytics-kpi-grid-compact {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.analytics-acquisition-list {
+  display: grid;
+  gap: 12px;
+}
+
+.analytics-acquisition-row > div:first-child {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 6px;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.analytics-acquisition-track {
+  width: 100%;
+  height: 8px;
+  overflow: hidden;
+  border-radius: 4px;
+  background: #e8efed;
+}
+
+.analytics-acquisition-track span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--mint);
+}
+
+.analytics-internal-test {
+  margin-top: 13px !important;
+  padding-top: 11px;
+  border-top: 1px dashed var(--line);
+}
+
+.analytics-restaurant-table {
+  border-top: 1px solid var(--line);
+}
+
+.analytics-restaurant-head,
+.analytics-restaurant-row {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: minmax(160px, 1fr) repeat(3, minmax(92px, 0.42fr));
+  gap: 10px;
+  align-items: center;
+  padding: 11px 8px;
+  border-bottom: 1px solid var(--line);
+}
+
+.analytics-restaurant-head {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 950;
+}
+
+.analytics-restaurant-row {
+  font-size: 13px;
+}
+
+.analytics-restaurant-row strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.analytics-restaurant-row span,
+.analytics-restaurant-head span:not(:first-child) {
+  text-align: right;
+}
+
+.analytics-empty {
+  padding: 22px 0;
+  border-top: 1px solid var(--line);
+  text-align: center;
+}
+
 @media (max-width: 560px) {
   .admin-top,
   .panel-heading,
@@ -1766,6 +1930,42 @@ button:disabled {
   .food-character-actions button {
     width: 100%;
   }
+
+  .analytics-section-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .analytics-kpi-grid,
+  .analytics-kpi-grid-compact {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .analytics-restaurant-head {
+    display: none;
+  }
+
+  .analytics-restaurant-row {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    padding: 14px 4px;
+  }
+
+  .analytics-restaurant-row strong {
+    grid-column: 1 / -1;
+  }
+
+  .analytics-restaurant-row span {
+    display: grid;
+    gap: 5px;
+    text-align: left;
+  }
+
+  .analytics-restaurant-row span::before {
+    content: attr(data-label);
+    color: var(--muted);
+    font-size: 10px;
+    font-weight: 900;
+  }
 }
 
 @media (max-width: 400px) {
@@ -1817,5 +2017,10 @@ button:disabled {
 
   .admin-tabs button {
     flex: 1 1 100%;
+  }
+
+  .analytics-kpi-grid,
+  .analytics-kpi-grid-compact {
+    grid-template-columns: 1fr;
   }
 }

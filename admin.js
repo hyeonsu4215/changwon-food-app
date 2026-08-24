@@ -88,6 +88,13 @@ const state = {
   reviewPageSize: 10,
   reportFilter: "all",
   catalogMode: "restaurants",
+  analyticsRequestId: 0,
+  analytics: {
+    loading: false,
+    loaded: false,
+    error: false,
+    data: null,
+  },
 };
 
 const els = {
@@ -110,6 +117,10 @@ const els = {
   diagUserSource: document.querySelector("#diagUserSource"),
   diagRefreshedAt: document.querySelector("#diagRefreshedAt"),
   diagnosticWarnings: document.querySelector("#diagnosticWarnings"),
+  analyticsPanel: document.querySelector("#analyticsPanel"),
+  analyticsStatus: document.querySelector("#analyticsStatus"),
+  analyticsContent: document.querySelector("#analyticsContent"),
+  refreshAnalytics: document.querySelector("#refreshAnalytics"),
   reviewsPanel: document.querySelector("#reviewsPanel"),
   reportsPanel: document.querySelector("#reportsPanel"),
   catalogPanel: document.querySelector("#catalogPanel"),
@@ -168,6 +179,236 @@ function escapeHtml(value) {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
+}
+
+const ANALYTICS_ACQUISITION_LABELS = Object.freeze([
+  ["direct", "직접 접속"],
+  ["everytime", "에브리타임"],
+  ["kakao", "카카오"],
+  ["instagram", "인스타"],
+  ["poster_qr", "포스터 QR"],
+  ["share", "묵찌 공유"],
+  ["other", "기타"],
+]);
+
+function analyticsCount(value) {
+  return Number.isSafeInteger(value) && value >= 0 ? value : null;
+}
+
+function normalizeAnalyticsDashboard(payload) {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) return null;
+  const today = payload.today;
+  const acquisition = payload.acquisition;
+  const lastSevenDays = payload.last_7_days;
+  if (!today || !acquisition || !lastSevenDays || !Array.isArray(payload.restaurants)) return null;
+
+  const normalizedToday = {
+    sessions: analyticsCount(today.sessions),
+    completedSessions: analyticsCount(today.completed_sessions),
+    completionRate: today.completion_rate === null
+      ? null
+      : Number.isFinite(today.completion_rate) && today.completion_rate >= 0 && today.completion_rate <= 100
+        ? Number(today.completion_rate)
+        : undefined,
+    refreshes: analyticsCount(today.refreshes),
+    menuDetailOpens: analyticsCount(today.menu_detail_opens),
+    mapOpens: analyticsCount(today.map_opens),
+    shares: analyticsCount(today.shares),
+    errors: analyticsCount(today.errors),
+  };
+  if (Object.values(normalizedToday).some((value) => value === undefined)) return null;
+  if (Object.entries(normalizedToday).some(([key, value]) => key !== "completionRate" && value === null)) return null;
+
+  const normalizedAcquisition = {};
+  for (const [slug] of ANALYTICS_ACQUISITION_LABELS) {
+    const count = analyticsCount(acquisition[slug]);
+    if (count === null) return null;
+    normalizedAcquisition[slug] = count;
+  }
+  const internalTest = analyticsCount(acquisition.internal_test);
+  if (internalTest === null) return null;
+  normalizedAcquisition.internalTest = internalTest;
+
+  const normalizedLastSevenDays = {
+    sessions: analyticsCount(lastSevenDays.sessions),
+    completedSessions: analyticsCount(lastSevenDays.completed_sessions),
+    mapOpens: analyticsCount(lastSevenDays.map_opens),
+  };
+  if (Object.values(normalizedLastSevenDays).some((value) => value === null)) return null;
+
+  const restaurants = [];
+  for (const restaurant of payload.restaurants) {
+    const restaurantId = String(restaurant?.restaurant_id || "").trim();
+    const restaurantName = String(restaurant?.restaurant_name || "").trim();
+    const recommendationExposures = analyticsCount(restaurant?.recommendation_exposures);
+    const menuDetailOpens = analyticsCount(restaurant?.menu_detail_opens);
+    const mapOpens = analyticsCount(restaurant?.map_opens);
+    if (!restaurantId || !restaurantName || [recommendationExposures, menuDetailOpens, mapOpens].includes(null)) return null;
+    restaurants.push({ restaurantId, restaurantName, recommendationExposures, menuDetailOpens, mapOpens });
+  }
+
+  return Object.freeze({
+    today: Object.freeze(normalizedToday),
+    acquisition: Object.freeze(normalizedAcquisition),
+    lastSevenDays: Object.freeze(normalizedLastSevenDays),
+    restaurants: Object.freeze(restaurants),
+  });
+}
+
+function analyticsMetric(label, value) {
+  return `<div><dt>${escapeHtml(label)}</dt><dd>${escapeHtml(value)}</dd></div>`;
+}
+
+function renderAnalyticsDashboardMarkup(data) {
+  const completionRate = data.today.completionRate === null ? "-" : `${data.today.completionRate.toFixed(1).replace(/\.0$/, "")}%`;
+  const regularAcquisitionTotal = ANALYTICS_ACQUISITION_LABELS.reduce(
+    (sum, [slug]) => sum + data.acquisition[slug],
+    0,
+  );
+  const acquisitionRows = ANALYTICS_ACQUISITION_LABELS.map(([slug, label]) => {
+    const count = data.acquisition[slug];
+    const percentage = regularAcquisitionTotal > 0 ? Math.min(100, (count / regularAcquisitionTotal) * 100) : 0;
+    return `
+      <div class="analytics-acquisition-row">
+        <div><span>${escapeHtml(label)}</span><strong>${count}</strong></div>
+        <div class="analytics-acquisition-track" aria-label="${escapeHtml(label)} ${count}세션">
+          <span style="width: ${percentage.toFixed(1)}%"></span>
+        </div>
+      </div>
+    `;
+  }).join("");
+  const restaurantRows = data.restaurants.length
+    ? `
+      <div class="analytics-restaurant-table" role="table" aria-label="최근 7일 가게별 관심">
+        <div class="analytics-restaurant-head" role="row">
+          <span role="columnheader">가게</span><span role="columnheader">추천 노출</span><span role="columnheader">메뉴 상세 확인</span><span role="columnheader">지도 열기</span>
+        </div>
+        ${data.restaurants.map((restaurant) => `
+          <div class="analytics-restaurant-row" role="row" data-restaurant-id="${escapeHtml(restaurant.restaurantId)}">
+            <strong role="cell">${escapeHtml(restaurant.restaurantName)}</strong>
+            <span role="cell" data-label="추천 노출">${restaurant.recommendationExposures}</span>
+            <span role="cell" data-label="메뉴 상세 확인">${restaurant.menuDetailOpens}</span>
+            <span role="cell" data-label="지도 열기">${restaurant.mapOpens}</span>
+          </div>
+        `).join("")}
+      </div>
+    `
+    : `<p class="analytics-empty">아직 기록된 관심 데이터가 없습니다.</p>`;
+
+  return `
+    <section class="analytics-section" aria-labelledby="analyticsTodayTitle">
+      <h3 id="analyticsTodayTitle">오늘의 묵찌</h3>
+      <dl class="analytics-kpi-grid">
+        ${analyticsMetric("오늘 이용 세션", data.today.sessions)}
+        ${analyticsMetric("추천 완료 세션", data.today.completedSessions)}
+        ${analyticsMetric("추천 완료율", completionRate)}
+        ${analyticsMetric("다른 메뉴 추천", data.today.refreshes)}
+        ${analyticsMetric("메뉴 자세히 보기", data.today.menuDetailOpens)}
+        ${analyticsMetric("지도 열기", data.today.mapOpens)}
+        ${analyticsMetric("추천 공유", data.today.shares)}
+        ${analyticsMetric("추천 오류", data.today.errors)}
+      </dl>
+    </section>
+    <section class="analytics-section" aria-labelledby="analyticsAcquisitionTitle">
+      <div class="analytics-section-heading">
+        <h3 id="analyticsAcquisitionTitle">유입 경로</h3>
+        <span>태그가 붙은 링크로 시작된 세션</span>
+      </div>
+      <div class="analytics-acquisition-list">${acquisitionRows}</div>
+      <p class="analytics-internal-test">내부 테스트 ${data.acquisition.internalTest}세션 · 일반 이용 합계에서 제외</p>
+    </section>
+    <section class="analytics-section" aria-labelledby="analyticsSevenDayTitle">
+      <h3 id="analyticsSevenDayTitle">최근 7일</h3>
+      <dl class="analytics-kpi-grid analytics-kpi-grid-compact">
+        ${analyticsMetric("이용 세션", data.lastSevenDays.sessions)}
+        ${analyticsMetric("추천 완료 세션", data.lastSevenDays.completedSessions)}
+        ${analyticsMetric("지도 열기", data.lastSevenDays.mapOpens)}
+      </dl>
+    </section>
+    <section class="analytics-section" aria-labelledby="analyticsRestaurantTitle">
+      <h3 id="analyticsRestaurantTitle">가게별 관심 · 최근 7일</h3>
+      ${restaurantRows}
+    </section>
+  `;
+}
+
+function renderAnalyticsDashboard() {
+  if (!els.analyticsStatus || !els.analyticsContent) return;
+  if (state.analytics.loading) {
+    els.analyticsStatus.hidden = false;
+    els.analyticsStatus.textContent = "사용 현황을 불러오는 중...";
+    els.analyticsContent.hidden = true;
+    return;
+  }
+  if (state.analytics.error || !state.analytics.data) {
+    els.analyticsStatus.hidden = false;
+    els.analyticsStatus.textContent = "사용 현황을 불러오지 못했습니다.";
+    els.analyticsContent.hidden = true;
+    return;
+  }
+  els.analyticsStatus.hidden = true;
+  els.analyticsContent.innerHTML = renderAnalyticsDashboardMarkup(state.analytics.data);
+  els.analyticsContent.hidden = false;
+}
+
+function resetAnalyticsDashboardState() {
+  state.analyticsRequestId += 1;
+  state.analytics = { loading: false, loaded: false, error: false, data: null };
+  if (els.analyticsStatus) {
+    els.analyticsStatus.hidden = false;
+    els.analyticsStatus.textContent = "사용 현황을 불러오는 중...";
+  }
+  if (els.analyticsContent) {
+    els.analyticsContent.replaceChildren();
+    els.analyticsContent.hidden = true;
+  }
+}
+
+async function loadAnalyticsDashboard({ force = false } = {}) {
+  if (!state.adminAuthorized || !state.supabase) return false;
+  if (state.analytics.loading || (state.analytics.loaded && !force)) return true;
+  const requestId = ++state.analyticsRequestId;
+  const userId = state.user?.id || null;
+  state.analytics = { ...state.analytics, loading: true, error: false };
+  renderAnalyticsDashboard();
+
+  let response;
+  try {
+    response = await state.supabase.rpc("get_admin_analytics_dashboard");
+  } catch {
+    response = { data: null, error: true };
+  }
+  if (requestId !== state.analyticsRequestId || !state.adminAuthorized || state.user?.id !== userId) return false;
+  const normalized = response.error ? null : normalizeAnalyticsDashboard(response.data);
+  if (!normalized) console.warn("admin dashboard load failed");
+  state.analytics = {
+    loading: false,
+    loaded: Boolean(normalized),
+    error: !normalized,
+    data: normalized,
+  };
+  renderAnalyticsDashboard();
+  return Boolean(normalized);
+}
+
+function setAdminTab(target) {
+  const panels = {
+    analytics: els.analyticsPanel,
+    reviews: els.reviewsPanel,
+    reports: els.reportsPanel,
+    catalog: els.catalogPanel,
+  };
+  if (!Object.hasOwn(panels, target)) return false;
+  document.querySelectorAll("[data-admin-tab]").forEach((button) => {
+    const active = button.dataset.adminTab === target;
+    button.classList.toggle("is-active", active);
+    button.setAttribute("aria-selected", String(active));
+  });
+  Object.entries(panels).forEach(([name, panel]) => {
+    if (panel) panel.hidden = name !== target;
+  });
+  if (target === "catalog") renderCatalog();
+  return true;
 }
 
 function formatDate(value) {
@@ -1067,6 +1308,7 @@ async function isAdminUser() {
 async function enterAdmin() {
   const allowed = await isAdminUser();
   if (!allowed) {
+    resetAnalyticsDashboardState();
     state.adminAuthorized = false;
     els.adminStatus.textContent = "관리자 권한이 없는 계정입니다.";
     els.loginPanel.hidden = false;
@@ -1078,9 +1320,10 @@ async function enterAdmin() {
   els.adminStatus.textContent = `${state.user.email || "관리자"} 로그인 중`;
   els.loginPanel.hidden = true;
   els.adminPanel.hidden = false;
+  setAdminTab("analytics");
   els.signOutButton.hidden = false;
   await loadCatalog();
-  await Promise.all([loadReviews(), loadReports()]);
+  await Promise.all([loadReviews(), loadReports(), loadAnalyticsDashboard({ force: true })]);
 }
 
 async function handleLogin(event) {
@@ -1101,6 +1344,7 @@ async function handleLogin(event) {
 async function signOut() {
   await state.supabase.auth.signOut();
   resetWeeklyHoursEditingState();
+  resetAnalyticsDashboardState();
   state.user = null;
   state.adminAuthorized = false;
   state.reviews = [];
@@ -2205,6 +2449,7 @@ async function deleteMenu(id) {
 function bindEvents() {
   els.loginForm.addEventListener("submit", handleLogin);
   els.signOutButton.addEventListener("click", signOut);
+  els.refreshAnalytics?.addEventListener("click", () => loadAnalyticsDashboard({ force: true }));
   els.refreshReviews.addEventListener("click", loadReviews);
   els.refreshReports.addEventListener("click", loadReports);
   els.refreshCatalog?.addEventListener("click", loadCatalog);
@@ -2276,12 +2521,7 @@ function bindEvents() {
   document.body.addEventListener("click", (event) => {
     const tab = event.target.closest("[data-admin-tab]");
     if (tab) {
-      document.querySelectorAll("[data-admin-tab]").forEach((button) => button.classList.toggle("is-active", button === tab));
-      const target = tab.dataset.adminTab;
-      els.reviewsPanel.hidden = target !== "reviews";
-      els.reportsPanel.hidden = target !== "reports";
-      els.catalogPanel.hidden = target !== "catalog";
-      if (target === "catalog") renderCatalog();
+      setAdminTab(tab.dataset.adminTab);
     }
     const reviewFilter = event.target.closest("[data-review-filter]");
     if (reviewFilter) {

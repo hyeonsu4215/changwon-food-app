@@ -17,6 +17,9 @@ const cacheNames = [
   "changwon-food-app-v51",
   "changwon-food-app-v52",
   "changwon-food-app-v53",
+  "changwon-food-app-v54",
+  "changwon-food-app-v55",
+  "changwon-food-app-v56",
   "unrelated-cache",
   "other-feature-cache",
   "other-app-cache",
@@ -67,6 +70,7 @@ vm.runInNewContext(source, sandbox, { filename: "sw.js" });
   assert.ok(precachedAssets.includes("./catalog-policy.js"));
   assert.ok(precachedAssets.includes("./food-character-admin.js"));
   assert.ok(precachedAssets.includes("./weekly-hours-admin.js"));
+  assert.ok(precachedAssets.includes("./analytics-client.js"));
 
   let activatePromise;
   listeners.activate({ waitUntil(promise) { activatePromise = promise; } });
@@ -79,10 +83,13 @@ vm.runInNewContext(source, sandbox, { filename: "sw.js" });
     "changwon-food-app-v50",
     "changwon-food-app-v51",
     "changwon-food-app-v52",
+    "changwon-food-app-v53",
+    "changwon-food-app-v54",
+    "changwon-food-app-v55",
     "changwon-food-app-v9",
   ]);
   [
-    "changwon-food-app-v53",
+    "changwon-food-app-v56",
     "unrelated-cache",
     "other-feature-cache",
     "other-app-cache",
