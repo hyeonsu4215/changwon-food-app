@@ -1,5 +1,5 @@
 const CACHE_PREFIX = "changwon-food-app-";
-const CACHE_NAME = `${CACHE_PREFIX}v53`;
+const CACHE_NAME = `${CACHE_PREFIX}v56`;
 const CORE_ASSETS = [
   "./",
   "./index.html",
@@ -7,6 +7,7 @@ const CORE_ASSETS = [
   "./app.js",
   "./data.js",
   "./catalog-policy.js",
+  "./analytics-client.js",
   "./manifest.webmanifest",
 ];
 const MUKJJI_CORE_ASSETS = [
@@ -40,7 +41,7 @@ const STATIC_ASSETS = [
   "./assets/categories/western.png",
 ];
 const PRECACHE_ASSETS = [...CORE_ASSETS, ...MUKJJI_CORE_ASSETS, ...STATIC_ASSETS];
-const NETWORK_FIRST_PATHS = new Set(["/", "/index.html", "/app.js", "/styles.css", "/data.js", "/manifest.webmanifest"]);
+const NETWORK_FIRST_PATHS = new Set(["/", "/index.html", "/app.js", "/analytics-client.js", "/styles.css", "/data.js", "/manifest.webmanifest"]);
 
 function outdatedAppCacheNames(cacheNames) {
   return cacheNames.filter((cacheName) => cacheName.startsWith(CACHE_PREFIX) && cacheName !== CACHE_NAME);
