@@ -324,6 +324,19 @@
       <button id="closeDialog" class="dialog-close">닫기</button>
     </dialog>
 
+    <dialog id="eatenConfirmDialog" aria-labelledby="eatenConfirmTitle" aria-describedby="eatenConfirmDescription">
+      <div class="eaten-confirm-content">
+        <p class="eyebrow">Meal log</p>
+        <h2 id="eatenConfirmTitle">이 메뉴를 실제로 먹었나요?</h2>
+        <p class="eaten-confirm-menu">선택한 메뉴: <strong id="eatenConfirmMenuName"></strong></p>
+        <p id="eatenConfirmDescription" class="dialog-help">확인하면 먹은 메뉴 기록에 저장돼요.</p>
+        <div class="eaten-confirm-actions">
+          <button type="button" id="cancelEatenConfirm">취소</button>
+          <button type="button" id="confirmEatenRecord">네, 먹었어요</button>
+        </div>
+      </div>
+    </dialog>
+
     <dialog id="locationDialog">
       <div>
         <img class="dialog-mukjji" src="./assets/mukjji/08_mukjji_location_bowl_1024.webp" alt="" width="124" height="124" loading="lazy" aria-hidden="true" />

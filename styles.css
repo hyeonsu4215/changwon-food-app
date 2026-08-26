@@ -2719,6 +2719,47 @@ dialog::backdrop {
   background: rgba(10, 20, 24, 0.46);
 }
 
+.eaten-confirm-content h2 {
+  margin: 4px 0 12px;
+}
+
+.eaten-confirm-menu {
+  margin: 0;
+  color: var(--ink);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.eaten-confirm-content .dialog-help {
+  font-size: 14px;
+}
+
+.eaten-confirm-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 18px;
+}
+
+.eaten-confirm-actions button {
+  min-width: 0;
+  min-height: 44px;
+  border-radius: var(--radius-control);
+  font-weight: 700;
+}
+
+#cancelEatenConfirm {
+  border: 1px solid var(--primary);
+  background: var(--surface);
+  color: var(--primary);
+}
+
+#confirmEatenRecord {
+  border: 1px solid var(--primary);
+  background: var(--primary);
+  color: #fff;
+}
+
 .dialog-close {
   width: 100%;
   min-height: 42px;

@@ -20,6 +20,7 @@ const cacheNames = [
   "changwon-food-app-v54",
   "changwon-food-app-v55",
   "changwon-food-app-v56",
+  "changwon-food-app-v57",
   "unrelated-cache",
   "other-feature-cache",
   "other-app-cache",
@@ -86,10 +87,11 @@ vm.runInNewContext(source, sandbox, { filename: "sw.js" });
     "changwon-food-app-v53",
     "changwon-food-app-v54",
     "changwon-food-app-v55",
+    "changwon-food-app-v56",
     "changwon-food-app-v9",
   ]);
   [
-    "changwon-food-app-v56",
+    "changwon-food-app-v57",
     "unrelated-cache",
     "other-feature-cache",
     "other-app-cache",
