@@ -185,6 +185,7 @@ const state = {
   alternativesExpanded: false,
   wishlist: JSON.parse(localStorage.getItem("changwonFoodWishlist") || "[]"),
   history: JSON.parse(localStorage.getItem("changwonFoodHistory") || "[]"),
+  pendingEatenMenuId: null,
   historyRangeDays: Number(localStorage.getItem("changwonFoodHistoryRangeDays") || "7"),
   historyVisibleCount: 5,
   tasteOverrides: JSON.parse(localStorage.getItem("changwonFoodTasteOverrides") || "{}"),
@@ -365,6 +366,10 @@ const els = {
   detailDialog: document.querySelector("#detailDialog"),
   dialogContent: document.querySelector("#dialogContent"),
   closeDialog: document.querySelector("#closeDialog"),
+  eatenConfirmDialog: document.querySelector("#eatenConfirmDialog"),
+  eatenConfirmMenuName: document.querySelector("#eatenConfirmMenuName"),
+  cancelEatenConfirm: document.querySelector("#cancelEatenConfirm"),
+  confirmEatenRecord: document.querySelector("#confirmEatenRecord"),
   locationDialog: document.querySelector("#locationDialog"),
   reportDialog: document.querySelector("#reportDialog"),
   reportForm: document.querySelector("#reportForm"),
@@ -1428,7 +1433,7 @@ function cardHtml(item, rank, context = "custom") {
     <div class="meta-tags">${metaTags.map((tag) => `<span>${tag}</span>`).join("")}</div>
     <div class="card-actions">
       <button data-detail="${item.id}">상세 보기</button>
-      <button data-ate="${item.id}">먹음 기록</button>
+      <button data-ate="${item.id}">먹었어요</button>
       ${mapActionHtml(item)}
     </div>
   `;
@@ -1487,7 +1492,7 @@ function quickHeroHtml(item) {
         <img class="quick-card-mukjji quick-hero-mukjji" src="${mukjjiSrc}" alt="" width="108" height="108" loading="lazy" aria-hidden="true" />
       </div>
       <div class="card-actions quick-actions">
-        <button data-ate="${item.id}" aria-label="${escapeHtml(item.name)} 먹음 기록">먹음 기록</button>
+        <button data-ate="${item.id}" aria-label="${escapeHtml(item.name)} 먹었어요">먹었어요</button>
         ${mapActionHtml(item, { content: '<span class="quick-map-label-desktop">네이버 지도</span><span class="quick-map-label-mobile">지도</span>', analyticsContext: state.quickMode })}
       </div>
     </article>
@@ -1517,7 +1522,7 @@ function quickAlternativeHtml(item, rank) {
       <img class="quick-card-mukjji quick-alt-card-mukjji" src="${mukjjiSrc}" alt="" width="72" height="72" loading="lazy" aria-hidden="true" />
       <p class="recommend-copy">${quickReasonText(item)}</p>
       <div class="card-actions quick-alt-actions">
-        <button data-ate="${item.id}" aria-label="${escapeHtml(item.name)} 먹음 기록">먹음 기록</button>
+        <button data-ate="${item.id}" aria-label="${escapeHtml(item.name)} 먹었어요">먹었어요</button>
         ${mapActionHtml(item, { content: '<span class="quick-map-label-desktop">지도</span><span class="quick-map-label-mobile">지도</span>', analyticsContext: state.quickMode })}
       </div>
     </article>
@@ -2566,7 +2571,7 @@ function showDetail(id, context = "custom") {
     </section>
     <div class="card-actions">
       <button data-wish="${item.id}">${wished ? "찜 해제" : "찜하기"}</button>
-      <button data-ate="${item.id}">먹음 기록</button>
+      <button data-ate="${item.id}">먹었어요</button>
       ${mapActionHtml(item, { label: "네이버 지도에서 보기", analyticsContext: state.detailAnalyticsContext })}
     </div>
     <div class="info-footer">
@@ -2708,6 +2713,28 @@ function addHistory(id) {
   saveHistory();
   toast("먹은기록저장!", "happy");
   render();
+}
+
+function closeEatenConfirmDialog() {
+  state.pendingEatenMenuId = null;
+  if (els.eatenConfirmDialog?.open) els.eatenConfirmDialog.close();
+}
+
+function openEatenConfirmDialog(id) {
+  if (els.eatenConfirmDialog?.open) return;
+  const menu = DATA.menus.find((item) => item.id === id);
+  if (!menu || !els.eatenConfirmDialog || !els.eatenConfirmMenuName) return;
+  state.pendingEatenMenuId = id;
+  els.eatenConfirmMenuName.textContent = menu.name;
+  els.eatenConfirmDialog.showModal();
+  els.cancelEatenConfirm?.focus();
+}
+
+function confirmEatenRecord() {
+  const id = state.pendingEatenMenuId;
+  state.pendingEatenMenuId = null;
+  if (els.eatenConfirmDialog?.open) els.eatenConfirmDialog.close();
+  if (id) addHistory(id);
 }
 
 function updateHistoryEntry(key, localDateTime) {
@@ -3331,7 +3358,7 @@ function renderWorldcup() {
         <div class="meta-tags">${compactTags(item, 8).map((tag) => `<span>${tag}</span>`).join("")}</div>
         <div class="card-actions">
           <button data-detail="${item.id}">상세 보기</button>
-          <button data-ate="${item.id}">먹음 기록</button>
+          <button data-ate="${item.id}">먹었어요</button>
           ${mapActionHtml(item)}
         </div>
       </div>
@@ -3456,7 +3483,7 @@ function recordMenuRows(items, emptyText) {
                 <div class="record-row-actions">
                   <button data-detail="${item.id}">상세 보기</button>
                   <button data-wish="${item.id}">${isWished(item.id) ? "찜 해제" : "찜"}</button>
-                  <button data-ate="${item.id}">먹음 기록</button>
+                  <button data-ate="${item.id}">먹었어요</button>
                 </div>
               </div>
             `,
@@ -4202,7 +4229,10 @@ function bindEvents() {
     const wish = event.target.closest("[data-wish]");
     if (wish) toggleWishlist(wish.dataset.wish);
     const ate = event.target.closest("[data-ate]");
-    if (ate) addHistory(ate.dataset.ate);
+    if (ate) {
+      openEatenConfirmDialog(ate.dataset.ate);
+      return;
+    }
     const saveTasteButton = event.target.closest("[data-save-taste]");
     if (saveTasteButton) saveTaste(saveTasteButton.dataset.saveTaste);
     const resetTasteButton = event.target.closest("[data-reset-taste]");
@@ -4289,6 +4319,18 @@ function bindEvents() {
   els.closeDialog.addEventListener("click", () => {
     els.detailDialog.close();
     state.detailAnalyticsContext = null;
+  });
+  els.cancelEatenConfirm?.addEventListener("click", closeEatenConfirmDialog);
+  els.confirmEatenRecord?.addEventListener("click", confirmEatenRecord);
+  els.eatenConfirmDialog?.addEventListener("cancel", (event) => {
+    event.preventDefault();
+    closeEatenConfirmDialog();
+  });
+  els.eatenConfirmDialog?.addEventListener("click", (event) => {
+    if (event.target === els.eatenConfirmDialog) closeEatenConfirmDialog();
+  });
+  els.eatenConfirmDialog?.addEventListener("close", () => {
+    state.pendingEatenMenuId = null;
   });
   els.closeReportDialog?.addEventListener("click", () => els.reportDialog.close());
   els.reportForm?.addEventListener("submit", submitInfoReport);
