@@ -340,7 +340,7 @@ test("legacy form payload is independent from weekly draft fields", () => {
   assert.doesNotMatch(payload, /restaurant_weekly_hours|iso_weekday|day_status|break_status|closes_next_day/);
 });
 
-test("HTML and service worker load the helper before admin.js using cache v57", () => {
+test("HTML and service worker load the helper before admin.js using cache v58", () => {
   assert.ok(adminHtml.indexOf('src="./weekly-hours-admin.js"') < adminHtml.indexOf('src="./admin.js"'));
   assert.match(adminHtml, /id="weeklyHoursEditor"/);
   assert.match(adminHtml, /SUPABASE 조회 · 임시 편집/);
@@ -353,7 +353,7 @@ test("HTML and service worker load the helper before admin.js using cache v57", 
   assert.match(adminJs, /aria-expanded="false"/);
   assert.match(adminJs, /자정을 넘어 영업해요/);
   assert.match(swJs, /changwon-food-app-/);
-  assert.match(swJs, /`\$\{CACHE_PREFIX\}v57`/);
+  assert.match(swJs, /`\$\{CACHE_PREFIX\}v58`/);
   assert.match(swJs, /"\.\/weekly-hours-admin\.js"/);
 });
 

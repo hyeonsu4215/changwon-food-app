@@ -3177,13 +3177,13 @@ async function shareAppLink() {
   toast(copied ? "묵찌 PICK! 링크를 복사했어요." : "링크를 복사하지 못했어요. 다시 시도해 주세요.");
 }
 
-function sharedPickMessage(items) {
+function sharedPickMessage(items, headline = "오늘 뭐 먹지? 묵찌가 3개 골랐어!") {
   const rows = items.map((item, index) => {
     const details = [item.name, item.restaurant?.name || item.restaurantName];
     if (Number.isFinite(Number(item.price)) && Number(item.price) > 0) details.push(money(item.price));
     return `${index + 1}. ${details.join(" · ")}`;
   });
-  return ["오늘 뭐 먹지? 묵찌가 3개 골랐어!", "", ...rows, "", "우리 뭐 먹을까?"].join("\n");
+  return [headline, "", ...rows, "", "우리 뭐 먹을까?"].join("\n");
 }
 
 async function shareCurrentPick() {
@@ -3199,10 +3199,19 @@ async function shareCurrentPick() {
     text: sharedPickMessage(state.quickItems),
     url: sharedUrl,
   };
+  const canUseWebShare = (() => {
+    if (typeof navigator.share !== "function") return false;
+    if (typeof navigator.canShare !== "function") return true;
+    try {
+      return navigator.canShare(shareData);
+    } catch {
+      return false;
+    }
+  })();
   state.sharePickPending = true;
   if (els.sharePickButton) els.sharePickButton.disabled = true;
   try {
-    if (navigator.share) {
+    if (canUseWebShare) {
       try {
         await navigator.share(shareData);
         analyticsClient?.recordShareSuccess("web_share");
@@ -3211,9 +3220,16 @@ async function shareCurrentPick() {
         if (error?.name === "AbortError") return;
       }
     }
-    const copied = await copyTextToClipboard(sharedUrl);
+    const clipboardMessage = [
+      "묵찌 PICK! 메뉴 3개 - 오늘 뭐 먹지?",
+      sharedPickMessage(state.quickItems, "묵찌가 3개 골랐어!"),
+      sharedUrl,
+    ].join("\n");
+    const copied = await copyTextToClipboard(clipboardMessage);
     if (copied) analyticsClient?.recordShareSuccess("clipboard");
-    toast(copied ? "추천 메뉴 3개 링크를 복사했어요." : "링크를 복사하지 못했어요. 다시 시도해 주세요.");
+    toast(copied
+      ? "추천 메뉴와 링크를 복사했어요. 채팅방에 붙여넣어 주세요."
+      : "추천 메뉴를 복사하지 못했어요. 다시 시도해 주세요.");
   } finally {
     state.sharePickPending = false;
     if (els.sharePickButton) els.sharePickButton.disabled = false;
