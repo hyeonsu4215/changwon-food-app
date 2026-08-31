@@ -195,6 +195,10 @@ function analyticsCount(value) {
   return Number.isSafeInteger(value) && value >= 0 ? value : null;
 }
 
+function analyticsOptionalCount(value) {
+  return value === undefined || value === null ? 0 : analyticsCount(value);
+}
+
 function normalizeAnalyticsDashboard(payload) {
   if (!payload || typeof payload !== "object" || Array.isArray(payload)) return null;
   const today = payload.today;
@@ -215,6 +219,7 @@ function normalizeAnalyticsDashboard(payload) {
     mapOpens: analyticsCount(today.map_opens),
     shares: analyticsCount(today.shares),
     errors: analyticsCount(today.errors),
+    eatenRecords: analyticsOptionalCount(today.eaten_records),
   };
   if (Object.values(normalizedToday).some((value) => value === undefined)) return null;
   if (Object.entries(normalizedToday).some(([key, value]) => key !== "completionRate" && value === null)) return null;
@@ -233,6 +238,7 @@ function normalizeAnalyticsDashboard(payload) {
     sessions: analyticsCount(lastSevenDays.sessions),
     completedSessions: analyticsCount(lastSevenDays.completed_sessions),
     mapOpens: analyticsCount(lastSevenDays.map_opens),
+    eatenRecords: analyticsOptionalCount(lastSevenDays.eaten_records),
   };
   if (Object.values(normalizedLastSevenDays).some((value) => value === null)) return null;
 
@@ -243,8 +249,9 @@ function normalizeAnalyticsDashboard(payload) {
     const recommendationExposures = analyticsCount(restaurant?.recommendation_exposures);
     const menuDetailOpens = analyticsCount(restaurant?.menu_detail_opens);
     const mapOpens = analyticsCount(restaurant?.map_opens);
-    if (!restaurantId || !restaurantName || [recommendationExposures, menuDetailOpens, mapOpens].includes(null)) return null;
-    restaurants.push({ restaurantId, restaurantName, recommendationExposures, menuDetailOpens, mapOpens });
+    const eatenRecords = analyticsOptionalCount(restaurant?.eaten_records);
+    if (!restaurantId || !restaurantName || [recommendationExposures, menuDetailOpens, mapOpens, eatenRecords].includes(null)) return null;
+    restaurants.push({ restaurantId, restaurantName, recommendationExposures, menuDetailOpens, mapOpens, eatenRecords });
   }
 
   return Object.freeze({
@@ -281,7 +288,7 @@ function renderAnalyticsDashboardMarkup(data) {
     ? `
       <div class="analytics-restaurant-table" role="table" aria-label="최근 7일 가게별 관심">
         <div class="analytics-restaurant-head" role="row">
-          <span role="columnheader">가게</span><span role="columnheader">추천 노출</span><span role="columnheader">메뉴 상세 확인</span><span role="columnheader">지도 열기</span>
+          <span role="columnheader">가게</span><span role="columnheader">추천 노출</span><span role="columnheader">메뉴 상세 확인</span><span role="columnheader">지도 열기</span><span role="columnheader">먹음 기록</span>
         </div>
         ${data.restaurants.map((restaurant) => `
           <div class="analytics-restaurant-row" role="row" data-restaurant-id="${escapeHtml(restaurant.restaurantId)}">
@@ -289,6 +296,7 @@ function renderAnalyticsDashboardMarkup(data) {
             <span role="cell" data-label="추천 노출">${restaurant.recommendationExposures}</span>
             <span role="cell" data-label="메뉴 상세 확인">${restaurant.menuDetailOpens}</span>
             <span role="cell" data-label="지도 열기">${restaurant.mapOpens}</span>
+            <span role="cell" data-label="먹음 기록">${restaurant.eatenRecords}</span>
           </div>
         `).join("")}
       </div>
@@ -307,6 +315,7 @@ function renderAnalyticsDashboardMarkup(data) {
         ${analyticsMetric("지도 열기", data.today.mapOpens)}
         ${analyticsMetric("추천 공유", data.today.shares)}
         ${analyticsMetric("추천 오류", data.today.errors)}
+        ${analyticsMetric("먹음 기록", `${data.today.eatenRecords}회`)}
       </dl>
     </section>
     <section class="analytics-section" aria-labelledby="analyticsAcquisitionTitle">
@@ -323,6 +332,7 @@ function renderAnalyticsDashboardMarkup(data) {
         ${analyticsMetric("이용 세션", data.lastSevenDays.sessions)}
         ${analyticsMetric("추천 완료 세션", data.lastSevenDays.completedSessions)}
         ${analyticsMetric("지도 열기", data.lastSevenDays.mapOpens)}
+        ${analyticsMetric("먹음 기록", `${data.lastSevenDays.eatenRecords}회`)}
       </dl>
     </section>
     <section class="analytics-section" aria-labelledby="analyticsRestaurantTitle">

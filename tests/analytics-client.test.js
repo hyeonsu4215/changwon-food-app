@@ -128,6 +128,7 @@ async function run() {
     "map_open",
     "share_recommendation",
     "recommendation_error",
+    "eaten_record_added",
   ]);
   assert.ok(indexSource.indexOf("analytics-client.js") < indexSource.indexOf("app.js"));
   assert.doesNotMatch(appSource, /\bensureSupabaseClient\s*\(/);
@@ -294,10 +295,9 @@ async function run() {
       },
     }),
   });
-  assert.equal(await retryClient.recordRecommendationError({
-    sourceContext: "personalized",
-    errorCode: ERROR_CODES.UNKNOWN,
-    itemCount: 0,
+  assert.equal(await retryClient.recordEatenRecordAdded({
+    menuId: "M001",
+    restaurantId: "C001",
   }), true);
   assert.equal(retryCalls.length, 2, "one failure produces at most one retry");
   assert.deepEqual(retryCalls[0], retryCalls[1], "retry must reuse event_id and occurred_at");
@@ -406,6 +406,21 @@ async function run() {
   assert.equal(refresh.recommendationId, firstRecommendationId, "refresh records the previous recommendation ID");
   const secondRecommendationId = recommendationClient.startRecommendation(recommendationItems("B"), "personalized");
   assert.notEqual(secondRecommendationId, firstRecommendationId);
+
+  recommendationEvents.length = 0;
+  assert.equal(await recommendationClient.recordEatenRecordAdded({
+    menuId: "MB1",
+    restaurantId: "CB1",
+  }), false);
+  const eatenEvent = recommendationEvents.find((event) => event.eventName === "eaten_record_added");
+  assert.deepEqual(
+    Object.keys(eatenEvent).sort(),
+    ["eventId", "eventName", "menuId", "occurredAt", "restaurantId", "sessionId"].sort(),
+  );
+  assert.equal(eatenEvent.menuId, "MB1");
+  assert.equal(eatenEvent.restaurantId, "CB1");
+  assert.equal(await recommendationClient.recordEatenRecordAdded({ menuId: "", restaurantId: "CB1" }), false);
+  assert.equal(await recommendationClient.recordEatenRecordAdded({ menuId: "MB1", restaurantId: null }), false);
 
   recommendationEvents.length = 0;
   await recommendationClient.recordMenuCardOpen({
@@ -532,6 +547,7 @@ async function run() {
     [{ ...common, eventName: "map_open", restaurantId: "C001", sourceContext: "search" }, ["p_restaurant_id", "p_source_context"]],
     [{ ...common, eventName: "share_recommendation", recommendationId: "rec", sourceContext: "shared_pick", shareMethod: "clipboard" }, ["p_recommendation_id", "p_source_context", "p_share_method"]],
     [{ ...common, eventName: "recommendation_error", sourceContext: "discovery", errorCode: "invalid_result", itemCount: 3 }, ["p_source_context", "p_error_code", "p_item_count"]],
+    [{ ...common, eventName: "eaten_record_added", restaurantId: "C001", menuId: "M001" }, ["p_restaurant_id", "p_menu_id"]],
   ];
   const commonRpcKeys = ["p_event_id", "p_event_name", "p_occurred_at", "p_session_id"];
   semanticMatrix.forEach(([event, eventKeys]) => {
