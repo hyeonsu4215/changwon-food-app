@@ -7,6 +7,7 @@ const { extractFunctionSource } = require("../scripts/analyze-food-character.js"
 const root = path.resolve(__dirname, "..");
 const read = (...parts) => fs.readFileSync(path.join(root, ...parts), "utf8");
 const migration = read("supabase", "migrations", "20260824121500_create_admin_analytics_dashboard.sql");
+const eatenMigration = read("supabase", "migrations", "20260831090000_add_eaten_record_analytics_v1_1.sql");
 const rollback = read("docs", "analytics", "admin-dashboard-rollback.sql");
 const precheck = read("docs", "analytics", "admin-dashboard-precheck-readonly.sql");
 const postcheck = read("docs", "analytics", "admin-dashboard-postcheck-readonly.sql");
@@ -29,6 +30,7 @@ const runtime = new Function(
   "ANALYTICS_ACQUISITION_LABELS",
   `${extractFunctionSource(adminJs, "escapeHtml")}
    ${extractFunctionSource(adminJs, "analyticsCount")}
+   ${extractFunctionSource(adminJs, "analyticsOptionalCount")}
    ${extractFunctionSource(adminJs, "normalizeAnalyticsDashboard")}
    ${extractFunctionSource(adminJs, "analyticsMetric")}
    ${extractFunctionSource(adminJs, "renderAnalyticsDashboardMarkup")}
@@ -145,6 +147,8 @@ test("zero-data JSON normalizes and renders as a normal empty dashboard", () => 
   assert.ok(data);
   assert.equal(data.today.sessions, 0);
   assert.equal(data.today.completionRate, null);
+  assert.equal(data.today.eatenRecords, 0);
+  assert.equal(data.lastSevenDays.eatenRecords, 0);
   assert.deepEqual(data.restaurants, []);
   const html = runtime.renderAnalyticsDashboardMarkup(data);
   assert.match(html, /오늘 이용 세션/);
@@ -152,7 +156,39 @@ test("zero-data JSON normalizes and renders as a normal empty dashboard", () => 
   assert.match(html, />-</);
   assert.match(html, /내부 테스트 0세션 · 일반 이용 합계에서 제외/);
   assert.match(html, /아직 기록된 관심 데이터가 없습니다/);
+  assert.match(html, /먹음 기록/);
   assert.doesNotMatch(html, /Analytics|RPC|Session ID|Recommendation ID|Raw Events/);
+});
+
+test("eaten metrics are added without weakening internal-test exclusion", () => {
+  const functionBody = eatenMigration.match(/CREATE OR REPLACE FUNCTION public\.get_admin_analytics_dashboard\(\)[\s\S]*?\$admin_analytics_dashboard\$;/)?.[0] || "";
+  assert.match(functionBody, /internal_test_sessions AS MATERIALIZED[\s\S]*eligible_events AS MATERIALIZED/);
+  assert.match(functionBody, /count\(\*\) FILTER \(WHERE event_name = 'eaten_record_added'\) AS eaten_records/);
+  assert.match(functionBody, /count\(\*\) FILTER \(WHERE event_row\.event_name = 'eaten_record_added'\) AS eaten_records/);
+  assert.match(functionBody, /'eaten_records', today\.eaten_records/);
+  assert.match(functionBody, /'eaten_records', seven_days\.eaten_records/);
+  assert.match(functionBody, /'eaten_records', metric\.eaten_records/);
+
+  const payload = emptyPayload();
+  payload.today.eaten_records = 4;
+  payload.last_7_days.eaten_records = 9;
+  payload.restaurants = [{
+    restaurant_id: "C001",
+    restaurant_name: "리코리코",
+    recommendation_exposures: 3,
+    menu_detail_opens: 2,
+    map_opens: 1,
+    eaten_records: 5,
+  }];
+  const data = runtime.normalizeAnalyticsDashboard(payload);
+  assert.equal(data.today.eatenRecords, 4);
+  assert.equal(data.lastSevenDays.eatenRecords, 9);
+  assert.equal(data.restaurants[0].eatenRecords, 5);
+  const html = runtime.renderAnalyticsDashboardMarkup(data);
+  assert.match(html, /먹음 기록/);
+  assert.match(html, />4회</);
+  assert.match(html, />9회</);
+  assert.match(html, /data-label="먹음 기록">5</);
 });
 
 test("invalid dashboard payload fails closed instead of rendering partial values", () => {

@@ -42,6 +42,7 @@
     "map_open",
     "share_recommendation",
     "recommendation_error",
+    "eaten_record_added",
   ]);
   const RECOMMENDATION_CONTEXTS = new Set(["discovery", "personalized", "shared_pick"]);
   const SOURCE_CONTEXTS = new Set([...RECOMMENDATION_CONTEXTS, "search"]);
@@ -373,6 +374,16 @@
       });
     }
 
+    function recordEatenRecordAdded({ menuId, restaurantId } = {}) {
+      const safeMenuId = String(menuId ?? "").trim();
+      const safeRestaurantId = String(restaurantId ?? "").trim();
+      if (!safeMenuId || !safeRestaurantId) return Promise.resolve(false);
+      return track("eaten_record_added", {
+        restaurantId: safeRestaurantId,
+        menuId: safeMenuId,
+      });
+    }
+
     return Object.freeze({
       initialize,
       startRecommendation,
@@ -383,6 +394,7 @@
       recordMapOpen,
       recordShareSuccess,
       recordRecommendationError,
+      recordEatenRecordAdded,
       getCurrentRecommendation: () => currentRecommendation,
     });
   }

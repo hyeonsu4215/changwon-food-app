@@ -2734,7 +2734,19 @@ function confirmEatenRecord() {
   const id = state.pendingEatenMenuId;
   state.pendingEatenMenuId = null;
   if (els.eatenConfirmDialog?.open) els.eatenConfirmDialog.close();
-  if (id) addHistory(id);
+  if (!id) return;
+  const menu = DATA.menus.find((item) => item.id === id);
+  addHistory(id);
+  const restaurantId = String(menu?.restaurantId || menu?.restaurant?.id || "").trim();
+  if (!restaurantId || !restaurantsById.has(restaurantId)) return;
+  try {
+    const trackingRequest = analyticsClient?.recordEatenRecordAdded({ menuId: id, restaurantId });
+    if (trackingRequest && typeof trackingRequest.catch === "function") {
+      void trackingRequest.catch(() => false);
+    }
+  } catch {
+    // Analytics is best effort and cannot roll back a saved history entry.
+  }
 }
 
 function updateHistoryEntry(key, localDateTime) {
