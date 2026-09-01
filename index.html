@@ -319,6 +319,140 @@
       </nav>
     </div>
 
+    <section id="serviceInfoView" class="service-info-view" aria-labelledby="serviceInfoTitle" hidden>
+      <div class="service-info-shell">
+        <header class="service-info-header">
+          <button id="serviceInfoBackButton" type="button" class="service-info-back" aria-label="내 기록으로 돌아가기">뒤로</button>
+          <div>
+            <p class="eyebrow">Mukjji Pick</p>
+            <h1 id="serviceInfoTitle" tabindex="-1">서비스 안내</h1>
+          </div>
+        </header>
+
+        <div class="service-info-content">
+          <article data-service-info-section="service" class="service-info-article">
+            <h2>묵찌 PICK! 서비스 안내</h2>
+            <p>묵찌 PICK!은 창원대 앞에서 “오늘 뭐 먹지?” 고민될 때 메뉴 3개를 빠르게 추천해주는 학생 편의 서비스입니다.</p>
+            <p><strong>묵찌 PICK!은 국립창원대학교에서 공식적으로 운영하는 서비스가 아닙니다.</strong></p>
+            <p>가게·메뉴·가격·영업시간 정보는 실제 매장 상황과 다를 수 있습니다. 중요한 정보는 방문 전 매장이나 지도 서비스에서 한 번 더 확인해주세요.</p>
+            <p>잘못된 정보는 앱의 정보 제보 기능을 통해 알려주시면 확인 후 반영하겠습니다.</p>
+            <p>현재 위치는 사용자가 허용한 경우 가까운 음식점까지의 거리와 방문 후기 확인에 사용합니다.</p>
+            <p><strong>정확한 위치는 따로 저장하지 않습니다.</strong></p>
+            <p>찜, 먹었어요 기록, 일부 추천 설정은 현재 사용하는 기기에 저장됩니다.</p>
+            <p>서비스 개선을 위해 추천 확인, 메뉴 자세히 보기, 지도 열기, 공유, 먹음 기록 추가 등의 이용 현황을 최소한으로 기록합니다.</p>
+            <p>이름, 학번, 전화번호, 이메일, 정확한 위치는 이용 현황 기록에 저장하지 않습니다.</p>
+            <p>자세한 내용은 내 기록의 <button type="button" class="inline-info-link" data-open-service-info="privacy">개인정보 처리방침</button>에서 확인할 수 있습니다.</p>
+            <section class="service-contact-block" aria-labelledby="serviceGuideContactTitle">
+              <h3 id="serviceGuideContactTitle">운영 문의</h3>
+              <a href="mailto:mukjji26@naver.com">mukjji26@naver.com</a>
+            </section>
+          </article>
+
+          <article data-service-info-section="privacy" class="service-info-article privacy-policy" hidden>
+            <h2>묵찌 PICK! 개인정보 처리방침</h2>
+            <p class="policy-effective-date">시행일: <time datetime="2026-09-01">2026년 9월 1일</time></p>
+            <p>묵찌 PICK!은 이용자의 정보를 필요한 범위에서만 처리하고 안전하게 관리하기 위해 다음과 같이 개인정보 처리방침을 공개합니다.</p>
+
+            <section>
+              <h3>1. 이용 방식</h3>
+              <p>묵찌 PICK!은 별도 회원가입 없이 이용할 수 있습니다. 후기, 입맛 평가, 정보 제보처럼 서버 저장이 필요한 일부 기능에서는 해당 이용자의 데이터를 구분하기 위한 임의의 사용자 식별값을 사용합니다.</p>
+            </section>
+
+            <section>
+              <h3>2. 처리하는 정보</h3>
+              <h4>사용 중인 기기에 저장되는 정보</h4>
+              <ul>
+                <li>찜한 메뉴, 먹었어요 목록과 먹은 시각</li>
+                <li>추천 조건, 입맛 설정, 날씨 참고 설정</li>
+                <li>위치 사용 선택, 후기 닉네임과 작성한 후기 정보</li>
+              </ul>
+              <p>먹었어요 목록 자체는 서버가 아니라 현재 사용 중인 기기에 저장됩니다.</p>
+
+              <h4>선택 기능 사용 시 서버에 저장되는 정보</h4>
+              <ul>
+                <li>임의의 사용자 식별값</li>
+                <li>후기: 메뉴·가게, 닉네임, 별점, 위생·친절 평가, 후기 내용</li>
+                <li>입맛 평가: 메뉴와 맵기·짠맛·단맛 평가</li>
+                <li>정보 제보: 제보 유형, 대상, 제보 내용, 사용자가 직접 입력한 닉네임 또는 연락 메모, 처리 상태</li>
+              </ul>
+
+              <h4>서비스 이용 현황</h4>
+              <p>서비스 개선을 위해 접속 시각과 임의의 세션 식별값, 추천 확인·재추천·메뉴 자세히 보기·지도 열기·공유·먹음 기록 추가 여부, 관련 메뉴와 가게, 추천 화면 종류, 유입 경로, 오류 여부를 기록할 수 있습니다.</p>
+              <p><strong>이름, 학번, 전화번호, 이메일, 정확한 위치는 서비스 이용 현황에 저장하지 않습니다.</strong></p>
+            </section>
+
+            <section>
+              <h3>3. 이용 목적</h3>
+              <ul>
+                <li>창원대 앞 메뉴 추천과 거리 표시</li>
+                <li>후기, 입맛 평가, 정보 제보 기능 제공</li>
+                <li>추천 품질과 서비스 안정성 개선</li>
+                <li>오류 확인과 부정 이용 방지</li>
+              </ul>
+            </section>
+
+            <section>
+              <h3>4. 정확한 위치 이용</h3>
+              <p>정확한 위치는 사용자가 허용한 경우 가까운 음식점까지의 거리 계산과 방문 후기 작성 가능 여부 확인 중에만 사용합니다.</p>
+              <p><strong>정확한 위치는 서버에 전송하거나 저장하지 않습니다.</strong> 위치 사용을 허용하지 않아도 창원대 정문을 기준으로 추천과 주요 기능을 이용할 수 있습니다.</p>
+            </section>
+
+            <section>
+              <h3>5. 보관 기간</h3>
+              <ul>
+                <li>서비스 이용 현황: 기록된 날부터 2년</li>
+                <li>정보 제보: 처리가 끝난 날부터 6개월</li>
+                <li>후기·입맛 평가·임의 사용자 식별값: 이용 목적 달성, 삭제 요청 처리 또는 서비스 종료 시까지</li>
+                <li>기기에 저장된 정보: 사용자가 앱에서 삭제하거나 브라우저·앱 데이터를 지울 때까지</li>
+              </ul>
+              <p>처리 중인 제보는 처리가 끝날 때까지 보관한 뒤 위 기간을 적용합니다. 법령에 따라 더 보관해야 하는 경우에는 해당 기간 동안 보관할 수 있습니다.</p>
+            </section>
+
+            <section>
+              <h3>6. 외부 서비스 이용과 저장 위치</h3>
+              <p>묵찌 PICK!은 서버 데이터 저장과 익명 사용자 구분을 위해 Supabase를 이용하며, 주요 서버 데이터는 Supabase의 대한민국 서울 지역(ap-northeast-2)에 저장합니다.</p>
+              <p>웹사이트 제공과 파일 전송에는 Vercel을 이용합니다. Supabase는 해외 사업자가 제공하는 서비스입니다. 주요 서버 데이터는 대한민국 서울 지역에 저장되지만, 서비스 제공·보안·기술 지원 등을 위해 Supabase 또는 서비스를 지원하는 해외 협력 업체가 필요한 범위에서 정보를 처리할 수 있습니다. 이 과정에서 정보가 국외에서 일시적으로 처리될 수 있습니다.</p>
+              <p>서비스 제공에 필요한 경우 또는 법령에 근거가 있는 경우를 제외하고 이용자의 정보를 다른 곳에 판매하거나 임의로 제공하지 않습니다.</p>
+            </section>
+
+            <section>
+              <h3>7. 확인·수정·삭제 요청</h3>
+              <p>후기는 앱에서 직접 삭제할 수 있으며, 기기에 저장된 찜과 먹었어요 기록 등은 해당 기능이나 브라우저·앱 데이터 삭제를 통해 지울 수 있습니다.</p>
+              <p>후기, 입맛 평가, 정보 제보, 임의 사용자 식별값의 확인·수정·삭제는 운영 문의 이메일로 요청할 수 있습니다. 요청 내용을 확인할 수 있는 범위에서 필요한 안내와 처리를 진행합니다.</p>
+              <p>서비스 이용 현황은 이름이나 이메일과 연결하지 않으므로 특정 개인의 기록을 찾아 처리하기 어려울 수 있습니다.</p>
+            </section>
+
+            <section>
+              <h3>8. 안전한 관리</h3>
+              <p>접근 권한을 필요한 범위로 제한하고, 전송 구간을 보호하며, 보관 기간이 지난 정보를 안전하게 삭제하는 절차를 운영합니다.</p>
+            </section>
+
+            <section>
+              <h3>9. 처리방침 변경</h3>
+              <p>서비스나 정보 처리 방식이 달라지면 이 화면을 통해 변경 내용과 시행일을 안내합니다.</p>
+            </section>
+
+            <section>
+              <h3>10. 운영 문의</h3>
+              <p>서비스 이용과 개인정보 확인·수정·삭제 요청은 아래 이메일로 보내주세요.</p>
+              <a href="mailto:mukjji26@naver.com">mukjji26@naver.com</a>
+            </section>
+          </article>
+
+          <article data-service-info-section="contact" class="service-info-article" hidden>
+            <h2>운영 문의</h2>
+            <p>서비스 이용, 잘못된 정보, 개인정보 확인·수정·삭제 요청은 아래 이메일로 보내주세요.</p>
+            <p class="contact-email"><a href="mailto:mukjji26@naver.com">mukjji26@naver.com</a></p>
+            <div class="service-info-actions">
+              <a class="primary-contact-link" href="mailto:mukjji26@naver.com">이메일 앱 열기</a>
+              <button type="button" data-copy-service-email>이메일 주소 복사</button>
+            </div>
+            <p class="service-info-help">이메일 앱이 열리지 않아도 위 주소를 길게 누르거나 복사해서 사용할 수 있습니다.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
     <dialog id="detailDialog">
       <div id="dialogContent"></div>
       <button id="closeDialog" class="dialog-close">닫기</button>
@@ -342,7 +476,7 @@
         <img class="dialog-mukjji" src="./assets/mukjji/08_mukjji_location_bowl_1024.webp" alt="" width="124" height="124" loading="lazy" aria-hidden="true" />
         <p class="eyebrow">Location</p>
         <h2>현재 위치를 사용할까요?</h2>
-        <p class="dialog-help">거리 추천을 위해 위치를 사용할 수 있어요. 원하지 않으면 창원대 정문 기준으로 계산합니다.</p>
+        <p class="dialog-help">가까운 음식점까지의 거리와 방문 후기 확인에 사용해요. <strong>정확한 위치는 따로 저장하지 않아요.</strong> 원하지 않으면 창원대 정문을 기준으로 계산해요.</p>
         <div class="location-actions">
           <button data-location-choice="always">항상 허용</button>
           <button data-location-choice="once">한번만 허용</button>
