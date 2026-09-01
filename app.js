@@ -17,6 +17,7 @@ const SHARE_ACQUISITION_SOURCE = "share";
 const SHARED_PICK_VERSION = "v1";
 const SHARED_PICK_VERSION_PARAM = "sharedPick";
 const SHARED_PICK_MENUS_PARAM = "menus";
+const SERVICE_CONTACT_EMAIL = "mukjji26@naver.com";
 const SPLASH_MIN_DURATION = 1200;
 const splashStartedAt = Date.now();
 const WEATHER_BOOSTS = { rain: 5, hot: 4, cold: 5, humid: 3 };
@@ -213,6 +214,8 @@ const state = {
   worldcup: null,
   worldcupCategories: new Set(),
   activeTab: "recommendTab",
+  serviceInfoSection: null,
+  serviceInfoPreviousFocus: null,
   lastBackAt: 0,
   externalLinkClickAt: 0,
   pagehideAfterExternalLink: false,
@@ -308,6 +311,7 @@ function analyticsMapAttributes(item, context) {
 }
 
 const els = {
+  appShell: document.querySelector(".app-shell"),
   locationButton: document.querySelector("#locationButton"),
   shareButton: document.querySelector("#shareButton"),
   onboardingHelpButton: document.querySelector("#onboardingHelpButton"),
@@ -363,6 +367,9 @@ const els = {
   wishlistList: document.querySelector("#wishlistList"),
   clearWishlist: document.querySelector("#clearWishlist"),
   dataDashboard: document.querySelector("#dataDashboard"),
+  serviceInfoView: document.querySelector("#serviceInfoView"),
+  serviceInfoTitle: document.querySelector("#serviceInfoTitle"),
+  serviceInfoBackButton: document.querySelector("#serviceInfoBackButton"),
   detailDialog: document.querySelector("#detailDialog"),
   dialogContent: document.querySelector("#dialogContent"),
   closeDialog: document.querySelector("#closeDialog"),
@@ -3635,6 +3642,24 @@ function renderDashboard() {
         <button data-report-open data-report-type="wrong_info" data-report-target-type="general" data-report-target-id="" data-report-target-label="전체 데이터">음식점 정보 제보하기</button>
       </div>
     </div>
+    <div class="dashboard-card service-info-card">
+      <h3>서비스 정보</h3>
+      <p>묵찌 PICK!의 운영 방식과 정보 이용 내용을 확인할 수 있어요.</p>
+      <div class="service-info-menu" aria-label="서비스 정보 메뉴">
+        <button type="button" data-open-service-info="service">
+          <strong>서비스 안내</strong>
+          <span>서비스 소개와 이용 시 확인할 내용을 안내해요.</span>
+        </button>
+        <button type="button" data-open-service-info="privacy">
+          <strong>개인정보 처리방침</strong>
+          <span>어떤 정보를 사용하고 보관하는지 확인해요.</span>
+        </button>
+        <button type="button" data-open-service-info="contact">
+          <strong>운영 문의</strong>
+          <span>${SERVICE_CONTACT_EMAIL}</span>
+        </button>
+      </div>
+    </div>
     ${
       debugModeEnabled()
         ? `
@@ -3658,6 +3683,62 @@ function renderDashboard() {
         : ""
     }
   `;
+}
+
+const SERVICE_INFO_TITLES = {
+  service: "서비스 안내",
+  privacy: "개인정보 처리방침",
+  contact: "운영 문의",
+};
+
+function openServiceInfoView(section) {
+  if (!els.serviceInfoView || !SERVICE_INFO_TITLES[section]) return;
+  const wasOpen = Boolean(state.serviceInfoSection);
+  if (!wasOpen) state.serviceInfoPreviousFocus = document.activeElement;
+  state.serviceInfoSection = section;
+  els.serviceInfoTitle.textContent = SERVICE_INFO_TITLES[section];
+  els.serviceInfoView.querySelectorAll("[data-service-info-section]").forEach((article) => {
+    article.hidden = article.dataset.serviceInfoSection !== section;
+  });
+  els.serviceInfoView.hidden = false;
+  els.serviceInfoView.scrollTop = 0;
+  document.body.classList.add("service-info-open");
+  if (els.appShell) {
+    els.appShell.inert = true;
+    els.appShell.setAttribute("aria-hidden", "true");
+  }
+  if (!wasOpen) pushAppState("serviceInfo");
+  window.requestAnimationFrame(() => els.serviceInfoBackButton?.focus({ preventScroll: true }));
+}
+
+function closeServiceInfoView({ restoreFocus = true } = {}) {
+  if (!els.serviceInfoView || !state.serviceInfoSection) return;
+  state.serviceInfoSection = null;
+  els.serviceInfoView.hidden = true;
+  document.body.classList.remove("service-info-open");
+  if (els.appShell) {
+    els.appShell.inert = false;
+    els.appShell.removeAttribute("aria-hidden");
+  }
+  if (restoreFocus) {
+    const focusTarget = state.serviceInfoPreviousFocus;
+    window.requestAnimationFrame(() => focusTarget?.isConnected && focusTarget.focus?.({ preventScroll: true }));
+  }
+  state.serviceInfoPreviousFocus = null;
+}
+
+function leaveServiceInfoView() {
+  if (!state.serviceInfoSection) return;
+  if (history.length > 1) {
+    history.back();
+    return;
+  }
+  closeServiceInfoView();
+}
+
+async function copyServiceContactEmail() {
+  const copied = await copyTextToClipboard(SERVICE_CONTACT_EMAIL);
+  toast(copied ? "운영 문의 이메일 주소를 복사했어요." : `이메일 주소를 복사하지 못했어요. ${SERVICE_CONTACT_EMAIL}`);
 }
 
 function switchTab(tabId, options = {}) {
@@ -4039,6 +4120,11 @@ function prevOnboardingStep() {
 }
 
 function handleOnboardingKeydown(event) {
+  if (state.serviceInfoSection && event.key === "Escape") {
+    event.preventDefault();
+    leaveServiceInfoView();
+    return;
+  }
   if (!state.onboarding.active || !els.onboardingCard) return;
   if (event.key === "Escape") {
     event.preventDefault();
@@ -4065,6 +4151,10 @@ function pushAppState(screen = state.activeTab) {
 }
 
 function handleBackNavigation() {
+  if (state.serviceInfoSection) {
+    closeServiceInfoView();
+    return;
+  }
   if (els.reportDialog?.open) {
     els.reportDialog.close();
     pushAppState("reportClosed");
@@ -4104,6 +4194,10 @@ function handleBackNavigation() {
 }
 
 function handlePopNavigation() {
+  if (state.serviceInfoSection) {
+    closeServiceInfoView();
+    return;
+  }
   const parsed = parseSharedPickFromUrl();
   if (parsed.present) {
     setSharedPickState(parsed, FALLBACK_LOCATION);
@@ -4128,6 +4222,7 @@ function bindEvents() {
   els.shareButton.addEventListener("click", shareAppLink);
   els.sharePickButton?.addEventListener("click", shareCurrentPick);
   els.onboardingHelpButton?.addEventListener("click", () => startOnboarding({ force: true }));
+  els.serviceInfoBackButton?.addEventListener("click", leaveServiceInfoView);
   els.quickRecommendButton.addEventListener("click", quickRecommend);
   els.searchButton.addEventListener("click", searchMenus);
   els.resetFiltersButton.addEventListener("click", resetFilters);
@@ -4206,6 +4301,16 @@ function bindEvents() {
   });
   document.body.addEventListener("click", (event) => {
     rememberExternalLinkClick(event);
+    const serviceInfoButton = event.target.closest("[data-open-service-info]");
+    if (serviceInfoButton) {
+      openServiceInfoView(serviceInfoButton.dataset.openServiceInfo);
+      return;
+    }
+    const copyServiceEmailButton = event.target.closest("[data-copy-service-email]");
+    if (copyServiceEmailButton) {
+      copyServiceContactEmail();
+      return;
+    }
     const analyticsMapLink = event.target.closest("[data-analytics-map]");
     if (analyticsMapLink) {
       analyticsClient?.recordMapOpen({
