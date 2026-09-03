@@ -63,8 +63,10 @@ const editMenuSource = adminSource.slice(
   adminSource.indexOf("function resetCatalogEditingState"),
 );
 assert.doesNotMatch(appMenuToDbSource, /food_?character/i);
-assert.doesNotMatch(saveMenuSource, /food_?character/i);
+assert.match(saveMenuSource, /creatingMenu/);
+assert.match(saveMenuSource, /isAllowedFoodCharacter/);
+assert.match(saveMenuSource, /payload\.food_character = foodCharacter/);
 assert.match(clearMenuFormSource, /resetFoodCharacterEditingState\(\)/);
 assert.match(editMenuSource, /createEditorState\(\{/);
 
-console.log("food character foundation: definitions, FC-2 UI, and full-menu payload isolation passed");
+console.log("food character foundation: definitions, create-only payload, FC-2 UI, and edit isolation passed");

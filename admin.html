@@ -229,7 +229,14 @@
               <label><span>가게</span><select name="restaurantId" required></select></label>
               <label><span>메뉴명</span><input name="name" required /></label>
               <label><span>카테고리</span><input name="category" required placeholder="한식" /></label>
-              <section class="wide food-character-editor" aria-labelledby="foodCharacterTitle">
+              <label id="menuCreateFoodCharacterField" class="wide menu-create-food-character">
+                <span>Primary Food Character</span>
+                <select id="menuCreateFoodCharacter" name="foodCharacter" aria-required="true" aria-describedby="menuCreateFoodCharacterHelp">
+                  <option value="">Primary Food Character 선택</option>
+                </select>
+                <small id="menuCreateFoodCharacterHelp">새 메뉴를 저장하려면 한 끼의 형태를 반드시 선택해주세요.</small>
+              </label>
+              <section id="foodCharacterEditor" class="wide food-character-editor" aria-labelledby="foodCharacterTitle" hidden>
                 <div class="food-character-heading">
                   <div>
                     <span id="foodCharacterTitle">Primary Food Character <b>FC-2</b></span>
