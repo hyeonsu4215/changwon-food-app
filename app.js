@@ -248,6 +248,14 @@ function getAnalyticsSessionStorage() {
   }
 }
 
+function getAnalyticsLocalStorage() {
+  try {
+    return window.localStorage;
+  } catch {
+    return null;
+  }
+}
+
 const analyticsClient =
   typeof window.MukjjiAnalytics?.createAnalyticsClient === "function" &&
   typeof window.MukjjiAnalytics?.isAnalyticsRuntimeEnabled === "function"
@@ -255,6 +263,7 @@ const analyticsClient =
       enabled: window.MukjjiAnalytics.isAnalyticsRuntimeEnabled(),
       acquisitionSource: window.MukjjiAnalytics.getAcquisitionSource?.(),
       sessionStorage: getAnalyticsSessionStorage(),
+      localStorage: getAnalyticsLocalStorage(),
       crypto: window.crypto,
       getSupabaseClient: async () => {
         if (!state.supabase) await initSupabase();

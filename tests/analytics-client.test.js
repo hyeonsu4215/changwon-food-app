@@ -17,6 +17,7 @@ const {
   ERROR_CODES,
   SESSION_ID_KEY,
   LAST_ACTIVITY_KEY,
+  VISIT_HISTORY_KEY,
   SESSION_TIMEOUT_MS,
   isAnalyticsRuntimeEnabled,
   getAcquisitionSource,
@@ -79,6 +80,9 @@ async function run() {
     "p_item_count",
     "p_share_method",
     "p_acquisition_source",
+    "p_is_returning",
+    "p_return_gap",
+    "p_first_acquisition_source",
   ];
   assert.equal(ANALYTICS_COLLECTION_ENABLED, true);
   assert.deepEqual(ANALYTICS_PRODUCTION_HOSTNAMES, ["changwon-food-app.vercel.app"]);
@@ -119,7 +123,13 @@ async function run() {
   assert.equal(RPC_FUNCTION_NAME, "log_analytics_event");
   assert.deepEqual(RPC_PARAMETER_NAMES, expectedRpcParameters);
   const remoteContractParameters = migrationFunctionParameters();
-  if (remoteContractParameters) assert.deepEqual(RPC_PARAMETER_NAMES, remoteContractParameters);
+  if (remoteContractParameters) {
+    assert.deepEqual(
+      RPC_PARAMETER_NAMES.slice(0, remoteContractParameters.length),
+      remoteContractParameters,
+      "Week 2 parameters must extend the checked-in legacy RPC contract without reordering it",
+    );
+  }
   assert.deepEqual(EVENT_NAMES, [
     "session_start",
     "recommendation_shown",
@@ -176,6 +186,17 @@ async function run() {
     },
   });
   assert.equal(safeStorageGetter(), null, "a throwing window.sessionStorage getter must fail closed");
+  const safeLocalStorageGetter = new Function(
+    "window",
+    `${extractFunctionSource(appSource, "getAnalyticsLocalStorage")}; return getAnalyticsLocalStorage;`,
+  )({
+    get localStorage() {
+      throw new Error("blocked");
+    },
+  });
+  assert.equal(safeLocalStorageGetter(), null, "a throwing window.localStorage getter must fail closed");
+  assert.equal(VISIT_HISTORY_KEY, "changwonFoodVisitHistoryV1");
+  assert.match(appSource, /localStorage:\s*getAnalyticsLocalStorage\(\)/);
   const throwingStorageClient = createAnalyticsClient({
     enabled: false,
     sessionStorage: {
@@ -540,7 +561,9 @@ async function run() {
     sessionId: "session",
   };
   const semanticMatrix = [
-    [{ ...common, eventName: "session_start", acquisitionSource: "direct" }, ["p_acquisition_source"]],
+    [{ ...common, eventName: "session_start", acquisitionSource: "direct" }, [
+      "p_acquisition_source", "p_is_returning", "p_return_gap", "p_first_acquisition_source",
+    ]],
     [{ ...common, eventName: "recommendation_shown", recommendationId: "rec", restaurantId: "C001", menuId: "M001", position: 1, sourceContext: "discovery" }, ["p_recommendation_id", "p_restaurant_id", "p_menu_id", "p_position", "p_source_context"]],
     [{ ...common, eventName: "recommendation_refresh", recommendationId: "rec", sourceContext: "personalized" }, ["p_recommendation_id", "p_source_context"]],
     [{ ...common, eventName: "menu_card_open", restaurantId: "C001", menuId: "M001", sourceContext: "search" }, ["p_restaurant_id", "p_menu_id", "p_source_context"]],
@@ -558,7 +581,7 @@ async function run() {
     assert.equal(Object.hasOwn(params, "server_received_at"), false);
     assert.equal(Object.hasOwn(params, "event_version"), false);
   });
-  assert.doesNotMatch(analyticsSource, /localStorage|indexedDB|document\.cookie|client_id|user_id|nickname|search_text|user_agent/i);
+  assert.doesNotMatch(analyticsSource, /indexedDB|document\.cookie|client_id|user_id|nickname|search_text|user_agent/i);
   assert.match(appSource, /recordRecommendationShown\(\)/);
   assert.match(appSource, /recordRecommendationRefresh\(\)/);
   assert.match(appSource, /recordMenuCardOpen\(/);
