@@ -112,7 +112,7 @@
     "missing-client": "Supabase 연결을 확인할 수 없습니다.",
     "missing-menu": "Food Character를 변경할 메뉴를 먼저 선택해주세요.",
     "static-source": "정적 데이터는 읽기 전용입니다.",
-    "invalid-original": "현재 Food Character가 유효하지 않아 저장할 수 없습니다.",
+    "invalid-original": "현재 Food Character 저장값을 확인할 수 없습니다.",
     "invalid-value": "허용되지 않은 Food Character입니다.",
     unchanged: "현재 Food Character와 변경할 값이 같습니다.",
     stale: "다른 곳에서 값이 변경되었을 수 있습니다. 새로고침 후 다시 확인해주세요.",
@@ -156,7 +156,7 @@
     const menuSelected = Boolean(editor?.menuId);
     const originalValid = isAllowedFoodCharacter(editor?.originalValue);
     const nextValid = isAllowedFoodCharacter(editor?.nextValue);
-    const dirty = originalValid && nextValid && editor.originalValue !== editor.nextValue;
+    const dirty = menuSelected && nextValid && editor.originalValue !== editor.nextValue;
     const supabaseSource = source === "supabase";
     const saving = Boolean(editor?.saving);
     return Object.freeze({
@@ -164,7 +164,7 @@
       originalValid,
       nextValid,
       dirty,
-      selectEnabled: supabaseSource && menuSelected && originalValid && !saving,
+      selectEnabled: supabaseSource && menuSelected && !saving,
       saveEnabled: supabaseSource && menuSelected && dirty && !saving,
     });
   }
@@ -190,19 +190,23 @@
   async function saveFoodCharacterChange({ supabase, source, menuId, originalValue, nextValue }) {
     if (source !== "supabase") throw new FoodCharacterSaveError("static-source");
     if (!menuId) throw new FoodCharacterSaveError("missing-menu");
-    if (!isAllowedFoodCharacter(originalValue)) throw new FoodCharacterSaveError("invalid-original");
+    if (originalValue !== null && typeof originalValue !== "string") {
+      throw new FoodCharacterSaveError("invalid-original");
+    }
     if (!isAllowedFoodCharacter(nextValue)) throw new FoodCharacterSaveError("invalid-value");
     if (originalValue === nextValue) throw new FoodCharacterSaveError("unchanged");
     if (!supabase?.from) throw new FoodCharacterSaveError("missing-client");
 
     let updateResult;
     try {
-      updateResult = await supabase
+      let updateQuery = supabase
         .from("menus")
         .update({ food_character: nextValue })
-        .eq("id", menuId)
-        .eq("food_character", originalValue)
-        .select("id,food_character");
+        .eq("id", menuId);
+      updateQuery = originalValue === null
+        ? updateQuery.is("food_character", null)
+        : updateQuery.eq("food_character", originalValue);
+      updateResult = await updateQuery.select("id,food_character");
     } catch (error) {
       throw classifySupabaseError(error);
     }

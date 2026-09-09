@@ -13,6 +13,7 @@ function createFakeSupabase({ updateData, updateError = null, verificationData, 
     tables: [],
     updates: [],
     updateFilters: [],
+    updateFilterOperators: [],
     verificationFilters: [],
     selects: [],
   };
@@ -36,8 +37,16 @@ function createFakeSupabase({ updateData, updateError = null, verificationData, 
         },
         eq(column, value) {
           const filter = { column, value };
-          if (mode === "update") calls.updateFilters.push(filter);
+          if (mode === "update") {
+            calls.updateFilters.push(filter);
+            calls.updateFilterOperators.push("eq");
+          }
           else calls.verificationFilters.push(filter);
+          return query;
+        },
+        is(column, value) {
+          calls.updateFilters.push({ column, value });
+          calls.updateFilterOperators.push("is");
           return query;
         },
         maybeSingle() {
@@ -92,6 +101,33 @@ const invalid = foodCharacter.updateEditorValue(selected, "dessert");
 status = foodCharacter.getEditorStatus(invalid, "supabase");
 assert.equal(status.nextValid, false);
 assert.equal(status.saveEnabled, false);
+
+const missingValue = foodCharacter.createEditorState({
+  id: "M101",
+  name: "새 메뉴",
+  restaurantName: "테스트 가게",
+  foodCharacter: null,
+});
+status = foodCharacter.getEditorStatus(missingValue, "supabase");
+assert.equal(status.originalValid, false);
+assert.equal(status.selectEnabled, true);
+assert.equal(status.saveEnabled, false);
+const missingValueRecovery = foodCharacter.updateEditorValue(missingValue, "noodle-special");
+status = foodCharacter.getEditorStatus(missingValueRecovery, "supabase");
+assert.equal(status.dirty, true);
+assert.equal(status.saveEnabled, true);
+
+const invalidValue = foodCharacter.createEditorState({
+  id: "M102",
+  name: "기존 잘못된 메뉴",
+  restaurantName: "테스트 가게",
+  foodCharacter: "legacy-invalid",
+});
+status = foodCharacter.getEditorStatus(invalidValue, "supabase");
+assert.equal(status.selectEnabled, true);
+assert.equal(status.saveEnabled, false);
+const invalidValueRecovery = foodCharacter.updateEditorValue(invalidValue, "main-dish");
+assert.equal(foodCharacter.getEditorStatus(invalidValueRecovery, "supabase").saveEnabled, true);
 
 const reset = foodCharacter.createEditorState();
 assert.equal(reset.menuId, null);
@@ -371,6 +407,7 @@ function resetEditor(harness, source = "supabase") {
     { column: "id", value: "M017" },
     { column: "food_character", value: "rice-meal" },
   ]);
+  assert.deepEqual(successfulClient.calls.updateFilterOperators, ["eq", "eq"]);
   assert.deepEqual(successfulClient.calls.verificationFilters, [{ column: "id", value: "M017" }]);
   assert.deepEqual(successfulClient.calls.selects, [
     { mode: "update", columns: "id,food_character" },
@@ -385,6 +422,41 @@ function resetEditor(harness, source = "supabase") {
   });
   assert.equal(verifiedEditor.originalValue, "noodle-special");
   assert.equal(foodCharacter.getEditorStatus(verifiedEditor, "supabase").dirty, false);
+
+  const nullRecoveryClient = createFakeSupabase({
+    updateData: [{ id: "M101", food_character: "noodle-special" }],
+    verificationData: { id: "M101", food_character: "noodle-special" },
+  });
+  assert.deepEqual(await foodCharacter.saveFoodCharacterChange({
+    supabase: nullRecoveryClient,
+    source: "supabase",
+    menuId: "M101",
+    originalValue: null,
+    nextValue: "noodle-special",
+  }), { menuId: "M101", foodCharacter: "noodle-special" });
+  assert.deepEqual(nullRecoveryClient.calls.updates, [{ food_character: "noodle-special" }]);
+  assert.deepEqual(nullRecoveryClient.calls.updateFilters, [
+    { column: "id", value: "M101" },
+    { column: "food_character", value: null },
+  ]);
+  assert.deepEqual(nullRecoveryClient.calls.updateFilterOperators, ["eq", "is"]);
+
+  const invalidRecoveryClient = createFakeSupabase({
+    updateData: [{ id: "M102", food_character: "main-dish" }],
+    verificationData: { id: "M102", food_character: "main-dish" },
+  });
+  assert.deepEqual(await foodCharacter.saveFoodCharacterChange({
+    supabase: invalidRecoveryClient,
+    source: "supabase",
+    menuId: "M102",
+    originalValue: "legacy-invalid",
+    nextValue: "main-dish",
+  }), { menuId: "M102", foodCharacter: "main-dish" });
+  assert.deepEqual(invalidRecoveryClient.calls.updateFilterOperators, ["eq", "eq"]);
+  assert.deepEqual(invalidRecoveryClient.calls.updateFilters[1], {
+    column: "food_character",
+    value: "legacy-invalid",
+  });
 
   const staleClient = createFakeSupabase({ updateData: [] });
   assert.equal(await errorCode(foodCharacter.saveFoodCharacterChange({
@@ -488,14 +560,28 @@ function resetEditor(harness, source = "supabase") {
     supabase: blockedClient,
     source: "supabase",
     menuId: "M017",
-    originalValue: null,
+    originalValue: undefined,
     nextValue: "noodle-special",
   })), "invalid-original");
   assert.equal(blockedClient.updateCallCount, 0);
 
+  const recoveryHarness = createAdminSaveHarness();
+  recoveryHarness.state.menus[0].foodCharacter = null;
+  recoveryHarness.state.foodCharacterEditor = foodCharacter.updateEditorValue(
+    foodCharacter.createEditorState({
+      ...recoveryHarness.state.menus[0],
+      foodCharacter: null,
+    }),
+    "noodle-special",
+  );
+  assert.equal(await recoveryHarness.saveSelectedFoodCharacter(), true);
+  assert.equal(recoveryHarness.calls.save, 1);
+  assert.equal(recoveryHarness.state.menus[0].foodCharacter, "noodle-special");
+
   assert.match(adminHtml, /id="foodCharacterSelect"[^>]*disabled/);
   assert.match(adminHtml, /id="saveFoodCharacter"[^>]*disabled/);
   assert.match(adminHtml, /FC-2/);
+  assert.match(adminSource, /올바른 Primary Food Character를 선택해 복구해주세요/);
   assert.match(adminSource, /정적 데이터는 읽기 전용/);
   assert.match(adminSource, /saveFoodCharacterChange\(\{[\s\S]*originalValue: requestContext\.originalValue[\s\S]*nextValue: requestContext\.nextValue/);
   assert.match(adminSource, /state\.menus = state\.menus\.map/);
