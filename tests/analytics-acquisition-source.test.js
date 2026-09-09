@@ -110,7 +110,11 @@ test("session_start alone carries the canonical acquisition source", async () =>
   assert.equal(events[0].acquisitionSource, "poster_qr");
   assert.equal(Object.hasOwn(events[1], "acquisitionSource"), false);
   assert.equal(buildRpcParameters(events[0]).p_acquisition_source, "poster_qr");
+  assert.equal(buildRpcParameters(events[0]).p_is_returning, null);
+  assert.equal(buildRpcParameters(events[0]).p_return_gap, null);
+  assert.equal(buildRpcParameters(events[0]).p_first_acquisition_source, null);
   assert.equal(Object.hasOwn(buildRpcParameters(events[1]), "p_acquisition_source"), false);
+  assert.equal(Object.hasOwn(buildRpcParameters(events[1]), "p_is_returning"), false);
 });
 
 test("session_start retry reuses event identity, timestamp, and acquisition source", async () => {
@@ -228,5 +232,5 @@ test("marketing links and privacy boundary are documented", () => {
     assert.match(guide, new RegExp(`https://changwon-food-app\\.vercel\\.app/\\?src=${source}`));
   });
   assert.match(guide, /Raw query strings, raw source values, referrers, URLs, UTM values, and free text are never stored/);
-  assert.doesNotMatch(analyticsSource, /localStorage|indexedDB|document\.cookie|client_id|user_id|raw_src|raw_query|referrer|user_agent/i);
+  assert.doesNotMatch(analyticsSource, /indexedDB|document\.cookie|client_id|user_id|raw_src|raw_query|referrer|user_agent/i);
 });

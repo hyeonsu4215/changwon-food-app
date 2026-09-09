@@ -33,6 +33,9 @@
     "p_item_count",
     "p_share_method",
     "p_acquisition_source",
+    "p_is_returning",
+    "p_return_gap",
+    "p_first_acquisition_source",
   ]);
   const EVENT_NAMES = Object.freeze([
     "session_start",
@@ -56,8 +59,22 @@
   const SHARE_METHODS = new Set(["web_share", "clipboard"]);
   const SESSION_ID_KEY = "mukjjiAnalyticsSessionIdV1";
   const LAST_ACTIVITY_KEY = "mukjjiAnalyticsLastActivityAtV1";
+  const VISIT_HISTORY_KEY = "changwonFoodVisitHistoryV1";
+  const RETURN_GAPS = Object.freeze(["same_day", "1d", "2_3d", "4_7d", "8_30d", "31d_plus"]);
+  const RETURN_GAP_VALUES = new Set(RETURN_GAPS);
   const SESSION_TIMEOUT_MS = 30 * 60 * 1000;
   const REQUEST_TIMEOUT_MS = 2500;
+  const SEOUL_DATE_FORMATTER = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Asia/Seoul",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+  const UNMEASURED_RETURN_METADATA = Object.freeze({
+    isReturning: null,
+    returnGap: null,
+    firstAcquisitionSource: null,
+  });
 
   function isAnalyticsRuntimeEnabled(locationValue, collectionEnabled = ANALYTICS_COLLECTION_ENABLED) {
     if (collectionEnabled !== true) return false;
@@ -108,6 +125,125 @@
     }
   }
 
+  function getSeoulDateString(value) {
+    const date = new Date(value);
+    if (!Number.isFinite(date.getTime())) return null;
+    const parts = Object.fromEntries(
+      SEOUL_DATE_FORMATTER.formatToParts(date).map((part) => [part.type, part.value]),
+    );
+    return `${parts.year}-${parts.month}-${parts.day}`;
+  }
+
+  function calendarDateOrdinal(value) {
+    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(value ?? ""));
+    if (!match) return null;
+    const year = Number(match[1]);
+    const month = Number(match[2]);
+    const day = Number(match[3]);
+    const ordinal = Date.UTC(year, month - 1, day);
+    const parsed = new Date(ordinal);
+    if (
+      parsed.getUTCFullYear() !== year ||
+      parsed.getUTCMonth() !== month - 1 ||
+      parsed.getUTCDate() !== day
+    ) return null;
+    return ordinal;
+  }
+
+  function calendarDayDifference(fromDate, toDate) {
+    const from = calendarDateOrdinal(fromDate);
+    const to = calendarDateOrdinal(toDate);
+    if (from === null || to === null) return null;
+    return (to - from) / (24 * 60 * 60 * 1000);
+  }
+
+  function classifyReturnGap(dayDifference) {
+    if (!Number.isInteger(dayDifference) || dayDifference < 0) return null;
+    if (dayDifference === 0) return "same_day";
+    if (dayDifference === 1) return "1d";
+    if (dayDifference <= 3) return "2_3d";
+    if (dayDifference <= 7) return "4_7d";
+    if (dayDifference <= 30) return "8_30d";
+    return "31d_plus";
+  }
+
+  function createVisitBaseline(today, acquisitionSource) {
+    return {
+      firstVisitDate: today,
+      lastVisitDate: today,
+      firstAcquisitionSource: acquisitionSource,
+    };
+  }
+
+  function isValidVisitHistory(history, today) {
+    if (!history || typeof history !== "object" || Array.isArray(history)) return false;
+    const keys = Object.keys(history).sort();
+    if (keys.join(",") !== "firstAcquisitionSource,firstVisitDate,lastVisitDate") return false;
+    if (!ACQUISITION_SOURCE_VALUES.has(history.firstAcquisitionSource)) return false;
+    const firstToLast = calendarDayDifference(history.firstVisitDate, history.lastVisitDate);
+    const lastToToday = calendarDayDifference(history.lastVisitDate, today);
+    return firstToLast !== null && firstToLast >= 0 && lastToToday !== null && lastToToday >= 0;
+  }
+
+  function writeVisitHistory(storage, history) {
+    try {
+      if (!storage) return false;
+      storage.setItem(VISIT_HISTORY_KEY, JSON.stringify(history));
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  function prepareVisitHistory(storage, acquisitionSource, today) {
+    if (!ACQUISITION_SOURCE_VALUES.has(acquisitionSource) || calendarDateOrdinal(today) === null) {
+      return UNMEASURED_RETURN_METADATA;
+    }
+
+    let rawHistory;
+    try {
+      if (!storage) return UNMEASURED_RETURN_METADATA;
+      rawHistory = storage.getItem(VISIT_HISTORY_KEY);
+    } catch {
+      return UNMEASURED_RETURN_METADATA;
+    }
+
+    const baseline = createVisitBaseline(today, acquisitionSource);
+    if (rawHistory === null) {
+      if (!writeVisitHistory(storage, baseline)) return UNMEASURED_RETURN_METADATA;
+      return Object.freeze({
+        isReturning: false,
+        returnGap: null,
+        firstAcquisitionSource: acquisitionSource,
+      });
+    }
+
+    let history;
+    try {
+      history = JSON.parse(rawHistory);
+    } catch {
+      writeVisitHistory(storage, baseline);
+      return UNMEASURED_RETURN_METADATA;
+    }
+    if (!isValidVisitHistory(history, today)) {
+      writeVisitHistory(storage, baseline);
+      return UNMEASURED_RETURN_METADATA;
+    }
+
+    const returnGap = classifyReturnGap(calendarDayDifference(history.lastVisitDate, today));
+    const nextHistory = {
+      firstVisitDate: history.firstVisitDate,
+      lastVisitDate: today,
+      firstAcquisitionSource: history.firstAcquisitionSource,
+    };
+    if (!returnGap || !writeVisitHistory(storage, nextHistory)) return UNMEASURED_RETURN_METADATA;
+    return Object.freeze({
+      isReturning: true,
+      returnGap,
+      firstAcquisitionSource: history.firstAcquisitionSource,
+    });
+  }
+
   function recommendationItem(item, position) {
     const menuId = String(item?.menuId ?? item?.id ?? "").trim();
     const restaurantId = String(item?.restaurantId ?? item?.restaurant?.id ?? "").trim();
@@ -135,12 +271,34 @@
     add("p_item_count", event.itemCount);
     add("p_share_method", event.shareMethod);
     add("p_acquisition_source", event.acquisitionSource);
+    if (event.eventName === "session_start") {
+      const validFirstVisit =
+        event.isReturning === false &&
+        event.returnGap == null &&
+        ACQUISITION_SOURCE_VALUES.has(event.firstAcquisitionSource) &&
+        event.firstAcquisitionSource === event.acquisitionSource;
+      const validReturnVisit =
+        event.isReturning === true &&
+        RETURN_GAP_VALUES.has(event.returnGap) &&
+        ACQUISITION_SOURCE_VALUES.has(event.firstAcquisitionSource);
+      const validUnmeasured =
+        event.isReturning == null &&
+        event.returnGap == null &&
+        event.firstAcquisitionSource == null;
+      const metadata = validFirstVisit || validReturnVisit || validUnmeasured
+        ? event
+        : UNMEASURED_RETURN_METADATA;
+      params.p_is_returning = metadata.isReturning ?? null;
+      params.p_return_gap = metadata.returnGap ?? null;
+      params.p_first_acquisition_source = metadata.firstAcquisitionSource ?? null;
+    }
     return params;
   }
 
   function createAnalyticsClient(options = {}) {
     const enabled = options.enabled === true;
     const storage = options.sessionStorage;
+    const visitStorage = options.localStorage;
     const cryptoApi = options.crypto;
     const now = options.now || (() => Date.now());
     const getSupabaseClient = options.getSupabaseClient || (() => null);
@@ -153,6 +311,8 @@
       : getAcquisitionSource(options.location);
     let currentRecommendation = null;
     const shownRecommendationIds = new Set();
+    let returnMetadataSessionId = null;
+    let returnMetadata = UNMEASURED_RETURN_METADATA;
 
     function readSession() {
       try {
@@ -239,8 +399,22 @@
       };
     }
 
+    function getSessionReturnMetadata(sessionId) {
+      if (returnMetadataSessionId === sessionId) return returnMetadata;
+      returnMetadataSessionId = sessionId;
+      returnMetadata = prepareVisitHistory(
+        visitStorage,
+        acquisitionSource,
+        getSeoulDateString(new Date(now())),
+      );
+      return returnMetadata;
+    }
+
     function sessionStartEvent(sessionId) {
-      const event = createEvent("session_start", sessionId, { acquisitionSource });
+      const event = createEvent("session_start", sessionId, {
+        acquisitionSource,
+        ...getSessionReturnMetadata(sessionId),
+      });
       return event ? dispatch(event) : Promise.resolve(false);
     }
 
@@ -409,11 +583,18 @@
     ERROR_CODES,
     SESSION_ID_KEY,
     LAST_ACTIVITY_KEY,
+    VISIT_HISTORY_KEY,
+    RETURN_GAPS,
     SESSION_TIMEOUT_MS,
     REQUEST_TIMEOUT_MS,
     isAnalyticsRuntimeEnabled,
     getAcquisitionSource,
     secureUuid,
+    getSeoulDateString,
+    calendarDayDifference,
+    classifyReturnGap,
+    isValidVisitHistory,
+    prepareVisitHistory,
     buildRpcParameters,
     createAnalyticsClient,
   });
