@@ -1725,6 +1725,103 @@ button:disabled {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
+.analytics-retention-formula,
+.analytics-retention-unmeasured,
+.analytics-retention-subsection > p {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.55;
+}
+
+.analytics-retention-formula {
+  margin-top: 10px !important;
+}
+
+.analytics-retention-unmeasured {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  margin-top: 8px !important;
+}
+
+.analytics-retention-unmeasured strong {
+  color: var(--ink);
+}
+
+.analytics-retention-subsection {
+  margin-top: 18px;
+}
+
+.analytics-retention-subsection h4 {
+  margin: 0 0 9px;
+  font-size: 13px;
+}
+
+.analytics-retention-subsection > p {
+  margin: -3px 0 9px !important;
+}
+
+.analytics-return-gap-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.analytics-return-gap-item {
+  min-width: 0;
+  min-height: 54px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #fff;
+}
+
+.analytics-return-gap-item span {
+  min-width: 0;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 900;
+  overflow-wrap: anywhere;
+}
+
+.analytics-return-gap-item strong {
+  flex: 0 0 auto;
+  font-size: 18px;
+}
+
+.analytics-first-source-list {
+  border-top: 1px solid var(--line);
+}
+
+.analytics-first-source-row {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 4px;
+  border-bottom: 1px solid var(--line);
+  font-size: 13px;
+}
+
+.analytics-first-source-row strong,
+.analytics-first-source-row span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.analytics-first-source-row span {
+  color: var(--muted);
+  font-weight: 800;
+  text-align: right;
+}
+
 .analytics-acquisition-list {
   display: grid;
   gap: 12px;
@@ -1955,6 +2052,10 @@ button:disabled {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .analytics-return-gap-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .analytics-restaurant-head {
     display: none;
   }
@@ -2036,5 +2137,20 @@ button:disabled {
   .analytics-kpi-grid,
   .analytics-kpi-grid-compact {
     grid-template-columns: 1fr;
+  }
+
+  .analytics-retention-kpi-grid,
+  .analytics-return-gap-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .analytics-first-source-row {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  .analytics-first-source-row span {
+    text-align: left;
   }
 }

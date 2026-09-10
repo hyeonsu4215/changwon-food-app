@@ -1,5 +1,5 @@
 const CACHE_PREFIX = "changwon-food-app-";
-const CACHE_NAME = `${CACHE_PREFIX}v62`;
+const CACHE_NAME = `${CACHE_PREFIX}v63`;
 const CORE_ASSETS = [
   "./",
   "./index.html",
