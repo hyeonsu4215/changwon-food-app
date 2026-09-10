@@ -194,6 +194,15 @@ const ANALYTICS_ACQUISITION_LABELS = Object.freeze([
   ["other", "기타"],
 ]);
 
+const ANALYTICS_RETURN_GAP_LABELS = Object.freeze([
+  ["same_day", "sameDay", "같은 날"],
+  ["1d", "d1", "1일 후"],
+  ["2_3d", "d2To3", "2~3일 후"],
+  ["4_7d", "d4To7", "4~7일 후"],
+  ["8_30d", "d8To30", "8~30일 후"],
+  ["31d_plus", "d31Plus", "31일+"],
+]);
+
 function analyticsCount(value) {
   return Number.isSafeInteger(value) && value >= 0 ? value : null;
 }
@@ -207,7 +216,8 @@ function normalizeAnalyticsDashboard(payload) {
   const today = payload.today;
   const acquisition = payload.acquisition;
   const lastSevenDays = payload.last_7_days;
-  if (!today || !acquisition || !lastSevenDays || !Array.isArray(payload.restaurants)) return null;
+  const retention = payload.retention;
+  if (!today || !acquisition || !lastSevenDays || !retention || !Array.isArray(payload.restaurants)) return null;
 
   const normalizedToday = {
     sessions: analyticsCount(today.sessions),
@@ -245,6 +255,58 @@ function normalizeAnalyticsDashboard(payload) {
   };
   if (Object.values(normalizedLastSevenDays).some((value) => value === null)) return null;
 
+  const normalizedRetention = {
+    measuredSessions: analyticsCount(retention.measured_sessions),
+    newSessions: analyticsCount(retention.new_sessions),
+    returningSessions: analyticsCount(retention.returning_sessions),
+    unmeasuredSessions: analyticsCount(retention.unmeasured_sessions),
+    returningSessionShare: retention.returning_session_share === null
+      ? null
+      : Number.isFinite(retention.returning_session_share) &&
+          retention.returning_session_share >= 0 &&
+          retention.returning_session_share <= 100
+        ? Number(retention.returning_session_share)
+        : undefined,
+  };
+  if (Object.values(normalizedRetention).some((value) => value === undefined)) return null;
+  if (Object.entries(normalizedRetention).some(([key, value]) => key !== "returningSessionShare" && value === null)) return null;
+  if (!retention.return_gap || typeof retention.return_gap !== "object" || Array.isArray(retention.return_gap)) return null;
+  const normalizedReturnGap = {};
+  for (const [slug, key] of ANALYTICS_RETURN_GAP_LABELS) {
+    const count = analyticsCount(retention.return_gap[slug]);
+    if (count === null) return null;
+    normalizedReturnGap[key] = count;
+  }
+  if (
+    !retention.first_acquisition_source ||
+    typeof retention.first_acquisition_source !== "object" ||
+    Array.isArray(retention.first_acquisition_source)
+  ) return null;
+  const normalizedFirstAcquisitionSource = {};
+  for (const [slug] of ANALYTICS_ACQUISITION_LABELS) {
+    const source = retention.first_acquisition_source[slug];
+    if (!source || typeof source !== "object" || Array.isArray(source)) return null;
+    const newSessions = analyticsCount(source.new_sessions);
+    const returningSessions = analyticsCount(source.returning_sessions);
+    if (newSessions === null || returningSessions === null) return null;
+    normalizedFirstAcquisitionSource[slug] = Object.freeze({ newSessions, returningSessions });
+  }
+  const gapTotal = Object.values(normalizedReturnGap).reduce((sum, count) => sum + count, 0);
+  const sourceNewTotal = Object.values(normalizedFirstAcquisitionSource).reduce((sum, source) => sum + source.newSessions, 0);
+  const sourceReturningTotal = Object.values(normalizedFirstAcquisitionSource).reduce((sum, source) => sum + source.returningSessions, 0);
+  const expectedReturningShare = normalizedRetention.measuredSessions === 0
+    ? null
+    : Number(((normalizedRetention.returningSessions / normalizedRetention.measuredSessions) * 100).toFixed(1));
+  if (
+    normalizedRetention.measuredSessions !== normalizedRetention.newSessions + normalizedRetention.returningSessions ||
+    gapTotal !== normalizedRetention.returningSessions ||
+    sourceNewTotal !== normalizedRetention.newSessions ||
+    sourceReturningTotal !== normalizedRetention.returningSessions ||
+    normalizedRetention.returningSessionShare !== expectedReturningShare
+  ) return null;
+  normalizedRetention.returnGap = Object.freeze(normalizedReturnGap);
+  normalizedRetention.firstAcquisitionSource = Object.freeze(normalizedFirstAcquisitionSource);
+
   const restaurants = [];
   for (const restaurant of payload.restaurants) {
     const restaurantId = String(restaurant?.restaurant_id || "").trim();
@@ -261,6 +323,7 @@ function normalizeAnalyticsDashboard(payload) {
     today: Object.freeze(normalizedToday),
     acquisition: Object.freeze(normalizedAcquisition),
     lastSevenDays: Object.freeze(normalizedLastSevenDays),
+    retention: Object.freeze(normalizedRetention),
     restaurants: Object.freeze(restaurants),
   });
 }
@@ -271,6 +334,23 @@ function analyticsMetric(label, value) {
 
 function renderAnalyticsDashboardMarkup(data) {
   const completionRate = data.today.completionRate === null ? "-" : `${data.today.completionRate.toFixed(1).replace(/\.0$/, "")}%`;
+  const returningSessionShare = data.retention.returningSessionShare === null
+    ? "-"
+    : `${data.retention.returningSessionShare.toFixed(1).replace(/\.0$/, "")}%`;
+  const returnGapRows = ANALYTICS_RETURN_GAP_LABELS.map(([, key, label]) => `
+    <div class="analytics-return-gap-item" role="listitem">
+      <span>${escapeHtml(label)}</span><strong>${data.retention.returnGap[key]}</strong>
+    </div>
+  `).join("");
+  const firstAcquisitionRows = ANALYTICS_ACQUISITION_LABELS.map(([slug, label]) => {
+    const source = data.retention.firstAcquisitionSource[slug];
+    return `
+      <div class="analytics-first-source-row" data-first-acquisition-source="${escapeHtml(slug)}">
+        <strong>${escapeHtml(label)}</strong>
+        <span>첫 방문 ${source.newSessions} · 재방문 ${source.returningSessions}</span>
+      </div>
+    `;
+  }).join("");
   const regularAcquisitionTotal = ANALYTICS_ACQUISITION_LABELS.reduce(
     (sum, [slug]) => sum + data.acquisition[slug],
     0,
@@ -320,6 +400,29 @@ function renderAnalyticsDashboardMarkup(data) {
         ${analyticsMetric("추천 오류", data.today.errors)}
         ${analyticsMetric("먹음 기록", `${data.today.eatenRecords}회`)}
       </dl>
+    </section>
+    <section class="analytics-section analytics-retention" aria-labelledby="analyticsRetentionTitle">
+      <div class="analytics-section-heading">
+        <h3 id="analyticsRetentionTitle">오늘 재방문 현황</h3>
+        <span>한국 시간 기준 오늘</span>
+      </div>
+      <dl class="analytics-kpi-grid analytics-retention-kpi-grid">
+        ${analyticsMetric("측정 세션", data.retention.measuredSessions)}
+        ${analyticsMetric("첫 방문", data.retention.newSessions)}
+        ${analyticsMetric("재방문", data.retention.returningSessions)}
+        ${analyticsMetric("재방문 세션 비중", returningSessionShare)}
+      </dl>
+      <p class="analytics-retention-formula">재방문 세션 비중 = 재방문 세션 ÷ 측정 세션 · 개별 사람을 식별하는 지표가 아닙니다.</p>
+      <p class="analytics-retention-unmeasured"><strong>미측정 ${data.retention.unmeasuredSessions}세션</strong><span>Week 2 적용 전 방문 기록 또는 기기 저장소 제한 등은 미측정으로 남습니다.</span></p>
+      <div class="analytics-retention-subsection">
+        <h4>재방문 간격</h4>
+        <div class="analytics-return-gap-grid" role="list">${returnGapRows}</div>
+      </div>
+      <div class="analytics-retention-subsection">
+        <h4>최초 유입별 오늘 세션</h4>
+        <p>최초 유입은 이 기기에서 처음 묵찌를 방문했을 때의 경로입니다.</p>
+        <div class="analytics-first-source-list">${firstAcquisitionRows}</div>
+      </div>
     </section>
     <section class="analytics-section" aria-labelledby="analyticsAcquisitionTitle">
       <div class="analytics-section-heading">

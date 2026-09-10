@@ -26,8 +26,18 @@ const acquisitionLabels = Object.freeze([
   ["other", "기타"],
 ]);
 
+const returnGapLabels = Object.freeze([
+  ["same_day", "sameDay", "같은 날"],
+  ["1d", "d1", "1일 후"],
+  ["2_3d", "d2To3", "2~3일 후"],
+  ["4_7d", "d4To7", "4~7일 후"],
+  ["8_30d", "d8To30", "8~30일 후"],
+  ["31d_plus", "d31Plus", "31일+"],
+]);
+
 const runtime = new Function(
   "ANALYTICS_ACQUISITION_LABELS",
+  "ANALYTICS_RETURN_GAP_LABELS",
   `${extractFunctionSource(adminJs, "escapeHtml")}
    ${extractFunctionSource(adminJs, "analyticsCount")}
    ${extractFunctionSource(adminJs, "analyticsOptionalCount")}
@@ -35,7 +45,7 @@ const runtime = new Function(
    ${extractFunctionSource(adminJs, "analyticsMetric")}
    ${extractFunctionSource(adminJs, "renderAnalyticsDashboardMarkup")}
    return { normalizeAnalyticsDashboard, renderAnalyticsDashboardMarkup };`,
-)(acquisitionLabels);
+)(acquisitionLabels, returnGapLabels);
 
 function stripSqlLiterals(sql) {
   return sql
@@ -64,6 +74,24 @@ function emptyPayload() {
       share: 0,
       other: 0,
       internal_test: 0,
+    },
+    retention: {
+      measured_sessions: 0,
+      new_sessions: 0,
+      returning_sessions: 0,
+      unmeasured_sessions: 0,
+      returning_session_share: null,
+      return_gap: {
+        same_day: 0,
+        "1d": 0,
+        "2_3d": 0,
+        "4_7d": 0,
+        "8_30d": 0,
+        "31d_plus": 0,
+      },
+      first_acquisition_source: Object.fromEntries(
+        acquisitionLabels.map(([slug]) => [slug, { new_sessions: 0, returning_sessions: 0 }]),
+      ),
     },
     last_7_days: { sessions: 0, completed_sessions: 0, map_opens: 0 },
     restaurants: [],
@@ -149,6 +177,8 @@ test("zero-data JSON normalizes and renders as a normal empty dashboard", () => 
   assert.equal(data.today.completionRate, null);
   assert.equal(data.today.eatenRecords, 0);
   assert.equal(data.lastSevenDays.eatenRecords, 0);
+  assert.equal(data.retention.measuredSessions, 0);
+  assert.equal(data.retention.returningSessionShare, null);
   assert.deepEqual(data.restaurants, []);
   const html = runtime.renderAnalyticsDashboardMarkup(data);
   assert.match(html, /오늘 이용 세션/);
@@ -157,7 +187,124 @@ test("zero-data JSON normalizes and renders as a normal empty dashboard", () => 
   assert.match(html, /내부 테스트 0세션 · 일반 이용 합계에서 제외/);
   assert.match(html, /아직 기록된 관심 데이터가 없습니다/);
   assert.match(html, /먹음 기록/);
+  assert.match(html, /오늘 재방문 현황/);
+  assert.match(html, /측정 세션/);
+  assert.match(html, /재방문 세션 비중/);
+  assert.match(html, /재방문 세션 비중<\/dt><dd>-<\/dd>/);
+  assert.match(html, /미측정 0세션/);
+  assert.match(html, /같은 날/);
+  assert.match(html, /31일\+/);
+  assert.match(html, /최초 유입별 오늘 세션/);
+  assert.match(html, /첫 방문 0 · 재방문 0/);
   assert.doesNotMatch(html, /Analytics|RPC|Session ID|Recommendation ID|Raw Events/);
+});
+
+test("today retention normalizes semantic totals and renders session-only language", () => {
+  const payload = emptyPayload();
+  payload.retention = {
+    measured_sessions: 20,
+    new_sessions: 14,
+    returning_sessions: 6,
+    unmeasured_sessions: 3,
+    returning_session_share: 30,
+    return_gap: {
+      same_day: 2,
+      "1d": 1,
+      "2_3d": 1,
+      "4_7d": 1,
+      "8_30d": 1,
+      "31d_plus": 0,
+    },
+    first_acquisition_source: {
+      direct: { new_sessions: 4, returning_sessions: 1 },
+      everytime: { new_sessions: 3, returning_sessions: 1 },
+      kakao: { new_sessions: 2, returning_sessions: 1 },
+      instagram: { new_sessions: 2, returning_sessions: 1 },
+      poster_qr: { new_sessions: 1, returning_sessions: 1 },
+      share: { new_sessions: 1, returning_sessions: 1 },
+      other: { new_sessions: 1, returning_sessions: 0 },
+      internal_test: { new_sessions: 99, returning_sessions: 99 },
+    },
+  };
+
+  const data = runtime.normalizeAnalyticsDashboard(payload);
+  assert.ok(data);
+  assert.equal(data.retention.measuredSessions, 20);
+  assert.equal(data.retention.newSessions, 14);
+  assert.equal(data.retention.returningSessions, 6);
+  assert.equal(data.retention.unmeasuredSessions, 3);
+  assert.equal(data.retention.returningSessionShare, 30);
+  assert.deepEqual(data.retention.returnGap, {
+    sameDay: 2,
+    d1: 1,
+    d2To3: 1,
+    d4To7: 1,
+    d8To30: 1,
+    d31Plus: 0,
+  });
+
+  const html = runtime.renderAnalyticsDashboardMarkup(data);
+  [
+    "오늘 재방문 현황",
+    "측정 세션",
+    "첫 방문",
+    "재방문",
+    "재방문 세션 비중",
+    "30%",
+    "미측정 3세션",
+    "같은 날",
+    "1일 후",
+    "2~3일 후",
+    "4~7일 후",
+    "8~30일 후",
+    "31일+",
+    "최초 유입별 오늘 세션",
+    "포스터 QR",
+  ].forEach((text) => assert.match(html, new RegExp(text.replace("+", "\\+"))));
+  assert.match(html, /재방문 세션 비중 = 재방문 세션 ÷ 측정 세션/);
+  assert.doesNotMatch(html, /사용자 재방문율|유저 리텐션|최근 7일 재방문/);
+  assert.doesNotMatch(html, /data-first-acquisition-source="internal_test"/);
+});
+
+test("invalid retention payloads fail closed without partial dashboard data", () => {
+  const cases = [];
+  const missingRetention = emptyPayload();
+  delete missingRetention.retention;
+  cases.push(missingRetention);
+  const negativeCount = emptyPayload();
+  negativeCount.retention.new_sessions = -1;
+  cases.push(negativeCount);
+  const invalidShare = emptyPayload();
+  invalidShare.retention.returning_session_share = 101;
+  cases.push(invalidShare);
+  const missingGap = emptyPayload();
+  delete missingGap.retention.return_gap["4_7d"];
+  cases.push(missingGap);
+  const malformedSource = emptyPayload();
+  malformedSource.retention.first_acquisition_source.poster_qr = null;
+  cases.push(malformedSource);
+  const measuredMismatch = emptyPayload();
+  measuredMismatch.retention.measured_sessions = 1;
+  cases.push(measuredMismatch);
+  const gapMismatch = emptyPayload();
+  gapMismatch.retention.measured_sessions = 1;
+  gapMismatch.retention.returning_sessions = 1;
+  gapMismatch.retention.returning_session_share = 100;
+  gapMismatch.retention.first_acquisition_source.direct.returning_sessions = 1;
+  cases.push(gapMismatch);
+  const sourceMismatch = emptyPayload();
+  sourceMismatch.retention.measured_sessions = 1;
+  sourceMismatch.retention.new_sessions = 1;
+  sourceMismatch.retention.returning_session_share = 0;
+  cases.push(sourceMismatch);
+  const shareMismatch = emptyPayload();
+  shareMismatch.retention.measured_sessions = 1;
+  shareMismatch.retention.new_sessions = 1;
+  shareMismatch.retention.returning_session_share = 50;
+  shareMismatch.retention.first_acquisition_source.direct.new_sessions = 1;
+  cases.push(shareMismatch);
+
+  cases.forEach((payload) => assert.equal(runtime.normalizeAnalyticsDashboard(payload), null));
 });
 
 test("eaten metrics are added without weakening internal-test exclusion", () => {
@@ -252,6 +399,8 @@ test("responsive dashboard uses existing breakpoints without chart dependencies"
   assert.match(adminCss, /\.analytics-kpi-grid/);
   assert.match(adminCss, /@media \(max-width: 560px\)[\s\S]*\.analytics-restaurant-row/);
   assert.match(adminCss, /@media \(max-width: 400px\)[\s\S]*\.analytics-kpi-grid/);
+  assert.match(adminCss, /\.analytics-return-gap-grid/);
+  assert.match(adminCss, /@media \(max-width: 400px\)[\s\S]*\.analytics-retention-kpi-grid/);
   assert.doesNotMatch(`${adminHtml}\n${adminJs}`, /chart\.js|echarts|highcharts|d3\.js/i);
   assert.match(guide, /not user or visit counts|not user or visit counts/i);
 });
