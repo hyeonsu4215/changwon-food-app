@@ -94,6 +94,11 @@ const state = {
     loaded: false,
     error: false,
     data: null,
+    preset: "last_7_days",
+    requestStartDate: null,
+    requestEndDate: null,
+    customStartDate: "",
+    customEndDate: "",
   },
 };
 
@@ -121,6 +126,12 @@ const els = {
   analyticsStatus: document.querySelector("#analyticsStatus"),
   analyticsContent: document.querySelector("#analyticsContent"),
   refreshAnalytics: document.querySelector("#refreshAnalytics"),
+  analyticsRangeControls: document.querySelector("#analyticsRangeControls"),
+  analyticsCustomRange: document.querySelector("#analyticsCustomRange"),
+  analyticsStartDate: document.querySelector("#analyticsStartDate"),
+  analyticsEndDate: document.querySelector("#analyticsEndDate"),
+  applyAnalyticsRange: document.querySelector("#applyAnalyticsRange"),
+  analyticsRangeError: document.querySelector("#analyticsRangeError"),
   reviewsPanel: document.querySelector("#reviewsPanel"),
   reportsPanel: document.querySelector("#reportsPanel"),
   catalogPanel: document.querySelector("#catalogPanel"),
@@ -203,6 +214,15 @@ const ANALYTICS_RETURN_GAP_LABELS = Object.freeze([
   ["31d_plus", "d31Plus", "31일+"],
 ]);
 
+const ANALYTICS_RANGE_PRESETS = Object.freeze([
+  "today",
+  "yesterday",
+  "last_7_days",
+  "last_30_days",
+  "all",
+  "custom",
+]);
+
 function analyticsCount(value) {
   return Number.isSafeInteger(value) && value >= 0 ? value : null;
 }
@@ -211,31 +231,100 @@ function analyticsOptionalCount(value) {
   return value === undefined || value === null ? 0 : analyticsCount(value);
 }
 
+function isAnalyticsDateString(value) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(value || ""))) return false;
+  const parsed = new Date(`${value}T00:00:00.000Z`);
+  return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
+}
+
+function analyticsCalendarDateShift(value, dayOffset) {
+  if (!isAnalyticsDateString(value) || !Number.isSafeInteger(dayOffset)) return null;
+  const shifted = new Date(`${value}T00:00:00.000Z`);
+  shifted.setUTCDate(shifted.getUTCDate() + dayOffset);
+  return shifted.toISOString().slice(0, 10);
+}
+
+function analyticsCalendarDayCount(startDate, endDate) {
+  if (!isAnalyticsDateString(startDate) || !isAnalyticsDateString(endDate)) return null;
+  const start = Date.parse(`${startDate}T00:00:00.000Z`);
+  const end = Date.parse(`${endDate}T00:00:00.000Z`);
+  const days = Math.round((end - start) / 86400000) + 1;
+  return days > 0 ? days : null;
+}
+
+function analyticsDateSequence(startDate, endDate) {
+  const dayCount = analyticsCalendarDayCount(startDate, endDate);
+  if (!dayCount || dayCount > 731) return null;
+  return Array.from({ length: dayCount }, (_, index) => analyticsCalendarDateShift(startDate, index));
+}
+
+function analyticsRangeForPreset(preset, { serverToday, analyticsAvailableFrom }) {
+  if (!isAnalyticsDateString(serverToday)) return null;
+  if (preset === "today") return { startDate: serverToday, endDate: serverToday };
+  if (preset === "yesterday") {
+    const yesterday = analyticsCalendarDateShift(serverToday, -1);
+    return { startDate: yesterday, endDate: yesterday };
+  }
+  if (preset === "last_7_days") {
+    return { startDate: analyticsCalendarDateShift(serverToday, -6), endDate: serverToday };
+  }
+  if (preset === "last_30_days") {
+    return { startDate: analyticsCalendarDateShift(serverToday, -29), endDate: serverToday };
+  }
+  if (preset === "all") {
+    const availableFrom = isAnalyticsDateString(analyticsAvailableFrom) ? analyticsAvailableFrom : serverToday;
+    return { startDate: availableFrom, endDate: serverToday };
+  }
+  return null;
+}
+
 function normalizeAnalyticsDashboard(payload) {
   if (!payload || typeof payload !== "object" || Array.isArray(payload)) return null;
-  const today = payload.today;
+  const range = payload.range;
+  const summary = payload.summary;
   const acquisition = payload.acquisition;
-  const lastSevenDays = payload.last_7_days;
+  const daily = payload.daily;
   const retention = payload.retention;
-  if (!today || !acquisition || !lastSevenDays || !retention || !Array.isArray(payload.restaurants)) return null;
+  if (!range || !summary || !acquisition || !Array.isArray(daily) || !retention || !Array.isArray(payload.restaurants)) return null;
 
-  const normalizedToday = {
-    sessions: analyticsCount(today.sessions),
-    completedSessions: analyticsCount(today.completed_sessions),
-    completionRate: today.completion_rate === null
+  const startDate = isAnalyticsDateString(range.start_date) ? range.start_date : null;
+  const endDate = isAnalyticsDateString(range.end_date) ? range.end_date : null;
+  const serverToday = isAnalyticsDateString(range.server_today) ? range.server_today : null;
+  const dayCount = analyticsCount(range.day_count);
+  const analyticsAvailableFrom = range.analytics_available_from === null
+    ? null
+    : isAnalyticsDateString(range.analytics_available_from) ? range.analytics_available_from : undefined;
+  const retentionMeasuredFrom = range.retention_measured_from === null
+    ? null
+    : isAnalyticsDateString(range.retention_measured_from) ? range.retention_measured_from : undefined;
+  const expectedDates = startDate && endDate ? analyticsDateSequence(startDate, endDate) : null;
+  if (
+    !startDate || !endDate || !serverToday || !dayCount || dayCount > 731 ||
+    analyticsAvailableFrom === undefined || retentionMeasuredFrom === undefined ||
+    !expectedDates || expectedDates.length !== dayCount || endDate > serverToday
+  ) return null;
+
+  const normalizedSummary = {
+    sessions: analyticsCount(summary.sessions),
+    completedSessions: analyticsCount(summary.completed_sessions),
+    completionRate: summary.completion_rate === null
       ? null
-      : Number.isFinite(today.completion_rate) && today.completion_rate >= 0 && today.completion_rate <= 100
-        ? Number(today.completion_rate)
+      : Number.isFinite(summary.completion_rate) && summary.completion_rate >= 0 && summary.completion_rate <= 100
+        ? Number(summary.completion_rate)
         : undefined,
-    refreshes: analyticsCount(today.refreshes),
-    menuDetailOpens: analyticsCount(today.menu_detail_opens),
-    mapOpens: analyticsCount(today.map_opens),
-    shares: analyticsCount(today.shares),
-    errors: analyticsCount(today.errors),
-    eatenRecords: analyticsOptionalCount(today.eaten_records),
+    refreshes: analyticsCount(summary.refreshes),
+    menuDetailOpens: analyticsCount(summary.menu_detail_opens),
+    mapOpens: analyticsCount(summary.map_opens),
+    shares: analyticsCount(summary.shares),
+    errors: analyticsCount(summary.errors),
+    eatenRecords: analyticsCount(summary.eaten_records),
   };
-  if (Object.values(normalizedToday).some((value) => value === undefined)) return null;
-  if (Object.entries(normalizedToday).some(([key, value]) => key !== "completionRate" && value === null)) return null;
+  if (Object.values(normalizedSummary).some((value) => value === undefined)) return null;
+  if (Object.entries(normalizedSummary).some(([key, value]) => key !== "completionRate" && value === null)) return null;
+  const expectedCompletionRate = normalizedSummary.sessions === 0
+    ? null
+    : Number(((normalizedSummary.completedSessions / normalizedSummary.sessions) * 100).toFixed(1));
+  if (normalizedSummary.completionRate !== expectedCompletionRate) return null;
 
   const normalizedAcquisition = {};
   for (const [slug] of ANALYTICS_ACQUISITION_LABELS) {
@@ -247,13 +336,17 @@ function normalizeAnalyticsDashboard(payload) {
   if (internalTest === null) return null;
   normalizedAcquisition.internalTest = internalTest;
 
-  const normalizedLastSevenDays = {
-    sessions: analyticsCount(lastSevenDays.sessions),
-    completedSessions: analyticsCount(lastSevenDays.completed_sessions),
-    mapOpens: analyticsCount(lastSevenDays.map_opens),
-    eatenRecords: analyticsOptionalCount(lastSevenDays.eaten_records),
-  };
-  if (Object.values(normalizedLastSevenDays).some((value) => value === null)) return null;
+  const normalizedDaily = [];
+  for (let index = 0; index < daily.length; index += 1) {
+    const row = daily[index];
+    const sessions = analyticsCount(row?.sessions);
+    if (row?.date !== expectedDates[index] || sessions === null) return null;
+    normalizedDaily.push(Object.freeze({ date: row.date, sessions }));
+  }
+  if (
+    normalizedDaily.length !== dayCount ||
+    normalizedDaily.reduce((sum, row) => sum + row.sessions, 0) !== normalizedSummary.sessions
+  ) return null;
 
   const normalizedRetention = {
     measuredSessions: analyticsCount(retention.measured_sessions),
@@ -314,15 +407,16 @@ function normalizeAnalyticsDashboard(payload) {
     const recommendationExposures = analyticsCount(restaurant?.recommendation_exposures);
     const menuDetailOpens = analyticsCount(restaurant?.menu_detail_opens);
     const mapOpens = analyticsCount(restaurant?.map_opens);
-    const eatenRecords = analyticsOptionalCount(restaurant?.eaten_records);
+    const eatenRecords = analyticsCount(restaurant?.eaten_records);
     if (!restaurantId || !restaurantName || [recommendationExposures, menuDetailOpens, mapOpens, eatenRecords].includes(null)) return null;
     restaurants.push({ restaurantId, restaurantName, recommendationExposures, menuDetailOpens, mapOpens, eatenRecords });
   }
 
   return Object.freeze({
-    today: Object.freeze(normalizedToday),
+    range: Object.freeze({ startDate, endDate, dayCount, serverToday, analyticsAvailableFrom, retentionMeasuredFrom }),
+    summary: Object.freeze(normalizedSummary),
     acquisition: Object.freeze(normalizedAcquisition),
-    lastSevenDays: Object.freeze(normalizedLastSevenDays),
+    daily: Object.freeze(normalizedDaily),
     retention: Object.freeze(normalizedRetention),
     restaurants: Object.freeze(restaurants),
   });
@@ -332,8 +426,29 @@ function analyticsMetric(label, value) {
   return `<div><dt>${escapeHtml(label)}</dt><dd>${escapeHtml(value)}</dd></div>`;
 }
 
-function renderAnalyticsDashboardMarkup(data) {
-  const completionRate = data.today.completionRate === null ? "-" : `${data.today.completionRate.toFixed(1).replace(/\.0$/, "")}%`;
+function formatAnalyticsDisplayDate(value) {
+  return isAnalyticsDateString(value) ? value.replaceAll("-", ".") : "-";
+}
+
+function analyticsRangeDisplay(data, preset = "last_7_days") {
+  const dates = data.range.startDate === data.range.endDate
+    ? formatAnalyticsDisplayDate(data.range.startDate)
+    : `${formatAnalyticsDisplayDate(data.range.startDate)} ~ ${formatAnalyticsDisplayDate(data.range.endDate)}`;
+  return preset === "all" ? `전체 · ${dates}` : dates;
+}
+
+function analyticsRetentionMeasurementNote(range) {
+  if (!range.retentionMeasuredFrom) return "아직 재방문 측정 데이터가 없습니다.";
+  const measuredFrom = formatAnalyticsDisplayDate(range.retentionMeasuredFrom);
+  if (range.endDate < range.retentionMeasuredFrom) return "이 기간은 재방문 측정 시작 전입니다.";
+  if (range.startDate < range.retentionMeasuredFrom) {
+    return `재방문 세션 비중은 ${measuredFrom} 이후 측정 가능한 세션 기준입니다.`;
+  }
+  return `재방문 측정 시작 ${measuredFrom}`;
+}
+
+function renderAnalyticsDashboardMarkup(data, { preset = "last_7_days" } = {}) {
+  const completionRate = data.summary.completionRate === null ? "-" : `${data.summary.completionRate.toFixed(1).replace(/\.0$/, "")}%`;
   const returningSessionShare = data.retention.returningSessionShare === null
     ? "-"
     : `${data.retention.returningSessionShare.toFixed(1).replace(/\.0$/, "")}%`;
@@ -367,9 +482,22 @@ function renderAnalyticsDashboardMarkup(data) {
       </div>
     `;
   }).join("");
+  const maxDailySessions = Math.max(0, ...data.daily.map((row) => row.sessions));
+  const dailyRows = data.daily.map((row) => {
+    const percentage = maxDailySessions > 0 ? (row.sessions / maxDailySessions) * 100 : 0;
+    return `
+      <div class="analytics-daily-row">
+        <time datetime="${row.date}">${formatAnalyticsDisplayDate(row.date).slice(5)}</time>
+        <div class="analytics-daily-track" aria-label="${formatAnalyticsDisplayDate(row.date)} ${row.sessions}세션">
+          <span style="width: ${percentage.toFixed(1)}%"></span>
+        </div>
+        <strong>${row.sessions}</strong>
+      </div>
+    `;
+  }).join("");
   const restaurantRows = data.restaurants.length
     ? `
-      <div class="analytics-restaurant-table" role="table" aria-label="최근 7일 가게별 관심">
+      <div class="analytics-restaurant-table" role="table" aria-label="선택 기간 가게별 관심">
         <div class="analytics-restaurant-head" role="row">
           <span role="columnheader">가게</span><span role="columnheader">추천 노출</span><span role="columnheader">메뉴 상세 확인</span><span role="columnheader">지도 열기</span><span role="columnheader">먹음 기록</span>
         </div>
@@ -387,42 +515,24 @@ function renderAnalyticsDashboardMarkup(data) {
     : `<p class="analytics-empty">아직 기록된 관심 데이터가 없습니다.</p>`;
 
   return `
-    <section class="analytics-section" aria-labelledby="analyticsTodayTitle">
-      <h3 id="analyticsTodayTitle">오늘의 묵찌</h3>
-      <dl class="analytics-kpi-grid">
-        ${analyticsMetric("오늘 이용 세션", data.today.sessions)}
-        ${analyticsMetric("추천 완료 세션", data.today.completedSessions)}
-        ${analyticsMetric("추천 완료율", completionRate)}
-        ${analyticsMetric("다른 메뉴 추천", data.today.refreshes)}
-        ${analyticsMetric("메뉴 자세히 보기", data.today.menuDetailOpens)}
-        ${analyticsMetric("지도 열기", data.today.mapOpens)}
-        ${analyticsMetric("추천 공유", data.today.shares)}
-        ${analyticsMetric("추천 오류", data.today.errors)}
-        ${analyticsMetric("먹음 기록", `${data.today.eatenRecords}회`)}
-      </dl>
+    <section class="analytics-range-summary" aria-label="현재 조회 기간">
+      <span>현재 조회 기간</span>
+      <strong>${escapeHtml(analyticsRangeDisplay(data, preset))}</strong>
+      <small>한국 시간 기준 · ${data.range.dayCount}일</small>
     </section>
-    <section class="analytics-section analytics-retention" aria-labelledby="analyticsRetentionTitle">
-      <div class="analytics-section-heading">
-        <h3 id="analyticsRetentionTitle">오늘 재방문 현황</h3>
-        <span>한국 시간 기준 오늘</span>
-      </div>
-      <dl class="analytics-kpi-grid analytics-retention-kpi-grid">
-        ${analyticsMetric("측정 세션", data.retention.measuredSessions)}
-        ${analyticsMetric("첫 방문", data.retention.newSessions)}
-        ${analyticsMetric("재방문", data.retention.returningSessions)}
-        ${analyticsMetric("재방문 세션 비중", returningSessionShare)}
+    <section class="analytics-section" aria-labelledby="analyticsSummaryTitle">
+      <h3 id="analyticsSummaryTitle">선택 기간 요약</h3>
+      <dl class="analytics-kpi-grid">
+        ${analyticsMetric("이용 세션", data.summary.sessions)}
+        ${analyticsMetric("추천 완료 세션", data.summary.completedSessions)}
+        ${analyticsMetric("추천 완료율", completionRate)}
+        ${analyticsMetric("다른 메뉴 추천", data.summary.refreshes)}
+        ${analyticsMetric("메뉴 자세히 보기", data.summary.menuDetailOpens)}
+        ${analyticsMetric("지도 열기", data.summary.mapOpens)}
+        ${analyticsMetric("추천 공유", data.summary.shares)}
+        ${analyticsMetric("추천 오류", data.summary.errors)}
+        ${analyticsMetric("먹음 기록", `${data.summary.eatenRecords}회`)}
       </dl>
-      <p class="analytics-retention-formula">재방문 세션 비중 = 재방문 세션 ÷ 측정 세션 · 개별 사람을 식별하는 지표가 아닙니다.</p>
-      <p class="analytics-retention-unmeasured"><strong>미측정 ${data.retention.unmeasuredSessions}세션</strong><span>Week 2 적용 전 방문 기록 또는 기기 저장소 제한 등은 미측정으로 남습니다.</span></p>
-      <div class="analytics-retention-subsection">
-        <h4>재방문 간격</h4>
-        <div class="analytics-return-gap-grid" role="list">${returnGapRows}</div>
-      </div>
-      <div class="analytics-retention-subsection">
-        <h4>최초 유입별 오늘 세션</h4>
-        <p>최초 유입은 이 기기에서 처음 묵찌를 방문했을 때의 경로입니다.</p>
-        <div class="analytics-first-source-list">${firstAcquisitionRows}</div>
-      </div>
     </section>
     <section class="analytics-section" aria-labelledby="analyticsAcquisitionTitle">
       <div class="analytics-section-heading">
@@ -432,24 +542,78 @@ function renderAnalyticsDashboardMarkup(data) {
       <div class="analytics-acquisition-list">${acquisitionRows}</div>
       <p class="analytics-internal-test">내부 테스트 ${data.acquisition.internalTest}세션 · 일반 이용 합계에서 제외</p>
     </section>
-    <section class="analytics-section" aria-labelledby="analyticsSevenDayTitle">
-      <h3 id="analyticsSevenDayTitle">최근 7일</h3>
-      <dl class="analytics-kpi-grid analytics-kpi-grid-compact">
-        ${analyticsMetric("이용 세션", data.lastSevenDays.sessions)}
-        ${analyticsMetric("추천 완료 세션", data.lastSevenDays.completedSessions)}
-        ${analyticsMetric("지도 열기", data.lastSevenDays.mapOpens)}
-        ${analyticsMetric("먹음 기록", `${data.lastSevenDays.eatenRecords}회`)}
+    <section class="analytics-section" aria-labelledby="analyticsDailyTitle">
+      <div class="analytics-section-heading">
+        <h3 id="analyticsDailyTitle">날짜별 이용 세션</h3>
+        <span>세션이 없는 날짜도 포함</span>
+      </div>
+      <details class="analytics-daily-details"${data.range.dayCount <= 30 ? " open" : ""}>
+        <summary>${data.range.dayCount}일 내역</summary>
+        <div class="analytics-daily-list">${dailyRows}</div>
+      </details>
+    </section>
+    <section class="analytics-section analytics-retention" aria-labelledby="analyticsRetentionTitle">
+      <div class="analytics-section-heading">
+        <h3 id="analyticsRetentionTitle">재방문 현황</h3>
+        <span>선택 기간의 세션 분류</span>
+      </div>
+      <dl class="analytics-kpi-grid analytics-retention-kpi-grid">
+        ${analyticsMetric("측정 세션", data.retention.measuredSessions)}
+        ${analyticsMetric("첫 방문", data.retention.newSessions)}
+        ${analyticsMetric("재방문", data.retention.returningSessions)}
+        ${analyticsMetric("재방문 세션 비중", returningSessionShare)}
       </dl>
+      <p class="analytics-retention-formula">재방문 세션 비중 = 재방문 세션 ÷ 측정 세션 · 개별 사람을 식별하는 지표가 아닙니다.</p>
+      <p class="analytics-retention-measurement-note">${escapeHtml(analyticsRetentionMeasurementNote(data.range))}</p>
+      <p class="analytics-retention-unmeasured"><strong>미측정 ${data.retention.unmeasuredSessions}세션</strong><span>Week 2 적용 전 방문 기록 또는 기기 저장소 제한 등은 미측정으로 남습니다.</span></p>
+      <div class="analytics-retention-subsection">
+        <h4>재방문 간격</h4>
+        <div class="analytics-return-gap-grid" role="list">${returnGapRows}</div>
+      </div>
+      <div class="analytics-retention-subsection">
+        <h4>최초 유입별 세션</h4>
+        <p>최초 유입은 이 기기에서 처음 묵찌를 방문했을 때의 경로입니다.</p>
+        <div class="analytics-first-source-list">${firstAcquisitionRows}</div>
+      </div>
     </section>
     <section class="analytics-section" aria-labelledby="analyticsRestaurantTitle">
-      <h3 id="analyticsRestaurantTitle">가게별 관심 · 최근 7일</h3>
+      <h3 id="analyticsRestaurantTitle">가게별 관심</h3>
       ${restaurantRows}
     </section>
   `;
 }
 
+function setAnalyticsRangeError(message = "") {
+  if (!els.analyticsRangeError) return;
+  els.analyticsRangeError.textContent = message;
+  els.analyticsRangeError.hidden = !message;
+}
+
+function renderAnalyticsRangeControls() {
+  document.querySelectorAll("[data-analytics-range-preset]").forEach((button) => {
+    const active = button.dataset.analyticsRangePreset === state.analytics.preset;
+    button.classList.toggle("is-active", active);
+    button.setAttribute("aria-pressed", String(active));
+  });
+  if (els.analyticsCustomRange) els.analyticsCustomRange.hidden = state.analytics.preset !== "custom";
+  const range = state.analytics.data?.range;
+  const minimum = range?.analyticsAvailableFrom || range?.serverToday || "";
+  const maximum = range?.serverToday || "";
+  if (els.analyticsStartDate) {
+    els.analyticsStartDate.min = minimum;
+    els.analyticsStartDate.max = maximum;
+    els.analyticsStartDate.value = state.analytics.customStartDate;
+  }
+  if (els.analyticsEndDate) {
+    els.analyticsEndDate.min = minimum;
+    els.analyticsEndDate.max = maximum;
+    els.analyticsEndDate.value = state.analytics.customEndDate;
+  }
+}
+
 function renderAnalyticsDashboard() {
   if (!els.analyticsStatus || !els.analyticsContent) return;
+  renderAnalyticsRangeControls();
   if (state.analytics.loading) {
     els.analyticsStatus.hidden = false;
     els.analyticsStatus.textContent = "사용 현황을 불러오는 중...";
@@ -463,13 +627,25 @@ function renderAnalyticsDashboard() {
     return;
   }
   els.analyticsStatus.hidden = true;
-  els.analyticsContent.innerHTML = renderAnalyticsDashboardMarkup(state.analytics.data);
+  els.analyticsContent.innerHTML = renderAnalyticsDashboardMarkup(state.analytics.data, { preset: state.analytics.preset });
   els.analyticsContent.hidden = false;
 }
 
 function resetAnalyticsDashboardState() {
   state.analyticsRequestId += 1;
-  state.analytics = { loading: false, loaded: false, error: false, data: null };
+  state.analytics = {
+    loading: false,
+    loaded: false,
+    error: false,
+    data: null,
+    preset: "last_7_days",
+    requestStartDate: null,
+    requestEndDate: null,
+    customStartDate: "",
+    customEndDate: "",
+  };
+  setAnalyticsRangeError();
+  renderAnalyticsRangeControls();
   if (els.analyticsStatus) {
     els.analyticsStatus.hidden = false;
     els.analyticsStatus.textContent = "사용 현황을 불러오는 중...";
@@ -480,24 +656,44 @@ function resetAnalyticsDashboardState() {
   }
 }
 
-async function loadAnalyticsDashboard({ force = false } = {}) {
+async function loadAnalyticsDashboard({
+  force = false,
+  startDate = state.analytics.requestStartDate,
+  endDate = state.analytics.requestEndDate,
+  preset = state.analytics.preset,
+} = {}) {
   if (!state.adminAuthorized || !state.supabase) return false;
-  if (state.analytics.loading || (state.analytics.loaded && !force)) return true;
+  if (state.analytics.loaded && !force) return true;
   const requestId = ++state.analyticsRequestId;
   const userId = state.user?.id || null;
-  state.analytics = { ...state.analytics, loading: true, error: false };
+  state.analytics = {
+    ...state.analytics,
+    loading: true,
+    error: false,
+    preset,
+    requestStartDate: startDate,
+    requestEndDate: endDate,
+  };
   renderAnalyticsDashboard();
 
   let response;
   try {
-    response = await state.supabase.rpc("get_admin_analytics_dashboard");
+    response = await state.supabase.rpc("get_admin_analytics_dashboard_range", {
+      p_start_date: startDate,
+      p_end_date: endDate,
+    });
   } catch {
     response = { data: null, error: true };
   }
   if (requestId !== state.analyticsRequestId || !state.adminAuthorized || state.user?.id !== userId) return false;
-  const normalized = response.error ? null : normalizeAnalyticsDashboard(response.data);
+  let normalized = response.error ? null : normalizeAnalyticsDashboard(response.data);
+  if (
+    normalized && startDate && endDate &&
+    (normalized.range.startDate !== startDate || normalized.range.endDate !== endDate)
+  ) normalized = null;
   if (!normalized) console.warn("admin dashboard load failed");
   state.analytics = {
+    ...state.analytics,
     loading: false,
     loaded: Boolean(normalized),
     error: !normalized,
@@ -505,6 +701,52 @@ async function loadAnalyticsDashboard({ force = false } = {}) {
   };
   renderAnalyticsDashboard();
   return Boolean(normalized);
+}
+
+async function selectAnalyticsRangePreset(preset) {
+  if (!ANALYTICS_RANGE_PRESETS.includes(preset)) return false;
+  setAnalyticsRangeError();
+  if (preset === "custom") {
+    const range = state.analytics.data?.range;
+    state.analytics.preset = "custom";
+    state.analytics.customStartDate ||= range?.startDate || "";
+    state.analytics.customEndDate ||= range?.endDate || "";
+    renderAnalyticsRangeControls();
+    return true;
+  }
+  const range = state.analytics.data?.range;
+  const requested = analyticsRangeForPreset(preset, {
+    serverToday: range?.serverToday,
+    analyticsAvailableFrom: range?.analyticsAvailableFrom,
+  });
+  if (!requested) return false;
+  return loadAnalyticsDashboard({
+    force: true,
+    startDate: requested.startDate,
+    endDate: requested.endDate,
+    preset,
+  });
+}
+
+function validateAnalyticsCustomRange(startDate, endDate, range) {
+  if (!isAnalyticsDateString(startDate) || !isAnalyticsDateString(endDate)) return "시작일과 종료일을 모두 선택해 주세요.";
+  if (startDate > endDate) return "시작일은 종료일보다 늦을 수 없습니다.";
+  if (!range || endDate > range.serverToday) return "종료일은 서버 기준 오늘보다 늦을 수 없습니다.";
+  if (range.analyticsAvailableFrom && startDate < range.analyticsAvailableFrom) return "시작일은 이용 현황이 기록된 첫날보다 빠를 수 없습니다.";
+  const dayCount = analyticsCalendarDayCount(startDate, endDate);
+  if (!dayCount || dayCount > 731) return "조회 기간은 최대 731일까지 선택할 수 있습니다.";
+  return "";
+}
+
+async function applyAnalyticsCustomRange() {
+  const startDate = els.analyticsStartDate?.value || "";
+  const endDate = els.analyticsEndDate?.value || "";
+  state.analytics.customStartDate = startDate;
+  state.analytics.customEndDate = endDate;
+  const message = validateAnalyticsCustomRange(startDate, endDate, state.analytics.data?.range);
+  setAnalyticsRangeError(message);
+  if (message) return false;
+  return loadAnalyticsDashboard({ force: true, startDate, endDate, preset: "custom" });
 }
 
 function setAdminTab(target) {
@@ -2600,6 +2842,12 @@ function bindEvents() {
   els.loginForm.addEventListener("submit", handleLogin);
   els.signOutButton.addEventListener("click", signOut);
   els.refreshAnalytics?.addEventListener("click", () => loadAnalyticsDashboard({ force: true }));
+  els.applyAnalyticsRange?.addEventListener("click", applyAnalyticsCustomRange);
+  [els.analyticsStartDate, els.analyticsEndDate].forEach((input) => input?.addEventListener("input", () => {
+    state.analytics.customStartDate = els.analyticsStartDate?.value || "";
+    state.analytics.customEndDate = els.analyticsEndDate?.value || "";
+    setAnalyticsRangeError();
+  }));
   els.refreshReviews.addEventListener("click", loadReviews);
   els.refreshReports.addEventListener("click", loadReports);
   els.refreshCatalog?.addEventListener("click", loadCatalog);
@@ -2669,6 +2917,8 @@ function bindEvents() {
   });
 
   document.body.addEventListener("click", (event) => {
+    const analyticsPreset = event.target.closest("[data-analytics-range-preset]");
+    if (analyticsPreset) selectAnalyticsRangePreset(analyticsPreset.dataset.analyticsRangePreset);
     const tab = event.target.closest("[data-admin-tab]");
     if (tab) {
       setAdminTab(tab.dataset.adminTab);

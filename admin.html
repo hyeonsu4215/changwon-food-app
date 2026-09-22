@@ -72,11 +72,29 @@
         <section id="analyticsPanel" class="admin-card analytics-panel" role="tabpanel" aria-labelledby="analyticsTab">
           <div class="panel-heading">
             <div>
-              <p class="section-kicker">오늘과 최근 7일</p>
+              <p class="section-kicker">원하는 기간으로 확인</p>
               <h2>사용 현황</h2>
               <p>묵찌 PICK!에서 일어난 주요 행동을 숫자로 확인합니다.</p>
             </div>
             <button id="refreshAnalytics" type="button">새로고침</button>
+          </div>
+          <div id="analyticsRangeControls" class="analytics-range-controls" aria-label="조회 기간 선택">
+            <div class="analytics-range-presets" role="group" aria-label="빠른 기간 선택">
+              <button type="button" data-analytics-range-preset="today" aria-pressed="false">오늘</button>
+              <button type="button" data-analytics-range-preset="yesterday" aria-pressed="false">어제</button>
+              <button type="button" class="is-active" data-analytics-range-preset="last_7_days" aria-pressed="true">최근 7일</button>
+              <button type="button" data-analytics-range-preset="last_30_days" aria-pressed="false">최근 30일</button>
+              <button type="button" data-analytics-range-preset="all" aria-pressed="false">전체</button>
+              <button type="button" data-analytics-range-preset="custom" aria-pressed="false">직접 선택</button>
+            </div>
+            <div id="analyticsCustomRange" class="analytics-custom-range" hidden>
+              <label for="analyticsStartDate">시작일</label>
+              <input id="analyticsStartDate" type="date" />
+              <label for="analyticsEndDate">종료일</label>
+              <input id="analyticsEndDate" type="date" />
+              <button id="applyAnalyticsRange" type="button">적용</button>
+            </div>
+            <p id="analyticsRangeError" class="analytics-range-error" role="alert" hidden></p>
           </div>
           <p id="analyticsStatus" class="analytics-status" role="status" aria-live="polite">사용 현황을 불러오는 중...</p>
           <div id="analyticsContent" class="analytics-content" hidden></div>
