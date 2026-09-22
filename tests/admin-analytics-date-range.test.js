@@ -25,11 +25,22 @@ const returnGapLabels = Object.freeze([
   ["4_7d", "d4To7", "4~7일 후"], ["8_30d", "d8To30", "8~30일 후"], ["31d_plus", "d31Plus", "31일+"],
 ]);
 const rangePresets = Object.freeze(["today", "yesterday", "last_7_days", "last_30_days", "all", "custom"]);
+const dailyMetrics = Object.freeze([
+  { slug: "sessions", key: "sessions", label: "이용 세션" },
+  { slug: "completed_sessions", key: "completedSessions", label: "추천 완료 세션" },
+  { slug: "refreshes", key: "refreshes", label: "다른 메뉴 추천" },
+  { slug: "menu_detail_opens", key: "menuDetailOpens", label: "메뉴 상세" },
+  { slug: "map_opens", key: "mapOpens", label: "지도 열기" },
+  { slug: "shares", key: "shares", label: "공유" },
+  { slug: "eaten_records", key: "eatenRecords", label: "먹음 기록" },
+  { slug: "returning_sessions", key: "returningSessions", label: "재방문 세션" },
+]);
 
 const runtime = new Function(
   "ANALYTICS_ACQUISITION_LABELS",
   "ANALYTICS_RETURN_GAP_LABELS",
   "ANALYTICS_RANGE_PRESETS",
+  "ANALYTICS_DAILY_METRICS",
   `${extractFunctionSource(adminJs, "escapeHtml")}
    ${extractFunctionSource(adminJs, "analyticsCount")}
    ${extractFunctionSource(adminJs, "analyticsOptionalCount")}
@@ -43,15 +54,25 @@ const runtime = new Function(
    ${extractFunctionSource(adminJs, "formatAnalyticsDisplayDate")}
    ${extractFunctionSource(adminJs, "analyticsRangeDisplay")}
    ${extractFunctionSource(adminJs, "analyticsRetentionMeasurementNote")}
+   ${extractFunctionSource(adminJs, "analyticsDailyMetricDefinition")}
+   ${extractFunctionSource(adminJs, "analyticsDailyLabelIndexes")}
+   ${extractFunctionSource(adminJs, "renderAnalyticsDailyChart")}
    ${extractFunctionSource(adminJs, "renderAnalyticsDashboardMarkup")}
    ${extractFunctionSource(adminJs, "validateAnalyticsCustomRange")}
    return { analyticsRangeForPreset, normalizeAnalyticsDashboard, analyticsRetentionMeasurementNote,
      renderAnalyticsDashboardMarkup, validateAnalyticsCustomRange };`,
-)(acquisitionLabels, returnGapLabels, rangePresets);
+)(acquisitionLabels, returnGapLabels, rangePresets, dailyMetrics);
 
 function payloadFixture() {
   const dates = ["10", "11", "12", "13", "14", "15", "16"];
   const counts = [2, 3, 0, 4, 5, 1, 5];
+  const completed = [1, 1, 0, 2, 2, 1, 3];
+  const refreshes = [1, 1, 0, 1, 2, 0, 2];
+  const detailOpens = [1, 1, 0, 2, 1, 1, 2];
+  const mapOpens = [1, 1, 0, 1, 1, 0, 2];
+  const shares = [0, 1, 0, 0, 1, 0, 1];
+  const eatenRecords = [0, 1, 0, 1, 1, 0, 1];
+  const returning = [0, 1, 0, 1, 2, 0, 2];
   return {
     range: {
       start_date: "2026-09-10", end_date: "2026-09-16", day_count: 7,
@@ -63,7 +84,17 @@ function payloadFixture() {
       refreshes: 7, menu_detail_opens: 8, map_opens: 6, shares: 3, errors: 1, eaten_records: 4,
     },
     acquisition: { direct: 5, everytime: 4, kakao: 3, instagram: 2, poster_qr: 2, share: 2, other: 2, internal_test: 1 },
-    daily: dates.map((date, index) => ({ date: `2026-09-${date}`, sessions: counts[index] })),
+    daily: dates.map((date, index) => ({
+      date: `2026-09-${date}`,
+      sessions: counts[index],
+      completed_sessions: completed[index],
+      refreshes: refreshes[index],
+      menu_detail_opens: detailOpens[index],
+      map_opens: mapOpens[index],
+      shares: shares[index],
+      eaten_records: eatenRecords[index],
+      returning_sessions: returning[index],
+    })),
     restaurants: [{
       restaurant_id: "C010", restaurant_name: "따뜻한밥상", recommendation_exposures: 8,
       menu_detail_opens: 4, map_opens: 3, eaten_records: 2,
@@ -187,11 +218,11 @@ test("selected-range payload renders all dates including zero", () => {
   assert.equal(normalized.summary.sessions, 20);
   assert.equal(normalized.daily[2].sessions, 0);
   const html = runtime.renderAnalyticsDashboardMarkup(normalized);
-  ["선택 기간 요약", "날짜별 이용 세션", "재방문 현황", "재방문 세션 비중", "가게별 관심", "먹음 기록"]
+  ["선택 기간 요약", "날짜별 이용 추이", "재방문 현황", "재방문 세션 비중", "가게별 관심", "먹음 기록"]
     .forEach((label) => assert.match(html, new RegExp(label)));
   assert.match(html, /2026\.09\.10 ~ 2026\.09\.16/);
   assert.match(html, /datetime="2026-09-12"/);
-  assert.match(html, /2026\.09\.12 0세션/);
+  assert.match(html, /2026\.09\.12 이용 세션 0/);
   assert.doesNotMatch(html, /오늘 이용 세션|오늘 재방문 현황|최근 7일 가게별 관심/);
 });
 
@@ -199,7 +230,10 @@ test("zero-data is a valid one-day dashboard", () => {
   const payload = payloadFixture();
   payload.range = { ...payload.range, start_date: "2026-09-22", end_date: "2026-09-22", day_count: 1 };
   payload.summary = { sessions: 0, completed_sessions: 0, completion_rate: null, refreshes: 0, menu_detail_opens: 0, map_opens: 0, shares: 0, errors: 0, eaten_records: 0 };
-  payload.daily = [{ date: "2026-09-22", sessions: 0 }];
+  payload.daily = [{
+    date: "2026-09-22", sessions: 0, completed_sessions: 0, refreshes: 0,
+    menu_detail_opens: 0, map_opens: 0, shares: 0, eaten_records: 0, returning_sessions: 0,
+  }];
   payload.restaurants = [];
   payload.retention = {
     measured_sessions: 0, new_sessions: 0, returning_sessions: 0, unmeasured_sessions: 0,

@@ -99,6 +99,7 @@ const state = {
     requestEndDate: null,
     customStartDate: "",
     customEndDate: "",
+    selectedDailyMetric: "sessions",
   },
 };
 
@@ -223,6 +224,17 @@ const ANALYTICS_RANGE_PRESETS = Object.freeze([
   "custom",
 ]);
 
+const ANALYTICS_DAILY_METRICS = Object.freeze([
+  Object.freeze({ slug: "sessions", key: "sessions", label: "이용 세션" }),
+  Object.freeze({ slug: "completed_sessions", key: "completedSessions", label: "추천 완료 세션" }),
+  Object.freeze({ slug: "refreshes", key: "refreshes", label: "다른 메뉴 추천" }),
+  Object.freeze({ slug: "menu_detail_opens", key: "menuDetailOpens", label: "메뉴 상세" }),
+  Object.freeze({ slug: "map_opens", key: "mapOpens", label: "지도 열기" }),
+  Object.freeze({ slug: "shares", key: "shares", label: "공유" }),
+  Object.freeze({ slug: "eaten_records", key: "eatenRecords", label: "먹음 기록" }),
+  Object.freeze({ slug: "returning_sessions", key: "returningSessions", label: "재방문 세션" }),
+]);
+
 function analyticsCount(value) {
   return Number.isSafeInteger(value) && value >= 0 ? value : null;
 }
@@ -339,14 +351,24 @@ function normalizeAnalyticsDashboard(payload) {
   const normalizedDaily = [];
   for (let index = 0; index < daily.length; index += 1) {
     const row = daily[index];
-    const sessions = analyticsCount(row?.sessions);
-    if (row?.date !== expectedDates[index] || sessions === null) return null;
-    normalizedDaily.push(Object.freeze({ date: row.date, sessions }));
+    const normalizedRow = {
+      date: row?.date,
+      sessions: analyticsCount(row?.sessions),
+      completedSessions: analyticsCount(row?.completed_sessions),
+      refreshes: analyticsCount(row?.refreshes),
+      menuDetailOpens: analyticsCount(row?.menu_detail_opens),
+      mapOpens: analyticsCount(row?.map_opens),
+      shares: analyticsCount(row?.shares),
+      eatenRecords: analyticsCount(row?.eaten_records),
+      returningSessions: analyticsCount(row?.returning_sessions),
+    };
+    if (
+      normalizedRow.date !== expectedDates[index] ||
+      ANALYTICS_DAILY_METRICS.some(({ key }) => normalizedRow[key] === null)
+    ) return null;
+    normalizedDaily.push(Object.freeze(normalizedRow));
   }
-  if (
-    normalizedDaily.length !== dayCount ||
-    normalizedDaily.reduce((sum, row) => sum + row.sessions, 0) !== normalizedSummary.sessions
-  ) return null;
+  if (normalizedDaily.length !== dayCount) return null;
 
   const normalizedRetention = {
     measuredSessions: analyticsCount(retention.measured_sessions),
@@ -397,6 +419,19 @@ function normalizeAnalyticsDashboard(payload) {
     sourceReturningTotal !== normalizedRetention.returningSessions ||
     normalizedRetention.returningSessionShare !== expectedReturningShare
   ) return null;
+  const dailyExpectedTotals = {
+    sessions: normalizedSummary.sessions,
+    completedSessions: normalizedSummary.completedSessions,
+    refreshes: normalizedSummary.refreshes,
+    menuDetailOpens: normalizedSummary.menuDetailOpens,
+    mapOpens: normalizedSummary.mapOpens,
+    shares: normalizedSummary.shares,
+    eatenRecords: normalizedSummary.eatenRecords,
+    returningSessions: normalizedRetention.returningSessions,
+  };
+  if (ANALYTICS_DAILY_METRICS.some(({ key }) => (
+    normalizedDaily.reduce((sum, row) => sum + row[key], 0) !== dailyExpectedTotals[key]
+  ))) return null;
   normalizedRetention.returnGap = Object.freeze(normalizedReturnGap);
   normalizedRetention.firstAcquisitionSource = Object.freeze(normalizedFirstAcquisitionSource);
 
@@ -447,7 +482,72 @@ function analyticsRetentionMeasurementNote(range) {
   return `재방문 측정 시작 ${measuredFrom}`;
 }
 
-function renderAnalyticsDashboardMarkup(data, { preset = "last_7_days" } = {}) {
+function analyticsDailyMetricDefinition(slug) {
+  return ANALYTICS_DAILY_METRICS.find((metric) => metric.slug === slug) || ANALYTICS_DAILY_METRICS[0];
+}
+
+function analyticsDailyLabelIndexes(dayCount) {
+  if (!Number.isSafeInteger(dayCount) || dayCount < 1) return [];
+  if (dayCount <= 7) return Array.from({ length: dayCount }, (_, index) => index);
+  const step = Math.ceil((dayCount - 1) / (dayCount <= 31 ? 6 : 5));
+  const indexes = [];
+  for (let index = 0; index < dayCount; index += step) indexes.push(index);
+  if (indexes.at(-1) !== dayCount - 1) indexes.push(dayCount - 1);
+  return indexes;
+}
+
+function renderAnalyticsDailyChart(daily, selectedMetric) {
+  const metric = analyticsDailyMetricDefinition(selectedMetric);
+  const height = 260;
+  const plot = Object.freeze({ left: 9, right: 6, top: 22, bottom: 42 });
+  const plotWidth = 100 - plot.left - plot.right;
+  const plotHeight = height - plot.top - plot.bottom;
+  const maximum = Math.max(0, ...daily.map((row) => row[metric.key]));
+  const scaleMaximum = Math.max(1, maximum);
+  const xAt = (index) => daily.length === 1
+    ? plot.left + (plotWidth / 2)
+    : plot.left + ((index / (daily.length - 1)) * plotWidth);
+  const yAt = (value) => plot.top + plotHeight - ((value / scaleMaximum) * plotHeight);
+  const points = daily.map((row, index) => ({
+    date: row.date,
+    value: row[metric.key],
+    x: xAt(index),
+    y: yAt(row[metric.key]),
+  }));
+  const line = points.length > 1
+    ? points.slice(1).map((point, index) => {
+      const previous = points[index];
+      return `<line class="analytics-daily-line" x1="${previous.x.toFixed(3)}%" y1="${previous.y.toFixed(2)}" x2="${point.x.toFixed(3)}%" y2="${point.y.toFixed(2)}" />`;
+    }).join("")
+    : "";
+  const guideValues = [...new Set([0, 0.25, 0.5, 0.75, 1].map((ratio) => Math.round(scaleMaximum * ratio)))].sort((a, b) => a - b);
+  const guides = guideValues.map((value) => {
+    const y = yAt(value);
+    return `<g class="analytics-daily-guide"><line x1="${plot.left}%" x2="${100 - plot.right}%" y1="${y.toFixed(2)}" y2="${y.toFixed(2)}" /><text x="${plot.left - 1.5}%" y="${(y + 4).toFixed(2)}" text-anchor="end">${value}</text></g>`;
+  }).join("");
+  const dots = points.map((point, index) => `
+    <circle class="analytics-daily-point" data-analytics-point="${index}" cx="${point.x.toFixed(3)}%" cy="${point.y.toFixed(2)}" r="4">
+      <title>${formatAnalyticsDisplayDate(point.date)} ${metric.label} ${point.value}</title>
+    </circle>
+  `).join("");
+  const singleValueLabel = points.length === 1
+    ? `<text class="analytics-daily-point-value" x="${points[0].x.toFixed(3)}%" y="${Math.max(plot.top + 14, points[0].y - 13).toFixed(2)}" text-anchor="middle">${points[0].value}</text>`
+    : "";
+  const labels = analyticsDailyLabelIndexes(daily.length).map((index) => {
+    const point = points[index];
+    return `<text class="analytics-daily-axis-label" x="${point.x.toFixed(3)}%" y="${height - 14}" text-anchor="middle">${formatAnalyticsDisplayDate(point.date).slice(5)}</text>`;
+  }).join("");
+  return `
+    <div class="analytics-daily-chart-scroll">
+      <svg class="analytics-daily-chart" width="100%" height="${height}" role="img" aria-label="${escapeHtml(metric.label)} 날짜별 추이">
+        <title>${escapeHtml(metric.label)} 날짜별 추이</title>
+        ${guides}${line}${dots}${singleValueLabel}${labels}
+      </svg>
+    </div>
+  `;
+}
+
+function renderAnalyticsDashboardMarkup(data, { preset = "last_7_days", selectedDailyMetric = "sessions" } = {}) {
   const completionRate = data.summary.completionRate === null ? "-" : `${data.summary.completionRate.toFixed(1).replace(/\.0$/, "")}%`;
   const returningSessionShare = data.retention.returningSessionShare === null
     ? "-"
@@ -482,16 +582,21 @@ function renderAnalyticsDashboardMarkup(data, { preset = "last_7_days" } = {}) {
       </div>
     `;
   }).join("");
-  const maxDailySessions = Math.max(0, ...data.daily.map((row) => row.sessions));
+  const dailyMetric = analyticsDailyMetricDefinition(selectedDailyMetric);
+  const maxDailyValue = Math.max(0, ...data.daily.map((row) => row[dailyMetric.key]));
+  const dailyMetricOptions = ANALYTICS_DAILY_METRICS.map((metric) => `
+    <option value="${metric.slug}"${metric.slug === dailyMetric.slug ? " selected" : ""}>${escapeHtml(metric.label)}</option>
+  `).join("");
   const dailyRows = data.daily.map((row) => {
-    const percentage = maxDailySessions > 0 ? (row.sessions / maxDailySessions) * 100 : 0;
+    const value = row[dailyMetric.key];
+    const percentage = maxDailyValue > 0 ? (value / maxDailyValue) * 100 : 0;
     return `
       <div class="analytics-daily-row">
         <time datetime="${row.date}">${formatAnalyticsDisplayDate(row.date).slice(5)}</time>
-        <div class="analytics-daily-track" aria-label="${formatAnalyticsDisplayDate(row.date)} ${row.sessions}세션">
+        <div class="analytics-daily-track" aria-label="${formatAnalyticsDisplayDate(row.date)} ${escapeHtml(dailyMetric.label)} ${value}">
           <span style="width: ${percentage.toFixed(1)}%"></span>
         </div>
-        <strong>${row.sessions}</strong>
+        <strong>${value}</strong>
       </div>
     `;
   }).join("");
@@ -544,11 +649,16 @@ function renderAnalyticsDashboardMarkup(data, { preset = "last_7_days" } = {}) {
     </section>
     <section class="analytics-section" aria-labelledby="analyticsDailyTitle">
       <div class="analytics-section-heading">
-        <h3 id="analyticsDailyTitle">날짜별 이용 세션</h3>
+        <h3 id="analyticsDailyTitle">날짜별 이용 추이</h3>
         <span>세션이 없는 날짜도 포함</span>
       </div>
+      <div class="analytics-daily-toolbar">
+        <label for="analyticsDailyMetric">그래프 지표</label>
+        <select id="analyticsDailyMetric" data-analytics-daily-metric>${dailyMetricOptions}</select>
+      </div>
+      ${renderAnalyticsDailyChart(data.daily, dailyMetric.slug)}
       <details class="analytics-daily-details"${data.range.dayCount <= 30 ? " open" : ""}>
-        <summary>${data.range.dayCount}일 내역</summary>
+        <summary>${dailyMetric.label} · ${data.range.dayCount}일 내역</summary>
         <div class="analytics-daily-list">${dailyRows}</div>
       </details>
     </section>
@@ -617,17 +727,22 @@ function renderAnalyticsDashboard() {
   if (state.analytics.loading) {
     els.analyticsStatus.hidden = false;
     els.analyticsStatus.textContent = "사용 현황을 불러오는 중...";
+    els.analyticsContent.replaceChildren();
     els.analyticsContent.hidden = true;
     return;
   }
   if (state.analytics.error || !state.analytics.data) {
     els.analyticsStatus.hidden = false;
     els.analyticsStatus.textContent = "사용 현황을 불러오지 못했습니다.";
+    els.analyticsContent.replaceChildren();
     els.analyticsContent.hidden = true;
     return;
   }
   els.analyticsStatus.hidden = true;
-  els.analyticsContent.innerHTML = renderAnalyticsDashboardMarkup(state.analytics.data, { preset: state.analytics.preset });
+  els.analyticsContent.innerHTML = renderAnalyticsDashboardMarkup(state.analytics.data, {
+    preset: state.analytics.preset,
+    selectedDailyMetric: state.analytics.selectedDailyMetric,
+  });
   els.analyticsContent.hidden = false;
 }
 
@@ -643,6 +758,7 @@ function resetAnalyticsDashboardState() {
     requestEndDate: null,
     customStartDate: "",
     customEndDate: "",
+    selectedDailyMetric: "sessions",
   };
   setAnalyticsRangeError();
   renderAnalyticsRangeControls();
@@ -2848,6 +2964,12 @@ function bindEvents() {
     state.analytics.customEndDate = els.analyticsEndDate?.value || "";
     setAnalyticsRangeError();
   }));
+  document.body.addEventListener("change", (event) => {
+    if (!event.target.matches("[data-analytics-daily-metric]")) return;
+    const selected = analyticsDailyMetricDefinition(event.target.value);
+    state.analytics.selectedDailyMetric = selected.slug;
+    renderAnalyticsDashboard();
+  });
   els.refreshReviews.addEventListener("click", loadReviews);
   els.refreshReports.addEventListener("click", loadReports);
   els.refreshCatalog?.addEventListener("click", loadCatalog);
