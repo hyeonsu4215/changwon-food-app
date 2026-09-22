@@ -1949,6 +1949,80 @@ button:disabled {
   border-top: 1px dashed var(--line);
 }
 
+.analytics-daily-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 9px;
+  margin: 12px 0 8px;
+}
+
+.analytics-daily-toolbar label {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.analytics-daily-toolbar select {
+  width: min(100%, 190px);
+  min-height: 40px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #fff;
+  color: var(--ink);
+  font: inherit;
+  font-weight: 800;
+}
+
+.analytics-daily-chart-scroll {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  border-top: 1px solid var(--line);
+}
+
+.analytics-daily-chart {
+  display: block;
+  width: 100%;
+  max-width: 720px;
+  min-width: 0;
+  height: 260px;
+  margin: 0 auto;
+  color: var(--muted);
+}
+
+.analytics-daily-guide line {
+  stroke: var(--line);
+  stroke-width: 1;
+}
+
+.analytics-daily-guide text,
+.analytics-daily-axis-label {
+  fill: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.analytics-daily-line {
+  fill: none;
+  stroke: var(--mint);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 3;
+}
+
+.analytics-daily-point {
+  fill: #fff;
+  stroke: var(--mint);
+  stroke-width: 3;
+}
+
+.analytics-daily-point-value {
+  fill: var(--ink);
+  font-size: 13px;
+  font-weight: 900;
+}
+
 .analytics-daily-details {
   border-top: 1px solid var(--line);
 }
@@ -2298,6 +2372,15 @@ button:disabled {
   .analytics-daily-row {
     grid-template-columns: 50px minmax(0, 1fr) 34px;
     gap: 7px;
+  }
+
+  .analytics-daily-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .analytics-daily-toolbar select {
+    width: 100%;
   }
 
   .analytics-retention-kpi-grid,
