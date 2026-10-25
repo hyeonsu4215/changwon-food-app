@@ -211,6 +211,10 @@ const state = {
   lastSyncAt: "",
   pendingReviewRetry: null,
   supabaseInitPromise: null,
+  supabaseAuthPromise: null,
+  supabaseUserGeneration: 0,
+  remoteSummaryRequestId: 0,
+  communityController: null,
   worldcup: null,
   worldcupCategories: new Set(),
   activeTab: "recommendTab",
@@ -2838,7 +2842,9 @@ async function saveReview(id) {
   state.pendingReviewRetry = null;
   render();
   toast("서버 공유 중...");
+  const generation = state.supabaseUserGeneration;
   const synced = await upsertRemoteReview(review);
+  if (generation !== state.supabaseUserGeneration) return;
   state.syncStatus = synced ? "synced" : "failed";
   state.pendingReviewRetry = synced ? null : review;
   toast(synced ? "후기 공유 완료!" : "서버 공유 실패");
@@ -2851,23 +2857,36 @@ async function deleteReview(id) {
   delete state.reviews[id];
   saveReviews();
   state.syncStatus = "saving";
+  const generation = state.supabaseUserGeneration;
   toast("후기 삭제!");
   if (state.supabase && state.supabaseUserId) {
     const result = await supabaseRest(`/menu_reviews?user_id=eq.${encodeURIComponent(state.supabaseUserId)}&menu_id=eq.${encodeURIComponent(id)}`, {
       method: "DELETE",
       headers: { Prefer: "return=minimal" },
     });
+    if (generation !== state.supabaseUserGeneration) return;
     if (!result.ok) console.warn("review delete failed", result.error);
     await loadRemoteSummaries();
   }
+  if (generation !== state.supabaseUserGeneration) return;
   state.syncStatus = "synced";
   render();
 }
 
 async function ensureSupabaseReady() {
   if (state.supabase && state.supabaseUserId) return true;
+  if (!state.supabaseAuthPromise) {
+    state.supabaseAuthPromise = initializeSupabaseAuth().finally(() => {
+      state.supabaseAuthPromise = null;
+    });
+  }
+  return state.supabaseAuthPromise;
+}
+
+async function initializeSupabaseAuth() {
+  await window.CHANGWON_SUPABASE_CONFIG_READY;
   const config = window.CHANGWON_SUPABASE_CONFIG;
-  if (!config?.enabled || !config.url || !config.anonKey) {
+  if (!window.CHANGWON_IS_SUPABASE_CONFIG_ALLOWED?.(config)) {
     state.supabaseError = "Supabase 설정이 꺼져 있어요.";
     return false;
   }
@@ -2879,7 +2898,20 @@ async function ensureSupabaseReady() {
     return false;
   }
   if (!state.supabase) {
-    state.supabase = window.supabase.createClient(config.url, config.anonKey);
+    state.supabase = window.CHANGWON_COMMUNITY_PREVIEW_ENABLED
+      ? window.supabase.createClient(config.url, config.anonKey, { auth: { flowType: "pkce", detectSessionInUrl: false } })
+      : window.supabase.createClient(config.url, config.anonKey);
+  }
+  if (window.CHANGWON_COMMUNITY_PREVIEW_ENABLED) {
+    const callback = await window.MukjjiCommunity.completeOAuthReturn(
+      state.supabase.auth,
+      window.location.href,
+      (href) => history.replaceState(history.state, "", href),
+    );
+    if (callback.handled) {
+      state.communityAuthReturned = true;
+      state.communityAuthMessage = callback.error ? callback.message || "카카오 인증을 완료하지 못했어요. 다시 시도해주세요." : "";
+    }
   }
   const auth = await state.supabase.auth.getSession().catch(() => null);
   if (!auth?.data?.session && state.supabase.auth.signInAnonymously) {
@@ -2891,6 +2923,9 @@ async function ensureSupabaseReady() {
   }
   const user = await state.supabase.auth.getUser().catch(() => null);
   state.supabaseUserId = user?.data?.user?.id || null;
+  if (state.communityAuthReturned && !state.communityAuthMessage && !window.MukjjiCommunity?.isKakaoUser(user?.data?.user)) {
+    state.communityAuthMessage = "카카오 인증을 완료하지 못했어요. 다시 시도해주세요.";
+  }
   state.supabaseReady = Boolean(state.supabaseUserId);
   if (!state.supabaseReady && !state.supabaseError) {
     state.supabaseError = "익명 사용자 정보를 만들지 못했어요.";
@@ -2898,10 +2933,70 @@ async function ensureSupabaseReady() {
   return state.supabaseReady;
 }
 
+function handleCommunityAuthChange(user) {
+  const nextUserId = user?.id || null;
+  const changed = state.supabaseUserId !== nextUserId;
+  state.supabaseUserId = nextUserId;
+  state.supabaseReady = Boolean(nextUserId);
+  if (!changed) return;
+  const generation = ++state.supabaseUserGeneration;
+  state.remoteSummaryRequestId += 1;
+  state.myReports = [];
+  state.pendingReviewRetry = null;
+  state.syncStatus = "idle";
+  state.lastSyncAt = "";
+  state.supabaseError = "";
+  render();
+  if (nextUserId) {
+    // Auth callbacks must finish before starting another Supabase operation.
+    window.setTimeout(() => {
+      if (generation === state.supabaseUserGeneration && nextUserId === state.supabaseUserId) {
+        void loadRemoteSummaries();
+      }
+    }, 0);
+  }
+}
+
+function mountCommunity() {
+  if (state.communityController || !window.MukjjiCommunity || !state.supabase) return;
+  const byId = (id) => document.getElementById(id);
+  state.communityController = window.MukjjiCommunity.createController(state.supabase, {
+    back: byId("communityBack"),
+    authStatus: byId("communityAuthStatus"),
+    login: byId("communityLogin"),
+    logout: byId("communityLogout"),
+    message: byId("communityMessage"),
+    form: byId("communityForm"),
+    titleInput: byId("communityTitleInput"),
+    bodyInput: byId("communityBodyInput"),
+    list: byId("communityList"),
+    empty: byId("communityEmpty"),
+    listSection: byId("communityListSection"),
+    detail: byId("communityDetail"),
+    detailTitle: byId("communityDetailTitle"),
+    detailBody: byId("communityDetailBody"),
+    detailDate: byId("communityDetailDate"),
+    deleteButton: byId("communityDelete"),
+    deleteDialog: byId("communityDeleteDialog"),
+    cancelDelete: byId("communityCancelDelete"),
+    confirmDelete: byId("communityConfirmDelete"),
+  }, () => switchTab("dataTab"), handleCommunityAuthChange);
+  state.communityController.mount();
+  renderDashboard();
+  if (state.communityAuthReturned) {
+    switchTab("communityTab");
+    state.communityController.open().finally(() => {
+      if (state.communityAuthMessage) state.communityController.setMessage(state.communityAuthMessage);
+    });
+    state.communityAuthReturned = false;
+  }
+}
+
 async function initSupabase() {
   if (state.supabaseInitPromise) return state.supabaseInitPromise;
   state.supabaseInitPromise = (async () => {
     const ready = await ensureSupabaseReady();
+    if (window.CHANGWON_COMMUNITY_PREVIEW_ENABLED && state.supabase) mountCommunity();
     if (ready) {
       await loadRemoteCatalog();
       await loadRemoteSummaries();
@@ -2965,14 +3060,20 @@ async function loadRemoteCatalog() {
 }
 
 async function loadRemoteSummaries() {
-  if (!state.supabase) return;
+  const client = state.supabase;
+  const userId = state.supabaseUserId;
+  if (!client || !userId) return;
+  const generation = state.supabaseUserGeneration;
+  const requestId = ++state.remoteSummaryRequestId;
   state.syncStatus = state.syncStatus === "saving" ? "saving" : "refreshing";
   const [tasteResult, reviewResult, reviewRows, reportRows] = await Promise.all([
-    state.supabase.from("menu_taste_summary").select("*"),
-    state.supabase.from("menu_review_summary").select("*"),
-    state.supabase.from("menu_reviews").select("id,user_id,menu_id,nickname,rating,hygiene,kindness,review_text,created_at,updated_at").eq("status", "visible").order("created_at", { ascending: false }).limit(200),
-    state.supabase.from("info_reports").select("id,report_type,target_type,target_id,target_label,message,status,created_at,updated_at").order("created_at", { ascending: false }).limit(30),
+    client.from("menu_taste_summary").select("*"),
+    client.from("menu_review_summary").select("*"),
+    client.from("menu_reviews").select("id,user_id,menu_id,nickname,rating,hygiene,kindness,review_text,created_at,updated_at").eq("status", "visible").order("created_at", { ascending: false }).limit(200),
+    client.from("info_reports").select("id,report_type,target_type,target_id,target_label,message,status,created_at,updated_at").eq("user_id", userId).order("created_at", { ascending: false }).limit(30),
   ]).catch(() => []);
+  if (generation !== state.supabaseUserGeneration || userId !== state.supabaseUserId ||
+      client !== state.supabase || requestId !== state.remoteSummaryRequestId) return;
 
   if (tasteResult?.data) {
     state.publicTasteSummary = Object.fromEntries(tasteResult.data.map((row) => [row.menu_id, row]));
@@ -2990,13 +3091,16 @@ async function loadRemoteSummaries() {
   if (reportRows?.data) {
     state.myReports = reportRows.data;
   }
-  state.lastSyncAt = new Date().toISOString();
-  state.syncStatus = "synced";
+  const failed = [tasteResult, reviewResult, reviewRows, reportRows].some((result) => !result || result.error);
+  state.lastSyncAt = failed ? "" : new Date().toISOString();
+  state.syncStatus = failed ? "failed" : "synced";
   render();
 }
 
 async function refreshRemoteData() {
+  const generation = state.supabaseUserGeneration;
   const ready = await ensureSupabaseReady();
+  if (generation !== state.supabaseUserGeneration) return;
   if (!ready) {
     state.syncStatus = "failed";
     render();
@@ -3004,7 +3108,9 @@ async function refreshRemoteData() {
     return;
   }
   await loadRemoteCatalog();
+  if (generation !== state.supabaseUserGeneration) return;
   await loadRemoteSummaries();
+  if (generation !== state.supabaseUserGeneration) return;
   toast("평균 데이터 갱신!");
 }
 
@@ -3015,7 +3121,10 @@ async function retryPendingReview() {
   }
   state.syncStatus = "saving";
   render();
-  const synced = await upsertRemoteReview(state.pendingReviewRetry);
+  const generation = state.supabaseUserGeneration;
+  const review = state.pendingReviewRetry;
+  const synced = await upsertRemoteReview(review);
+  if (generation !== state.supabaseUserGeneration) return;
   state.syncStatus = synced ? "synced" : "failed";
   state.pendingReviewRetry = synced ? null : state.pendingReviewRetry;
   render();
@@ -3023,9 +3132,15 @@ async function retryPendingReview() {
 }
 
 async function supabaseRest(path, options = {}) {
+  const generation = state.supabaseUserGeneration;
+  const userId = state.supabaseUserId;
+  await window.CHANGWON_SUPABASE_CONFIG_READY;
   const config = window.CHANGWON_SUPABASE_CONFIG;
-  if (!config?.url || !config?.anonKey) return { ok: false, error: "Supabase 설정이 없습니다." };
+  if (!window.CHANGWON_IS_SUPABASE_CONFIG_ALLOWED?.(config)) return { ok: false, error: "Supabase 설정이 없습니다." };
   const sessionResult = await state.supabase?.auth.getSession().catch(() => null);
+  if (generation !== state.supabaseUserGeneration || userId !== state.supabaseUserId) {
+    return { ok: false, error: "로그인 상태가 변경됐어요. 다시 시도해주세요." };
+  }
   const accessToken = sessionResult?.data?.session?.access_token || config.anonKey;
   const controller = new AbortController();
   const timer = window.setTimeout(() => controller.abort(), 10000);
@@ -3060,8 +3175,9 @@ async function supabaseRest(path, options = {}) {
 }
 
 async function upsertRemoteTaste(menuId, taste) {
+  const generation = state.supabaseUserGeneration;
   const ready = await ensureSupabaseReady();
-  if (!ready) return false;
+  if (!ready || generation !== state.supabaseUserGeneration) return false;
   const result = await supabaseRest("/menu_taste_votes?on_conflict=user_id,menu_id", {
     method: "POST",
     headers: { Prefer: "resolution=merge-duplicates,return=representation" },
@@ -3073,6 +3189,7 @@ async function upsertRemoteTaste(menuId, taste) {
       sweet: clampScore(taste.sweet),
     }),
   });
+  if (generation !== state.supabaseUserGeneration) return false;
   if (!result.ok) {
     state.supabaseError = result.error || "입맛 공유 저장에 실패했어요.";
     console.warn("taste sync failed", result.error);
@@ -3083,7 +3200,9 @@ async function upsertRemoteTaste(menuId, taste) {
 }
 
 async function upsertRemoteReview(review) {
+  const generation = state.supabaseUserGeneration;
   const ready = await ensureSupabaseReady();
+  if (generation !== state.supabaseUserGeneration) return false;
   if (!ready) {
     console.warn("review sync skipped", state.supabaseError || "Supabase is not ready");
     return false;
@@ -3103,6 +3222,7 @@ async function upsertRemoteReview(review) {
       status: "visible",
     }),
   });
+  if (generation !== state.supabaseUserGeneration) return false;
   if (!result.ok) {
     state.supabaseError = result.error || "후기 공유 저장에 실패했어요.";
     console.warn("review sync failed", result.error);
@@ -3130,7 +3250,9 @@ async function submitInfoReport(event) {
     toast("제보 내용을 입력해주세요");
     return;
   }
+  const generation = state.supabaseUserGeneration;
   const ready = await ensureSupabaseReady();
+  if (generation !== state.supabaseUserGeneration) return;
   if (!ready) {
     toast("서버 연결 실패");
     window.open(FEEDBACK_FORM_URL, "_blank", "noopener,noreferrer");
@@ -3150,6 +3272,7 @@ async function submitInfoReport(event) {
       status: "pending",
     }),
   });
+  if (generation !== state.supabaseUserGeneration) return;
   if (!result.ok) {
     console.warn("info report failed", result.error);
     toast("제보 저장 실패");
@@ -3570,6 +3693,13 @@ function renderDashboard() {
       : "";
   els.dataDashboard.innerHTML = `
     ${syncNotice}
+    ${window.CHANGWON_COMMUNITY_PREVIEW_ENABLED && state.supabase ? `
+      <div class="dashboard-card community-entry-card">
+        <h3>묵찌 이야기</h3>
+        <p>창원대 앞 음식 이야기를 나눠보세요.</p>
+        <button type="button" data-open-community>게시글 보기</button>
+      </div>
+    ` : ""}
     <div class="dashboard-card privacy-card">
       <h3>내 기록 설정</h3>
       <label class="profile-field">
@@ -3752,7 +3882,7 @@ async function copyServiceContactEmail() {
 
 function switchTab(tabId, options = {}) {
   document.querySelectorAll(".tab-panel").forEach((panel) => panel.classList.toggle("is-active", panel.id === tabId));
-  document.querySelectorAll(".bottom-nav button").forEach((button) => button.classList.toggle("is-active", button.dataset.tab === tabId));
+  document.querySelectorAll(".bottom-nav button").forEach((button) => button.classList.toggle("is-active", button.dataset.tab === (tabId === "communityTab" ? "dataTab" : tabId)));
   state.activeTab = tabId;
   closeRoulette();
   if (options.pushHistory !== false) pushAppState(tabId);
@@ -4207,6 +4337,10 @@ function handlePopNavigation() {
     closeServiceInfoView();
     return;
   }
+  if (state.activeTab === "communityTab") {
+    switchTab("dataTab", { pushHistory: false });
+    return;
+  }
   const parsed = parseSharedPickFromUrl();
   if (parsed.present) {
     setSharedPickState(parsed, FALLBACK_LOCATION);
@@ -4310,6 +4444,11 @@ function bindEvents() {
   });
   document.body.addEventListener("click", (event) => {
     rememberExternalLinkClick(event);
+    if (event.target.closest("[data-open-community]") && state.communityController) {
+      switchTab("communityTab");
+      state.communityController.open();
+      return;
+    }
     const serviceInfoButton = event.target.closest("[data-open-service-info]");
     if (serviceInfoButton) {
       openServiceInfoView(serviceInfoButton.dataset.openServiceInfo);

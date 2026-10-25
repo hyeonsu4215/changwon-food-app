@@ -259,7 +259,7 @@ test("support SQL is read-only and rollback restores only the v2 function body",
   assert.doesNotMatch(rollback, /'completed_sessions', metric\.completed_sessions/);
 });
 
-test("service worker advances only to cache v65", () => {
-  assert.match(swJs, /const CACHE_NAME = `\$\{CACHE_PREFIX\}v65`/);
-  assert.doesNotMatch(swJs, /v66|v64`/);
+test("service worker advances only to cache v66", () => {
+  assert.match(swJs, /const CACHE_NAME = `\$\{CACHE_PREFIX\}v66`/);
+  assert.doesNotMatch(swJs, /v65`|v64`/);
 });

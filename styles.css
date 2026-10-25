@@ -461,6 +461,136 @@ body.has-recommendations main {
   display: block;
 }
 
+.community-tab {
+  padding-bottom: 12px;
+}
+
+.community-heading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.community-heading h2 {
+  margin: 0;
+  font-size: 22px;
+}
+
+.community-back,
+.community-auth button,
+.community-form button,
+.community-detail button,
+.community-dialog-actions button {
+  min-height: 44px;
+  padding: 8px 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--primary);
+  font-weight: 700;
+}
+
+.community-auth,
+.community-form,
+.community-detail,
+.community-list {
+  display: grid;
+  gap: 12px;
+}
+
+.community-auth,
+.community-form,
+.community-detail {
+  margin: 12px 0;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.community-auth p,
+.community-form h3,
+.community-detail h3 {
+  margin: 0;
+}
+
+.community-form label {
+  display: grid;
+  gap: 6px;
+  font-weight: 700;
+}
+
+.community-form input,
+.community-form textarea {
+  width: 100%;
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--ink);
+  background: #fff;
+  font-weight: 500;
+}
+
+.community-form textarea {
+  resize: vertical;
+}
+
+.community-list {
+  margin-top: 12px;
+}
+
+.community-post-row {
+  display: grid;
+  gap: 4px;
+  width: 100%;
+  min-width: 0;
+  min-height: 58px;
+  padding: 10px 12px;
+  text-align: left;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.community-post-row strong,
+.community-detail h3,
+.community-detail p {
+  overflow-wrap: anywhere;
+}
+
+.community-post-row span,
+.community-detail time {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.community-detail p {
+  margin: 0;
+  white-space: pre-wrap;
+  line-height: 1.65;
+}
+
+.community-message:not(:empty) {
+  padding: 10px 12px;
+  color: var(--danger);
+}
+
+.community-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.community-entry-card button {
+  min-height: 44px;
+}
+
+.community-tab [hidden],
+#communityDeleteDialog[hidden] {
+  display: none;
+}
+
 .control-surface,
 .menu-card,
 .worldcup-start,

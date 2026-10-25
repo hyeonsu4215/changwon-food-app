@@ -23,6 +23,7 @@ function isFresh(fetchedAt) {
 }
 
 async function readCache() {
+  if (process.env.VERCEL_ENV !== "production") return memoryCache;
   const { SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY } = process.env;
   if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) return memoryCache;
   const response = await fetch(`${SUPABASE_URL}/rest/v1/weather_cache?id=eq.${CACHE_ID}&select=*`, {
@@ -39,6 +40,7 @@ async function readCache() {
 async function writeCache(payload) {
   const row = { id: CACHE_ID, payload, fetched_at: payload.fetchedAt };
   memoryCache = row;
+  if (process.env.VERCEL_ENV !== "production") return;
   const { SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY } = process.env;
   if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) return;
   await fetch(`${SUPABASE_URL}/rest/v1/weather_cache?on_conflict=id`, {

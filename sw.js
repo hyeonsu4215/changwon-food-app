@@ -1,5 +1,5 @@
 const CACHE_PREFIX = "changwon-food-app-";
-const CACHE_NAME = `${CACHE_PREFIX}v65`;
+const CACHE_NAME = `${CACHE_PREFIX}v66`;
 const CORE_ASSETS = [
   "./",
   "./index.html",
@@ -8,6 +8,8 @@ const CORE_ASSETS = [
   "./data.js",
   "./catalog-policy.js",
   "./analytics-client.js",
+  "./community-mvp.js",
+  "./supabase-config.js",
   "./manifest.webmanifest",
 ];
 const MUKJJI_CORE_ASSETS = [
@@ -24,7 +26,6 @@ const STATIC_ASSETS = [
   "./admin.js",
   "./food-character-admin.js",
   "./weekly-hours-admin.js",
-  "./supabase-config.js",
   "./assets/icons/apple-touch-icon-180.png",
   "./assets/icons/favicon-32.png",
   "./assets/icons/icon-192.png",
@@ -41,7 +42,7 @@ const STATIC_ASSETS = [
   "./assets/categories/western.png",
 ];
 const PRECACHE_ASSETS = [...CORE_ASSETS, ...MUKJJI_CORE_ASSETS, ...STATIC_ASSETS];
-const NETWORK_FIRST_PATHS = new Set(["/", "/index.html", "/app.js", "/analytics-client.js", "/styles.css", "/data.js", "/manifest.webmanifest"]);
+const NETWORK_FIRST_PATHS = new Set(["/", "/index.html", "/app.js", "/analytics-client.js", "/community-mvp.js", "/supabase-config.js", "/styles.css", "/data.js", "/manifest.webmanifest"]);
 
 function outdatedAppCacheNames(cacheNames) {
   return cacheNames.filter((cacheName) => cacheName.startsWith(CACHE_PREFIX) && cacheName !== CACHE_NAME);

@@ -283,6 +283,35 @@
             묵찌 PICK!은 국립창원대학교 공식 앱이 아닌 학생 편의 서비스입니다.
           </p>
         </section>
+        <section id="communityTab" class="tab-panel community-tab" aria-labelledby="communityHeading">
+          <div class="section-heading community-heading">
+            <button id="communityBack" type="button" class="community-back">뒤로</button>
+            <h2 id="communityHeading">묵찌 이야기</h2>
+          </div>
+          <div class="community-auth">
+            <p id="communityAuthStatus" role="status">로그인 없이 게시글을 읽을 수 있어요.</p>
+            <button id="communityLogin" type="button">카카오 로그인</button>
+            <button id="communityLogout" type="button" hidden>로그아웃</button>
+          </div>
+          <p id="communityMessage" class="community-message" role="status" aria-live="polite"></p>
+          <div id="communityListSection">
+            <form id="communityForm" class="community-form" hidden>
+              <h3>글 쓰기</h3>
+              <p>작성한 글은 누구나 볼 수 있어요.</p>
+              <label>제목<input id="communityTitleInput" name="title" maxlength="80" required /></label>
+              <label>내용<textarea id="communityBodyInput" name="body" maxlength="3000" rows="5" required></textarea></label>
+              <button type="submit">게시글 올리기</button>
+            </form>
+            <div id="communityList" class="community-list" aria-label="게시글 목록"></div>
+            <p id="communityEmpty">아직 게시글이 없어요.</p>
+          </div>
+          <article id="communityDetail" class="community-detail" hidden>
+            <h3 id="communityDetailTitle" tabindex="-1"></h3>
+            <time id="communityDetailDate"></time>
+            <p id="communityDetailBody"></p>
+            <button id="communityDelete" type="button" hidden>내 글 삭제</button>
+          </article>
+        </section>
       </main>
 
       <nav class="bottom-nav" aria-label="하단 메뉴">
@@ -318,6 +347,15 @@
         </button>
       </nav>
     </div>
+
+    <dialog id="communityDeleteDialog" aria-labelledby="communityDeleteTitle">
+      <h2 id="communityDeleteTitle">게시글을 삭제할까요?</h2>
+      <p>삭제한 게시글은 되돌릴 수 없어요.</p>
+      <div class="community-dialog-actions">
+        <button id="communityCancelDelete" type="button">취소</button>
+        <button id="communityConfirmDelete" type="button">삭제</button>
+      </div>
+    </dialog>
 
     <section id="serviceInfoView" class="service-info-view" aria-labelledby="serviceInfoTitle" hidden>
       <div class="service-info-shell">
@@ -555,6 +593,7 @@
     <script src="./catalog-policy.js"></script>
     <script src="./supabase-config.js"></script>
     <script src="./analytics-client.js"></script>
+    <script src="./community-mvp.js"></script>
     <script src="./app.js"></script>
   </body>
 </html>
