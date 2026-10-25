@@ -41,7 +41,7 @@ test("only verified non-anonymous Kakao identity can author", () => {
 
 test("OAuth starts by linking an anonymous identity and does not silently merge on failure", async () => {
   const client = clientFor(anonymous);
-  client.from = () => ({ select() { return this; }, async eq() { return { count: 1 }; } });
+  client.from = () => ({ select() { return this; }, eq() { return this; }, async limit() { return { count: 1 }; } });
   const url = await createService(client).startLogin("https://preview.example/?communityAuth=1");
   assert.equal(url, "https://test.example/oauth");
   assert.equal(client.calls[0][0], "linkIdentity");
@@ -57,7 +57,7 @@ test("an anonymous session without remote reviews, taste votes, or reports can s
   const checked = [];
   client.from = (table) => {
     checked.push(table);
-    return { select() { return this; }, async eq() { return { count: 0 }; } };
+    return { select() { return this; }, eq() { return this; }, async limit() { return { count: 0 }; } };
   };
   await createService(client).startLogin("https://preview.example/");
   assert.deepEqual(checked, ["menu_reviews", "menu_taste_votes", "info_reports"]);
@@ -67,7 +67,7 @@ test("an anonymous session without remote reviews, taste votes, or reports can s
 
 test("uncertain anonymous contribution lookup preserves the account by requiring identity linking", async () => {
   const client = clientFor(anonymous);
-  client.from = () => ({ select() { return this; }, async eq() { return { error: new Error("offline") }; } });
+  client.from = () => ({ select() { return this; }, eq() { return this; }, async limit() { return { error: new Error("offline") }; } });
   await createService(client).startLogin("https://preview.example/");
   assert.equal(client.calls.some(([name]) => name === "linkIdentity"), true);
 });

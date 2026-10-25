@@ -33,6 +33,16 @@
     return Boolean(isKakaoUser(user) && post?.author_id === user.id);
   }
 
+  function isMissingContributionTable(result, table) {
+    if (result.status !== 404) return false;
+    const error = result.error;
+    if (error?.code === "PGRST205") {
+      return error.message === `Could not find the table 'public.${table}' in the schema cache`;
+    }
+    return error?.code === "42P01" &&
+      [table, `public.${table}`].some((name) => error.message === `relation "${name}" does not exist`);
+  }
+
   async function completeOAuthReturn(auth, href, replaceUrl) {
     const url = new URL(href);
     if (!url.searchParams.has("communityAuth")) return { handled: false, error: "" };
@@ -72,7 +82,9 @@
     async function anonymousHasRemoteContributions(userId) {
       for (const table of ["menu_reviews", "menu_taste_votes", "info_reports"]) {
         try {
-          const result = await client.from(table).select("user_id", { count: "exact", head: true }).eq("user_id", userId);
+          // HEAD hides error bodies; a bounded GET distinguishes missing tables from denied access.
+          const result = await client.from(table).select("user_id", { count: "exact" }).eq("user_id", userId).limit(1);
+          if (isMissingContributionTable(result, table)) continue;
           if (result.error || !Number.isInteger(result.count) || result.count !== 0) return true;
         } catch {
           return true;

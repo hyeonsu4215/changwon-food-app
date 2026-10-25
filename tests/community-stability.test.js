@@ -59,13 +59,13 @@ function harness(t, options = {}) {
     },
     from(table) {
       let id;
-      let head = false;
+      let counting = false;
       let deleting = false;
       return {
-        select(fields, options) { head = Boolean(options?.head); return this; },
+        select(fields, options) { counting = options?.count === "exact"; return this; },
         order() { return this; },
-        eq(key, value) { if (key === "id") id = value; if (head) events.ownership.push({ table, key, value }); return this; },
-        async limit() { return { data: posts }; },
+        eq(key, value) { if (key === "id") id = value; if (counting) events.ownership.push({ table, key, value }); return this; },
+        async limit() { return counting ? options.countResult?.(table) || { count: 0 } : { data: posts }; },
         delete() { deleting = true; return this; },
         async single() {
           if (deleting) {
@@ -165,10 +165,10 @@ test("reports without a UID or owned by another user do not count as this anonym
   const filters = [];
   h.client.from = (table) => ({
     select() { return this; },
-    async eq(key, value) {
+    eq(key, value) {
       filters.push({ table, key, value });
       const rows = table === "info_reports" ? [{ user_id: null }, { user_id: "other-user" }] : [];
-      return { count: rows.filter((row) => row[key] === value).length };
+      return { async limit() { return { count: rows.filter((row) => row[key] === value).length }; } };
     },
   });
   await createService(h.client).startLogin("https://preview.invalid/");
