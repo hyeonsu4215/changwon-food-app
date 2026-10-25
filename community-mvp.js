@@ -95,9 +95,10 @@
 
     return {
       currentUser,
-      async startLogin(redirectTo) {
+      async startLogin(redirectTo, { reauthenticate = false } = {}) {
         const user = await currentUser();
         const options = { redirectTo };
+        if (reauthenticate === true) options.queryParams = { prompt: "login" };
         const preserveAnonymous = user?.is_anonymous && await anonymousHasRemoteContributions(user.id);
         const result = preserveAnonymous
           ? await client.auth.linkIdentity({ provider: "kakao", options })
@@ -189,6 +190,8 @@
       elements.authStatus.textContent = kakao ? "카카오 로그인 중" : "로그인 없이 게시글을 읽을 수 있어요.";
       elements.login.hidden = kakao;
       elements.login.disabled = loginPending;
+      elements.loginOther.hidden = kakao;
+      elements.loginOther.disabled = loginPending;
       elements.logout.hidden = !kakao;
       elements.form.hidden = !kakao;
       elements.list.replaceChildren(...posts.map(makePostButton));
@@ -206,6 +209,12 @@
     }
 
     function applyUser(nextUser) {
+      if (user?.id !== nextUser?.id) {
+        elements.form.reset();
+        pendingDeletePost = null;
+        if (elements.deleteDialog.open) elements.deleteDialog.close();
+        setMessage("");
+      }
       user = nextUser || null;
       onAuthChanged?.(user);
       render();
@@ -270,6 +279,23 @@
       }
     }
 
+    function startLogin(reauthenticate = false) {
+      if (loginPending) return;
+      return run(async () => {
+        loginPending = true;
+        render();
+        try {
+          const redirectTo = new URL(window.location.pathname, window.location.origin);
+          redirectTo.searchParams.set("communityAuth", "1");
+          await service.startLogin(redirectTo.href, { reauthenticate });
+        } catch (error) {
+          loginPending = false;
+          render();
+          throw error;
+        }
+      }, "카카오 인증을 시작하지 못했어요. 기존 기록은 그대로 유지됩니다.");
+    }
+
     function mount() {
       if (mounted) return;
       mounted = true;
@@ -281,22 +307,8 @@
           onBack();
         }
       });
-      elements.login.addEventListener("click", () => {
-        if (loginPending) return;
-        return run(async () => {
-          loginPending = true;
-          render();
-          try {
-            const redirectTo = new URL(window.location.pathname, window.location.origin);
-            redirectTo.searchParams.set("communityAuth", "1");
-            await service.startLogin(redirectTo.href);
-          } catch (error) {
-            loginPending = false;
-            render();
-            throw error;
-          }
-        }, "카카오 인증을 시작하지 못했어요. 기존 기록은 그대로 유지됩니다.");
-      });
+      elements.login.addEventListener("click", () => startLogin());
+      elements.loginOther.addEventListener("click", () => startLogin(true));
       if (typeof window !== "undefined") window.addEventListener?.("pageshow", () => {
         loginPending = false;
         render();

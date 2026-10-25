@@ -1,6 +1,6 @@
 const assert = require("node:assert/strict");
 const test = require("node:test");
-const { createService, completeOAuthReturn } = require("../community-mvp");
+const { createService, completeOAuthReturn, canDelete } = require("../community-mvp");
 
 const tables = ["menu_reviews", "menu_taste_votes", "info_reports"];
 const kakao = { id: "existing-kakao-owner", is_anonymous: false, identities: [{ provider: "kakao" }] };
@@ -20,6 +20,7 @@ function missingTable(table, code = "PGRST205") {
 function fixture(lookup = (table) => missingTable(table), linkingError = null) {
   let anonymousId = 1;
   let user = { id: `anonymous-${anonymousId}`, is_anonymous: true };
+  let oauthUser = kakao;
   const posts = [];
   const calls = [];
   const client = {
@@ -35,7 +36,7 @@ function fixture(lookup = (table) => missingTable(table), linkingError = null) {
       },
       async exchangeCodeForSession(code) {
         assert.equal(code, "mock-kakao-code");
-        user = kakao;
+        user = oauthUser;
         return { data: { session: { user } } };
       },
       async signOut() { calls.push({ method: "signOut" }); user = null; return {}; },
@@ -77,13 +78,36 @@ function fixture(lookup = (table) => missingTable(table), linkingError = null) {
   const service = createService(client);
   return {
     service, client, calls, posts,
-    async finishOAuth() {
+    async finishOAuth(nextUser = kakao) {
+      oauthUser = nextUser;
       const result = await completeOAuthReturn(client.auth,
         "https://preview.invalid/?communityAuth=1&code=mock-kakao-code", () => {});
       assert.equal(result.error, "");
     },
   };
 }
+
+test("explicit reauthentication switches A to B while preserving A's posts and ownership", async () => {
+  const h = fixture();
+  await h.service.startLogin("https://preview.invalid/?communityAuth=1");
+  assert.equal(h.calls.find((call) => call.method === "signInWithOAuth").input.options.queryParams, undefined);
+  await h.finishOAuth();
+  const original = await h.service.create("A's post", "Preserve this post");
+  const snapshot = { ...original };
+  await h.service.logout();
+  await h.service.startLogin("https://preview.invalid/?communityAuth=1", { reauthenticate: true });
+  const request = h.calls.filter((call) => call.method === "signInWithOAuth").at(-1);
+  assert.deepEqual(request.input.options, {
+    redirectTo: "https://preview.invalid/?communityAuth=1", queryParams: { prompt: "login" },
+  });
+  const accountB = { ...kakao, id: "different-kakao-owner" };
+  await h.finishOAuth(accountB);
+  assert.equal((await h.service.currentUser()).id, accountB.id);
+  assert.deepEqual(await h.service.detail(original.id), snapshot);
+  assert.equal(canDelete(accountB, original), false);
+  await assert.rejects(h.service.remove(original), /본인이/);
+  assert.equal(h.calls.some((call) => call.method === "linkIdentity"), false);
+});
 
 for (const code of ["PGRST205", "42P01"]) {
   test(`${code}: first login, logout, same-account relogin preserves existing posts`, async () => {

@@ -143,7 +143,7 @@ test("list and detail render untrusted titles and body as text nodes", async () 
       reset() {}, showModal() {}, close() {},
     };
   }
-  const ids = ["back", "authStatus", "login", "logout", "message", "form", "titleInput", "bodyInput", "list", "empty", "listSection", "detail", "detailTitle", "detailBody", "detailDate", "deleteButton", "deleteDialog", "cancelDelete", "confirmDelete"];
+  const ids = ["back", "authStatus", "login", "loginOther", "logout", "message", "form", "titleInput", "bodyInput", "list", "empty", "listSection", "detail", "detailTitle", "detailBody", "detailDate", "deleteButton", "deleteDialog", "cancelDelete", "confirmDelete"];
   const elements = Object.fromEntries(ids.map((id) => [id, element()]));
   const client = clientFor(kakao);
   client.from = () => ({

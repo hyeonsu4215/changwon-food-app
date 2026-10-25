@@ -79,9 +79,11 @@ test("OAuth callback precedes anonymous sign-in and no local user data is cleare
 test("community controls have unique HTML IDs and matching app references", () => {
   const ids = [...html.matchAll(/\bid="([^"]+)"/g)].map((match) => match[1]);
   assert.equal(new Set(ids).size, ids.length);
-  for (const id of ["communityTab", "communityBack", "communityLogin", "communityLogout", "communityForm", "communityList", "communityDetail", "communityDeleteDialog"]) {
+  for (const id of ["communityTab", "communityBack", "communityLogin", "communityLoginOther", "communityLogout", "communityForm", "communityList", "communityDetail", "communityDeleteDialog"]) {
     assert.ok(ids.includes(id), id);
     assert.ok(appSource.includes(`"${id}"`) || id === "communityTab", id);
   }
   assert.ok(html.indexOf("community-mvp.js") < html.indexOf("app.js"));
+  assert.match(html, /id="communityLogin"[^>]*>카카오로 계속하기<\/button>/);
+  assert.match(html, /id="communityLoginOther"[^>]*>다른 카카오 계정으로 로그인<\/button>/);
 });

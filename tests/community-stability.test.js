@@ -26,12 +26,12 @@ function harness(t, options = {}) {
       addEventListener(type, handler) { this.handlers[type] = handler; },
       append(...children) { this.children.push(...children); },
       replaceChildren(...children) { this.children = children; },
-      reset() {}, focus() {},
+      reset() { this.resetCount = (this.resetCount || 0) + 1; }, focus() {},
       showModal() { this.open = true; },
       close() { this.open = false; this.handlers.close?.(); },
     };
   }
-  const names = ["back", "authStatus", "login", "logout", "message", "form", "titleInput", "bodyInput", "list", "empty", "listSection", "detail", "detailTitle", "detailBody", "detailDate", "deleteButton", "deleteDialog", "cancelDelete", "confirmDelete"];
+  const names = ["back", "authStatus", "login", "loginOther", "logout", "message", "form", "titleInput", "bodyInput", "list", "empty", "listSection", "detail", "detailTitle", "detailBody", "detailDate", "deleteButton", "deleteDialog", "cancelDelete", "confirmDelete"];
   const elements = Object.fromEntries(names.map((name) => [name, element()]));
   const events = { navigations: [], starts: [], ownership: [], deletes: [], users: [], window: {} };
   let user = options.user === undefined ? kakao : options.user;
@@ -140,6 +140,103 @@ test("OAuth failure does not navigate and releases the login lock", async (t) =>
   assert.match(h.elements.message.textContent, /기존 기록/);
   await h.elements.login.handlers.click();
   assert.equal(h.events.starts.length, 2);
+});
+
+test("both login choices appear for anonymous users and hide for Kakao users", async (t) => {
+  const h = harness(t, { user: anonymous });
+  await settle();
+  assert.equal(h.elements.login.hidden, false);
+  assert.equal(h.elements.loginOther.hidden, false);
+  h.emit("SIGNED_IN", kakao);
+  assert.equal(h.elements.login.hidden, true);
+  assert.equal(h.elements.loginOther.hidden, true);
+  assert.equal(h.elements.logout.hidden, false);
+  h.emit("SIGNED_OUT", null);
+  assert.equal(h.elements.login.hidden, false);
+  assert.equal(h.elements.loginOther.hidden, false);
+});
+
+test("different-account button sends prompt=login with the unchanged redirect", async (t) => {
+  const h = harness(t, { user: anonymous });
+  await settle();
+  await h.elements.loginOther.handlers.click();
+  assert.equal(h.events.starts.length, 1);
+  assert.equal(h.events.starts[0].method, "signInWithOAuth");
+  assert.deepEqual(h.events.starts[0].input, {
+    provider: "kakao",
+    options: { redirectTo: "https://preview.invalid/?communityAuth=1", queryParams: { prompt: "login" } },
+  });
+});
+
+test("continue button preserves the original convenient login without a prompt", async (t) => {
+  const h = harness(t, { user: anonymous });
+  await settle();
+  await h.elements.login.handlers.click();
+  assert.deepEqual(h.events.starts[0].input.options, { redirectTo: "https://preview.invalid/?communityAuth=1" });
+});
+
+test("both choices share one OAuth lock and unlock on browser return", async (t) => {
+  const gate = deferred();
+  const h = harness(t, { user: anonymous, oauthGate: gate });
+  await settle();
+  const pending = h.elements.loginOther.handlers.click();
+  await settle();
+  await h.elements.login.handlers.click();
+  await h.elements.loginOther.handlers.click();
+  assert.equal(h.events.starts.length, 1);
+  assert.equal(h.elements.login.disabled, true);
+  assert.equal(h.elements.loginOther.disabled, true);
+  gate.resolve();
+  await pending;
+  h.events.window.pageshow();
+  assert.equal(h.elements.login.disabled, false);
+  assert.equal(h.elements.loginOther.disabled, false);
+});
+
+test("failed reauthentication unlocks both buttons and never leaks prompt into ordinary login", async (t) => {
+  const h = harness(t, { user: anonymous, oauthError: new Error("provider unavailable") });
+  await settle();
+  await h.elements.loginOther.handlers.click();
+  assert.equal(h.elements.login.disabled, false);
+  assert.equal(h.elements.loginOther.disabled, false);
+  await h.elements.login.handlers.click();
+  assert.equal(h.events.starts[0].input.options.queryParams.prompt, "login");
+  assert.equal(h.events.starts[1].input.options.queryParams, undefined);
+});
+
+for (const outcome of [null, { code: "identity_already_exists", message: "account conflict" }]) {
+  test(`reauthentication preserves anonymous identity linking ${outcome ? "on conflict" : "when records exist"}`, async (t) => {
+    const h = harness(t, { user: anonymous, countResult: () => ({ count: 1 }), oauthError: outcome });
+    await settle();
+    await h.elements.loginOther.handlers.click();
+    assert.equal(h.events.starts.length, 1);
+    assert.equal(h.events.starts[0].method, "linkIdentity");
+    assert.deepEqual(h.events.starts[0].input.options.queryParams, { prompt: "login" });
+    assert.equal(h.events.deletes.length, 0);
+    if (outcome) {
+      assert.match(h.elements.message.textContent, /기존 기록을 보호/);
+      assert.equal(h.elements.login.disabled, false);
+      assert.equal(h.elements.loginOther.disabled, false);
+    }
+  });
+}
+
+test("switching accounts clears drafts and pending deletion but keeps public posts", async (t) => {
+  const h = harness(t);
+  await settle();
+  await h.show();
+  h.elements.deleteButton.handlers.click();
+  assert.equal(h.elements.deleteDialog.open, true);
+  const resetsBefore = h.elements.form.resetCount;
+  h.emit("SIGNED_OUT", null);
+  assert.equal(h.elements.deleteDialog.open, false);
+  assert.equal(h.elements.form.resetCount, resetsBefore + 1);
+  h.emit("SIGNED_IN", { ...kakao, id: "different-owner" });
+  assert.equal(h.elements.form.resetCount, resetsBefore + 2);
+  assert.equal(h.elements.deleteButton.hidden, true);
+  await h.elements.confirmDelete.handlers.click();
+  assert.equal(h.events.deletes.length, 0);
+  assert.equal(h.elements.detailTitle.textContent, posts[0].title);
 });
 
 for (const owned of tables) {

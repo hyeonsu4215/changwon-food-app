@@ -2964,6 +2964,7 @@ function mountCommunity() {
     back: byId("communityBack"),
     authStatus: byId("communityAuthStatus"),
     login: byId("communityLogin"),
+    loginOther: byId("communityLoginOther"),
     logout: byId("communityLogout"),
     message: byId("communityMessage"),
     form: byId("communityForm"),

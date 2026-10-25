@@ -514,6 +514,22 @@ body.has-recommendations main {
   margin: 0;
 }
 
+.community-auth button {
+  width: 100%;
+  min-width: 0;
+  font-size: 15px;
+  line-height: 1.5;
+  white-space: normal;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+}
+
+.community-auth .community-login-primary {
+  border-color: var(--primary);
+  background: var(--primary);
+  color: #fff;
+}
+
 .community-form label {
   display: grid;
   gap: 6px;
