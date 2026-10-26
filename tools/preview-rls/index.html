@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow, noarchive" />
+    <meta name="referrer" content="no-referrer" />
+    <title>묵찌 이야기 임시 RLS 검사</title>
+    <link rel="stylesheet" href="./styles.css" />
+    <script src="./rls-check.js" defer></script>
+  </head>
+  <body>
+    <main>
+      <header><a href="/">묵찌 PICK!으로 돌아가기</a><h1>임시 RLS 검사</h1></header>
+      <p id="gate" role="status">테스트 환경을 확인하고 있어요.</p>
+      <div id="tool" hidden>
+        <p class="notice">실제 테스트 DB에 임시 글을 작성합니다. 기존 글은 건드리지 않습니다. 삭제 요청은 확인 후에만 실행됩니다.</p>
+        <section aria-labelledby="account-heading">
+          <h2 id="account-heading">현재 계정</h2>
+          <p id="account" role="status"></p>
+          <button id="refresh" type="button">로그인 상태 확인</button>
+          <p>이 페이지와 같은 Preview 주소의 묵찌 이야기에서 로그인한 뒤 돌아오세요.</p>
+        </section>
+        <section aria-labelledby="code-heading">
+          <h2 id="code-heading">두 브라우저 연결</h2>
+          <label for="code">검사 코드</label>
+          <textarea id="code" rows="4" spellcheck="false" maxlength="2500" placeholder="A가 만든 검사 코드를 B에 붙여넣으세요."></textarea>
+          <div class="actions"><button id="import" type="button">검사 코드 불러오기</button><button id="copy" type="button">검사 코드 복사</button></div>
+          <p>코드에는 검증용 글·작성자 식별정보만 들어갑니다. 비밀번호나 토큰을 입력하지 마세요. B는 2번 검사 후 코드를 A에 돌려주세요.</p>
+          <p id="target" role="status">아직 임시 글이 없습니다.</p>
+        </section>
+        <ol class="checks">
+          <li><h2>1. A의 임시 글 작성</h2><p>일반 Chrome의 A에서 시작하세요.</p><button data-check="create" type="button">A: 임시 글 만들기</button><output id="result-create" aria-live="polite">미실행</output></li>
+          <li><h2>2. B의 A 글 삭제 차단</h2><p>시크릿 Chrome의 B에서 검사 코드를 불러온 뒤 실행하세요. 잘못된 권한 설정이면 임시 글이 실제 삭제될 수 있습니다.</p><button data-check="other" type="button">B: 타인 글 삭제 차단 검사</button><output id="result-other" aria-live="polite">미실행</output></li>
+          <li><h2>3. 작성자 ID 위조 차단</h2><p>A에서 B가 돌려준 검사 코드를 불러온 뒤 실행하세요.</p><button data-check="forge" type="button">A: 작성자 위조 차단 검사</button><output id="result-forge" aria-live="polite">미실행</output></li>
+          <li><h2>4. 비로그인 작성 차단</h2><p>A의 로그인은 유지하고, 사용자 세션을 붙이지 않은 별도 요청으로 검사합니다.</p><button data-check="public" type="button">A: 비로그인 작성 차단 검사</button><output id="result-public" aria-live="polite">미실행</output></li>
+          <li><h2>5. 익명 사용자 작성 차단</h2><p>별도의 임시 익명 인증 사용자를 생성합니다. A의 로그인은 유지됩니다. 생성된 인증 사용자는 이 도구로 삭제하지 않습니다.</p><button data-check="anonymous" type="button">A: 익명 작성 차단 검사</button><output id="result-anonymous" aria-live="polite">미실행</output></li>
+          <li><h2>6. A의 본인 임시 글 삭제</h2><p>모든 검사를 확인한 뒤 마지막에 실행하세요.</p><button data-check="own" type="button">A: 본인 임시 글 삭제 검사</button><output id="result-own" aria-live="polite">미실행</output></li>
+        </ol>
+        <section aria-labelledby="cleanup-heading"><h2 id="cleanup-heading">검증용 글 확인</h2><button id="verify" type="button">현재 글과 기존 글 보존 확인</button><p id="preservation" role="status"></p><ul id="artifacts"></ul><p>보안 실패로 추가 글이 생겼다면 작성자 계정에서 해당 검사 코드를 불러온 뒤, 표시된 임시 글만 확인하고 정리하세요.</p></section>
+        <p id="message" role="status" aria-live="polite"></p>
+      </div>
+    </main>
+    <dialog id="confirm" aria-labelledby="confirm-title"><h2 id="confirm-title">검사 실행 확인</h2><p id="confirm-text"></p><div class="actions"><button id="cancel" type="button">취소</button><button id="approve" type="button">확인하고 실행</button></div></dialog>
+  </body>
+</html>
