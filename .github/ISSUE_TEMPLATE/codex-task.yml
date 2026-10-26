@@ -1,0 +1,63 @@
+name: "Codex 작업 요청"
+description: "기획과 완료 조건을 정리합니다. Codex는 사용자가 직접 시작합니다."
+title: "[Codex 작업] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        공개 저장소입니다. 비밀번호, API 키, 개인정보, 운영 데이터는 넣지 마세요.
+        이 양식은 자동 실행/병합/배포 승인이 아닙니다. 안내: docs/codex-workflow.md
+  - type: textarea
+    id: goal
+    attributes:
+      label: "목표와 사용자 문제"
+      description: "누가 어떤 상황에서 무엇을 할 수 있어야 하나요?"
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: "허용 범위와 제외 범위"
+      placeholder: "변경할 동작/파일, 유지할 기능, 이번에 하지 않을 작업"
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: "완료 조건"
+      placeholder: "- [ ] 재현 가능한 입력 → 기대 결과\n- [ ] 실패/빈 상태/모바일 화면 조건"
+    validations:
+      required: true
+  - type: textarea
+    id: validation
+    attributes:
+      label: "검증 계획"
+      value: "node scripts/check.js 실행. 추가 동작 검증은 로컬 fixture/mock으로 수행하며 운영 DB에는 쓰지 않습니다."
+    validations:
+      required: true
+  - type: dropdown
+    id: operational_impact
+    attributes:
+      label: "운영 영향 예상"
+      options:
+        - "없음 — 문서/로컬 코드/테스트만"
+        - "있음 — DB/인증/배포/비밀키 영향 설명과 별도 승인 필요"
+        - "모름 — Codex가 먼저 조사하고 보고"
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: "참고 자료와 미확정 사항"
+      description: "관련 Issue/PR 링크, 재현 방법, 결정이 필요한 내용을 적으세요."
+  - type: checkboxes
+    id: boundaries
+    attributes:
+      label: "작업 경계 확인"
+      options:
+        - label: "사용자가 Codex에 이슈 URL을 전달해야 작업이 시작됩니다."
+          required: true
+        - label: "main 변경·운영 배포·운영 DB 변경은 별도 승인 대상입니다."
+          required: true
+        - label: "비밀키와 개인정보를 포함하지 않았습니다."
+          required: true

@@ -1,0 +1,15 @@
+# Local configuration and credentials; tracked public client config is unchanged.
+.env
+.env.*
+!.env.example
+!.env.*.example
+.vercel/
+.codex/
+auth.json
+*.pem
+*.key
+node_modules/
+coverage/
+test-results/
+playwright-report/
+*.log
