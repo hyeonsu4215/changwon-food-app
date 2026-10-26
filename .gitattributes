@@ -1,0 +1,2 @@
+# Keep byte/hash fixtures identical on Windows and GitHub's Linux runner.
+* text=auto eol=lf
