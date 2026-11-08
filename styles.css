@@ -264,13 +264,22 @@ textarea:focus-visible {
   font-weight: 900;
 }
 
-.top-help-button {
-  min-width: 54px;
-  padding: 0 8px;
-  border-color: rgba(13, 71, 161, 0.14);
-  color: var(--muted);
-  font-size: 12px;
-  font-weight: 800;
+.top-wishlist-button {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  place-items: center;
+}
+
+.top-wishlist-button svg {
+  width: 21px;
+  height: 21px;
+  fill: currentColor;
+}
+
+.top-wishlist-button.is-active {
+  color: var(--accent);
+  background: var(--blue-soft);
 }
 
 h1,
@@ -459,6 +468,292 @@ body.has-recommendations main {
 
 .tab-panel.is-active {
   display: block;
+}
+
+.community-tab {
+  padding-bottom: 12px;
+}
+
+.community-heading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.community-heading h2 {
+  margin: 0;
+  font-size: 22px;
+}
+
+.community-back,
+.community-auth button,
+.community-form button,
+.community-detail button,
+.community-dialog-actions button {
+  min-height: 44px;
+  padding: 8px 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--primary);
+  font-weight: 700;
+}
+
+.community-auth,
+.community-form,
+.community-detail,
+.community-list {
+  display: grid;
+  gap: 12px;
+}
+
+.community-auth,
+.community-form,
+.community-detail {
+  margin: 12px 0;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.community-auth p,
+.community-form h3,
+.community-detail h3 {
+  margin: 0;
+}
+
+.community-auth button {
+  width: 100%;
+  min-width: 0;
+  font-size: 15px;
+  line-height: 1.5;
+  white-space: normal;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+}
+
+.community-auth .community-login-primary {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+  min-height: 52px;
+  border: 0;
+  border-radius: 12px;
+  background: #fee500;
+  color: rgba(0, 0, 0, 0.85);
+}
+
+.kakao-symbol { width: 20px; height: 20px; fill: #000; flex: 0 0 20px; }
+.home-back, .record-back {
+  min-width: 44px;
+  min-height: 44px;
+  padding: 10px 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--primary);
+  font: inherit;
+  font-weight: 700;
+}
+.record-heading { justify-content: flex-start; gap: 12px; }
+.record-heading h2 { margin: 0; }
+.benefits-tab > .home-back { display: block; margin-bottom: 20px; }
+#dataDashboard > [hidden] { display: none; }
+.my-settings-menu { display: grid; margin-top: 16px; }
+.my-settings-menu button {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 48px;
+  padding: 12px 0;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+  background: transparent;
+  color: var(--primary);
+  font: inherit;
+  text-align: left;
+}
+.my-profile-intro #myProfileImage { border-radius: 50%; object-fit: cover; background: var(--blue-soft); }
+.my-profile .community-auth { border: 0; padding: 0; background: transparent; }
+.my-profile #communityLoginOther,
+.my-profile #communityLogout { border: 0; background: var(--soft); color: var(--muted); font-size: 14px; font-weight: 600; }
+.community-heading { flex-wrap: wrap; justify-content: flex-start; }
+.community-heading h2 { flex: 1 1 140px; }
+
+.community-form label {
+  display: grid;
+  gap: 6px;
+  font-weight: 700;
+}
+
+.community-form input,
+.community-form textarea {
+  width: 100%;
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--ink);
+  background: #fff;
+  font-weight: 500;
+}
+
+.community-form textarea {
+  resize: vertical;
+}
+
+.community-list {
+  margin-top: 12px;
+}
+
+.community-post-row {
+  display: grid;
+  gap: 4px;
+  width: 100%;
+  min-width: 0;
+  min-height: 58px;
+  padding: 10px 12px;
+  text-align: left;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.community-post-row strong,
+.community-detail h3,
+.community-detail p {
+  overflow-wrap: anywhere;
+}
+
+.community-post-row span,
+.community-detail time {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.community-detail p {
+  margin: 0;
+  white-space: pre-wrap;
+  line-height: 1.65;
+}
+
+.community-message:not(:empty) {
+  padding: 10px 12px;
+  color: var(--danger);
+}
+
+.community-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.my-profile,
+.my-food-menu {
+  margin-bottom: 16px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+  background: var(--surface);
+}
+
+.my-profile-intro {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+}
+
+.my-profile-intro img {
+  width: 72px;
+  height: 72px;
+  object-fit: contain;
+}
+
+.my-profile h3,
+.my-food-menu h3 {
+  font-size: 18px;
+  overflow-wrap: anywhere;
+}
+
+.my-profile p,
+.my-food-menu p {
+  margin-bottom: 10px;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.my-profile .community-auth {
+  margin: 12px 0 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.my-profile [hidden] {
+  display: none;
+}
+
+.my-food-menu button,
+.my-activity-menu button {
+  display: flex;
+  width: 100%;
+  min-width: 44px;
+  min-height: 48px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 2px;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+  background: transparent;
+  color: var(--ink);
+  font-weight: var(--font-weight-medium);
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+
+.my-food-menu button:last-child,
+.my-activity-menu button:last-child {
+  border-bottom: 0;
+}
+
+.my-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.my-tools .top-tool {
+  font-size: 14px;
+  font-weight: var(--font-weight-strong);
+}
+
+.my-record-section {
+  scroll-margin-top: 16px;
+  overflow-wrap: anywhere;
+}
+
+.my-record-section > button {
+  min-width: 44px;
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--blue-soft);
+  color: var(--primary);
+  font-weight: var(--font-weight-strong);
+}
+
+.community-tab [hidden],
+#communityDeleteDialog[hidden] {
+  display: none;
 }
 
 .control-surface,
@@ -2852,7 +3147,7 @@ dialog .toast {
   min-height: 58px;
   transform: translateX(-50%);
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 2px;
   padding: 6px;
   border: 1px solid rgba(20, 45, 54, 0.1);
@@ -2864,8 +3159,8 @@ dialog .toast {
 
 .bottom-nav button {
   display: grid;
-  min-width: 0;
-  min-height: 46px;
+  min-width: 44px;
+  min-height: 52px;
   place-items: center;
   align-content: center;
   gap: 2px;
@@ -2908,33 +3203,6 @@ dialog .toast {
 .bottom-nav button.is-active .nav-icon svg {
   width: 18px;
   height: 18px;
-}
-
-.bottom-nav .nav-search-cta {
-  transform: translateY(-7px);
-}
-
-.bottom-nav .nav-search-cta .nav-icon {
-  width: 42px;
-  height: 42px;
-  border-radius: 50%;
-  background: var(--ink);
-  color: #fff;
-  box-shadow: 0 10px 20px rgba(17, 31, 42, 0.22);
-}
-
-.bottom-nav .nav-search-cta .nav-icon svg {
-  width: 21px;
-  height: 21px;
-}
-
-.bottom-nav .nav-search-cta.is-active {
-  background: transparent;
-  color: var(--mint-dark);
-}
-
-.bottom-nav .nav-search-cta.is-active .nav-icon {
-  background: var(--mint);
 }
 
 dialog {
@@ -3355,18 +3623,6 @@ button.map-action-unavailable,
   box-shadow: 0 6px 14px rgba(13, 71, 161, 0.15);
 }
 
-.bottom-nav .nav-search-cta .nav-icon {
-  background: var(--primary);
-}
-
-.bottom-nav .nav-search-cta.is-active {
-  color: var(--primary);
-}
-
-.bottom-nav .nav-search-cta.is-active .nav-icon {
-  background: var(--secondary);
-}
-
 .card-actions a,
 .quick-alt-actions a,
 .store-map-button {
@@ -3639,7 +3895,7 @@ h3,
 }
 
 .bottom-nav button {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: var(--font-weight-strong);
 }
 
@@ -3998,6 +4254,113 @@ h3,
   }
 
 }
+
+/* B4 shell additions are isolated from the existing recommendation result cards. */
+.bottom-nav .benefit-icon {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.home-shortcuts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin: 16px 0 12px;
+}
+
+.home-shortcuts button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+  min-height: 56px;
+  padding: 12px 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  color: var(--primary);
+  font-size: 15px;
+  font-weight: 700;
+}
+
+body.has-recommendations .home-shortcuts {
+  margin: 0 0 12px;
+}
+
+body.has-recommendations .home-shortcuts button {
+  min-height: 44px;
+  padding-block: 8px;
+}
+
+.benefits-tab {
+  text-align: center;
+  padding: 24px 12px;
+}
+
+.benefits-tab > img {
+  display: block;
+  margin: 32px auto 16px;
+  object-fit: contain;
+}
+
+.benefits-status {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 8px;
+  background: #fff2bf;
+  color: #66521a;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.benefits-tab p {
+  font-size: 15px;
+  line-height: 1.65;
+}
+
+.benefits-tab button,
+.community-filters button {
+  min-width: 44px;
+  min-height: 44px;
+  padding: 10px 14px;
+  font-size: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--primary);
+  font-weight: 700;
+}
+
+.community-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 16px 0;
+}
+
+.community-filters [aria-pressed="true"] {
+  background: var(--primary);
+  color: #fff;
+}
+
+.community-post-row {
+  box-shadow: none;
+  border-radius: 0;
+  border-width: 0 0 1px;
+  padding: 20px 4px;
+}
+
+.community-post-row strong { font-size: 17px; }
+.community-detail-body,
+#communityDetailBody { overflow-wrap: anywhere; line-height: 1.65; }
+.community-form input,
+.community-form textarea { font-size: 16px; }
+.my-profile { border-top: 4px solid var(--primary); }
+.my-tools { border-top: 1px solid var(--line); padding-top: 16px; }
 
 /* The pristine recommendation screen is one clear action, not two competing intro cards. */
 body:not(.has-recommendations) .quick-start-card {

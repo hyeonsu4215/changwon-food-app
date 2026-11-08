@@ -51,9 +51,10 @@
             <p id="locationStatus">창원대 정문 기준 거리</p>
           </div>
           <div class="top-actions" aria-label="앱 도구">
-            <button id="locationButton" class="location-pill" aria-label="위치 갱신">위치</button>
-            <button id="shareButton" class="top-tool" aria-label="묵찌 PICK! 앱 공유">앱 공유</button>
-            <button id="onboardingHelpButton" class="top-tool top-help-button" aria-label="묵찌 PICK! 사용법 보기" title="묵찌 PICK! 사용법 보기">사용법</button>
+            <button id="locationButton" class="location-pill" aria-label="위치 확인 및 변경">위치</button>
+            <button id="wishlistShortcut" type="button" class="top-tool top-wishlist-button" aria-label="찜한 메뉴 보기" title="찜한 메뉴 보기">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7.4-4.5-9.3-9.1C1.2 8.3 3.2 5 6.6 5c2 0 3.4 1 4.2 2.1C11.6 6 13 5 15 5c3.4 0 5.4 3.3 3.9 6.9C17 16.5 12 21 12 21Z" /></svg>
+            </button>
           </div>
         </div>
       </header>
@@ -73,6 +74,10 @@
             <p id="conditionSummary" hidden>창원대 앞 메뉴를 빠르게 3개 골라드려요.</p>
             <button id="quickRecommendButton" class="wide-button quick-start-button" disabled aria-busy="true">추천 준비 중...</button>
           </section>
+          <div class="home-shortcuts" aria-label="다른 방법으로 메뉴 고르기">
+            <button type="button" data-home-tab="worldcupTab">메뉴 월드컵 <span aria-hidden="true">›</span></button>
+            <button type="button" data-home-tab="storeSearchTab">가게 검색 <span aria-hidden="true">›</span></button>
+          </div>
 
           <section class="recommend-section is-pristine">
             <div class="section-heading recommendation-heading">
@@ -225,6 +230,7 @@
               <p class="eyebrow">World cup</p>
               <h2>메뉴 이상형 월드컵</h2>
             </div>
+            <button type="button" data-home-tab="recommendTab">추천 홈</button>
             <select id="worldcupSize">
               <option value="8">8강</option>
               <option value="16">16강</option>
@@ -242,6 +248,7 @@
 
         <section id="wishlistTab" class="tab-panel">
           <div class="section-heading">
+            <button type="button" class="record-back" data-my-back>뒤로</button>
             <div>
               <p class="eyebrow">Wishlist</p>
               <h2>찜한 메뉴</h2>
@@ -257,6 +264,7 @@
               <p class="eyebrow">Store search</p>
               <h2>가게 검색</h2>
             </div>
+            <button type="button" data-home-tab="recommendTab">추천 홈</button>
           </div>
           <section class="control-surface store-search-surface" aria-label="가게 검색">
             <label class="store-search-field">
@@ -271,53 +279,135 @@
           </section>
         </section>
 
-        <section id="dataTab" class="tab-panel">
+        <section id="dataTab" class="tab-panel" aria-labelledby="myHeading">
           <div class="section-heading">
             <div>
-              <p class="eyebrow">My Log</p>
-              <h2>내 기록</h2>
+              <p class="eyebrow">My Mukjji</p>
+              <h2 id="myHeading">MY</h2>
             </div>
           </div>
-          <div id="dataDashboard" class="dashboard-grid"></div>
+          <section class="my-profile" aria-labelledby="myProfileName">
+            <div class="my-profile-intro">
+              <img id="myProfileImage" src="./assets/mukjji/02_mukjji_greeting_512.webp" alt="" aria-hidden="true" width="72" height="72" loading="lazy" referrerpolicy="no-referrer" />
+              <div>
+                <h3 id="myProfileName">묵찌와 함께 골라볼까요?</h3>
+                <p id="myProfileDescription">로그인 없이도 추천과 기기 기록을 이용할 수 있어요.</p>
+              </div>
+            </div>
+            <div class="community-auth">
+              <p id="communityAuthStatus" role="status">로그인 정보를 확인하고 있어요.</p>
+              <button id="communityLogin" class="community-login-primary" type="button" disabled><svg class="kakao-symbol" viewBox="61 16 14 14" aria-hidden="true"><path d="M68.001 16.5225C64.4222 16.5225 61.5225 19.0037 61.5225 22.0641C61.5225 24.0312 62.7219 25.7596 64.5292 26.7423L63.9181 29.2113C63.8954 29.285 63.9132 29.364 63.9619 29.4184C63.9975 29.457 64.0461 29.478 64.0931 29.478C64.1337 29.478 64.1742 29.464 64.2082 29.4341L66.834 27.5144C67.2117 27.5723 67.6007 27.6039 67.9994 27.6039C71.5767 27.6039 74.478 25.1226 74.478 22.0623C74.478 19.002 71.5783 16.5225 68.001 16.5225Z" /></svg><span>카카오 로그인</span></button>
+              <button id="communityLoginOther" type="button" disabled>다른 계정으로 로그인</button>
+              <button id="communityLogout" type="button" hidden>로그아웃</button>
+            </div>
+            <p id="myAuthMessage" class="community-message" role="status" aria-live="polite"></p>
+          </section>
+          <div class="my-food-menu" aria-label="나의 음식 기록">
+            <h3>나의 음식 기록</h3>
+            <p>찜·먹음 기록·입맛 수정·추천 설정은 이 기기에 저장돼요. 계정과 자동 동기화하지 않아요.</p>
+            <button type="button" data-my-target="wishlist">찜한 메뉴 <span aria-hidden="true">›</span></button>
+            <button type="button" data-my-target="myEatenRecords">먹음 기록 <span aria-hidden="true">›</span></button>
+            <button type="button" data-my-target="myTasteRecords">내 입맛 설정 <span aria-hidden="true">›</span></button>
+            <button type="button" data-open-my-stories>내가 쓴 이야기 <span aria-hidden="true">›</span></button>
+            <button type="button" data-my-target="myRecordSettings">설정 및 서비스 안내 <span aria-hidden="true">›</span></button>
+          </div>
+          <div class="my-tools" aria-label="앱 도구">
+            <button id="shareButton" type="button" class="top-tool" aria-label="묵찌 PICK! 앱 공유">앱 공유</button>
+            <button id="onboardingHelpButton" type="button" class="top-tool" aria-label="묵찌 PICK! 사용법 보기" title="묵찌 PICK! 사용법 보기">사용법</button>
+          </div>
           <p class="official-note record-official-note">
             묵찌 PICK!은 국립창원대학교 공식 앱이 아닌 학생 편의 서비스입니다.
           </p>
         </section>
+        <section id="myRecordTab" class="tab-panel" aria-labelledby="myRecordTitle">
+          <div class="section-heading record-heading">
+            <button type="button" class="record-back" data-my-back>뒤로</button>
+            <h2 id="myRecordTitle" tabindex="-1">내 기록</h2>
+          </div>
+          <p>이 기기에 저장된 기록이에요. 계정과 자동 동기화하지 않아요.</p>
+          <div id="dataDashboard" class="dashboard-grid"></div>
+        </section>
+        <section id="benefitsTab" class="tab-panel benefits-tab" aria-labelledby="benefitsHeading">
+          <button type="button" class="home-back" data-home-tab="recommendTab">추천 홈</button>
+          <p class="eyebrow">Mukjji Benefits</p>
+          <h2 id="benefitsHeading">학생 혜택</h2>
+          <img src="./assets/mukjji/02_mukjji_greeting_512.webp" alt="" aria-hidden="true" width="96" height="96" loading="lazy" />
+          <span class="benefits-status">준비 중</span>
+          <h3>맛있는 혜택을 준비하고 있어요</h3>
+          <p>쿠폰과 스탬프는 아직 이용할 수 없어요.<br />준비가 끝나면 이곳에서 알려드릴게요.</p>
+          <button type="button" data-home-tab="recommendTab">메뉴 추천받으러 가기</button>
+        </section>
+        <section id="communityTab" class="tab-panel community-tab" aria-labelledby="communityHeading">
+          <div class="section-heading community-heading">
+            <button type="button" class="home-back" data-home-tab="recommendTab">추천 홈</button>
+            <button id="communityBack" type="button" class="community-back">뒤로</button>
+            <h2 id="communityHeading">묵찌 이야기</h2>
+          </div>
+          <p>로그인 없이 이야기를 읽고, 카카오 로그인 후 글을 쓸 수 있어요.</p>
+          <div class="community-filters" aria-label="이야기 목록">
+            <button type="button" id="communityAll" aria-pressed="true">전체 이야기</button>
+            <button type="button" id="communityMine" aria-pressed="false" hidden>내가 쓴 이야기</button>
+          </div>
+          <button type="button" class="community-back" data-open-my>MY에서 로그인 및 계정 확인</button>
+          <button type="button" id="communityCompose" class="community-back">글쓰기</button>
+          <p id="communityMessage" class="community-message" role="status" aria-live="polite"></p>
+          <div id="communityListSection">
+            <form id="communityForm" class="community-form" hidden>
+              <h3>글 쓰기</h3>
+              <p>작성한 글은 누구나 볼 수 있어요.</p>
+              <label>제목<input id="communityTitleInput" name="title" maxlength="80" required /></label>
+              <label>내용<textarea id="communityBodyInput" name="body" maxlength="3000" rows="5" required></textarea></label>
+              <button type="submit">게시글 올리기</button>
+            </form>
+            <div id="communityList" class="community-list" aria-label="게시글 목록"></div>
+            <p id="communityEmpty" role="status" aria-live="polite">이야기를 불러올 준비 중이에요.</p>
+            <button id="communityRetry" type="button" class="community-back" hidden>이야기 다시 불러오기</button>
+          </div>
+          <article id="communityDetail" class="community-detail" hidden>
+            <h3 id="communityDetailTitle" tabindex="-1"></h3>
+            <time id="communityDetailDate"></time>
+            <p id="communityDetailBody"></p>
+            <button id="communityDelete" type="button" hidden>내 글 삭제</button>
+          </article>
+        </section>
       </main>
 
       <nav class="bottom-nav" aria-label="하단 메뉴">
-        <button class="is-active" data-tab="recommendTab" aria-label="추천">
+        <button class="is-active" data-tab="recommendTab" aria-label="추천" aria-current="page">
           <span class="nav-icon" aria-hidden="true">
             <svg viewBox="0 0 24 24"><path d="M3 10.8 12 3l9 7.8v9.7a.5.5 0 0 1-.5.5h-5.2v-6.4H8.7V21H3.5a.5.5 0 0 1-.5-.5v-9.7Z" /></svg>
           </span>
           <span>추천</span>
         </button>
-        <button data-tab="worldcupTab" aria-label="월드컵">
+        <button data-tab="communityTab" aria-label="이야기">
           <span class="nav-icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24"><path d="M8 4h8v3h3v2.2A5.2 5.2 0 0 1 14.4 14H14v2.2h3.2V20H6.8v-3.8H10V14h-.4A5.2 5.2 0 0 1 5 9.2V7h3V4Zm8 5V7H8v2.2A3.2 3.2 0 0 0 11.2 12h1.6A3.2 3.2 0 0 0 16 9.2Zm2 0a3.2 3.2 0 0 0 1-.2V9h-1Zm-12-.2A3.2 3.2 0 0 0 6 9h1v-.2Z" /></svg>
+            <svg viewBox="0 0 24 24"><path d="M4 3h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H9l-6 4v-4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h1Zm0 2v13.3L8.4 17H20V5H4Zm3 4h10v2H7V9Zm0 4h7v2H7v-2Z" /></svg>
           </span>
-          <span>월드컵</span>
+          <span>이야기</span>
         </button>
-        <button class="nav-search-cta" data-tab="storeSearchTab" aria-label="가게 검색">
+        <button data-tab="benefitsTab" aria-label="혜택">
           <span class="nav-icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24"><path d="M10.6 18.2a7.6 7.6 0 1 1 0-15.2 7.6 7.6 0 0 1 0 15.2Zm0-2.4a5.2 5.2 0 1 0 0-10.4 5.2 5.2 0 0 0 0 10.4Zm5.9.4 4.2 4.2-1.7 1.7-4.2-4.2 1.7-1.7Z" /></svg>
+            <svg class="benefit-icon" viewBox="0 0 24 24"><rect x="3" y="8" width="18" height="4" rx="1" /><path d="M5 12v8h14v-8M12 8v12M12 8H7.5A2.5 2.5 0 1 1 10 5.5L12 8Zm0 0h4.5A2.5 2.5 0 1 0 14 5.5L12 8Z" /></svg>
           </span>
-          <span>검색</span>
+          <span>혜택</span>
         </button>
-        <button data-tab="wishlistTab" aria-label="찜">
+        <button data-tab="dataTab" aria-label="MY">
           <span class="nav-icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24"><path d="M12 21s-7.4-4.5-9.3-9.1C1.2 8.3 3.2 5 6.6 5c2 0 3.4 1 4.2 2.1C11.6 6 13 5 15 5c3.4 0 5.4 3.3 3.9 6.9C17 16.5 12 21 12 21Z" /></svg>
+            <svg viewBox="0 0 24 24"><path d="M12 12a5 5 0 1 0 0-10 5 5 0 0 0 0 10Zm-9 9v-2a7 7 0 0 1 7-7h4a7 7 0 0 1 7 7v2H3Z" /></svg>
           </span>
-          <span>찜</span>
-        </button>
-        <button data-tab="dataTab" aria-label="내 기록">
-          <span class="nav-icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24"><path d="M5 20V9h3v11H5Zm5.5 0V4h3v16h-3ZM16 20v-7h3v7h-3Z" /></svg>
-          </span>
-          <span>내 기록</span>
+          <span>MY</span>
         </button>
       </nav>
     </div>
+
+    <dialog id="communityDeleteDialog" aria-labelledby="communityDeleteTitle">
+      <h2 id="communityDeleteTitle">게시글을 삭제할까요?</h2>
+      <p>삭제한 게시글은 되돌릴 수 없어요.</p>
+      <div class="community-dialog-actions">
+        <button id="communityCancelDelete" type="button">취소</button>
+        <button id="communityConfirmDelete" type="button">삭제</button>
+      </div>
+    </dialog>
 
     <section id="serviceInfoView" class="service-info-view" aria-labelledby="serviceInfoTitle" hidden>
       <div class="service-info-shell">
@@ -555,6 +645,7 @@
     <script src="./catalog-policy.js"></script>
     <script src="./supabase-config.js"></script>
     <script src="./analytics-client.js"></script>
+    <script src="./community-mvp.js"></script>
     <script src="./app.js"></script>
   </body>
 </html>
